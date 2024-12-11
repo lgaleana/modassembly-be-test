@@ -1,0 +1,7 @@
+venv
+.env
+.vscode
+.pytest_cache
+__pycache__
+db
+refactor
