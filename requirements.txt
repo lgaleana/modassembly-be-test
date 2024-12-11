@@ -1,3 +1,5 @@
+matplotlib
+networkx
 openai
 pydantic
 python-dotenv
