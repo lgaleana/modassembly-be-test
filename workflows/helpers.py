@@ -36,13 +36,13 @@ def visualize_graph(G: nx.DiGraph, *, figsize=(12, 12), k=0.15, iterations=20):
     plt.show()
 
 
-def build_graph(architecture: Dict[str, Dict[str, List[str]]]) -> None:
+def build_graph(architecture: Dict[str, Dict[str, List[str]]]) -> nx.DiGraph:
     G = nx.DiGraph()
     for module, details in architecture.items():
         G.add_node(module)
         for dependency in details["calls"]:
             G.add_edge(module, dependency)
-    visualize_graph(G)
+    return G
 
 
 def group_nodes_by_dependencies(

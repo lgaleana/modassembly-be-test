@@ -13,6 +13,7 @@ from workflows.helpers import (
     build_graph,
     extract_json,
     group_nodes_by_dependencies,
+    visualize_graph,
 )
 from workflows.subworkflows import write_function
 
@@ -50,19 +51,38 @@ Design the architecture (no code) of the python module that implements it. Use a
     conversation.add_assistant(assistant_message)
 
     architecture = extract_json(assistant_message, pattern=r"```json\n(.*?)```")
-    build_graph(architecture)
 
-    # conversation.add_user(
-    #     """Declare the list of packages that will need to be installed, if any. Use the following json format
+    conversation.add_user(
+        """For each copmonent; declare 1) the pypi packages that it depends on; 2) whether it makes any external calls, like http requests, databases or file systems; and 3) whether it is an entry point to the module, Use the following json format:
 
-    # ```json
-    # ["package1", "package2", ...]
-    # ```"""
-    # )
-    # assistant_message = llm.stream_text(conversation)
-    # conversation.add_assistant(assistant_message)
+```json
+{
+  "function1": {
+    "pypi_packages": ["package1", "package2"],
+    "external_calls": ["http"],
+    "entry_point": false
+  },
+  "function2": {
+    "pypi_packages": ["package"],
+    "external_calls": ["database"],
+    "entry_point": false
+  },
+  "function3": {
+    "pypi_packages": [],
+    "external_calls": [],
+    "entry_point": true
+  }
+}
+```
 
-    # pypi_packages = extract_json(assistant_message, pattern=r"```json\n(.*?)```")
+NOTE: Valid values for `external_calls` are: "http", "database", "file_system", "other"."""
+    )
+    assistant_message = llm.stream_text(conversation)
+    conversation.add_assistant(assistant_message)
+
+    attributes = extract_json(assistant_message, pattern=r"```json\n(.*?)```")
+    G = build_graph(architecture)
+    visualize_graph(G)
 
     nodes_to_parallelize = group_nodes_by_dependencies(architecture)
     for level in nodes_to_parallelize:
