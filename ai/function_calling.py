@@ -7,7 +7,7 @@ from pydantic import BaseModel, ValidationError
 
 from ai import llm
 from ai.llm import RawFunctionParams
-from state import Conversation
+from utils.state import Conversation
 from utils.io import print_system
 
 

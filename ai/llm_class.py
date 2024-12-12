@@ -1,7 +1,7 @@
 from typing import Optional
 
 from ai import llm as llm_module
-from state import Conversation
+from utils.state import Conversation
 from utils.io import print_system,user_input
 
 
