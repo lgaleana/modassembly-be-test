@@ -1,14 +1,24 @@
-import ast
-
 from dotenv import load_dotenv
 from pydantic import BaseModel
 
 load_dotenv()
 
 from ai import llm
-from ai.llm_class import llmc
-from workflows.helpers import extract_from_pattern
+from workflows.helpers import check_imports, extract_from_pattern
 from utils.state import Conversation
+
+
+def get_architecture(conversation: Conversation, user_story: str) -> Conversation:
+    conversation.add_user(
+        f"""Consider the following user story: {user_story}.
+
+Design the architecture (no code) of the python module (purely backend) that implements it. Be opinionated in your decisions.
+Use a modular and composable design pattern. Prefer functions over classes.
+Consider the control flow. For each component, specify the other components that it calls internally."""
+    )
+    assistant_message = llm.stream_text(conversation)
+    conversation.add_assistant(assistant_message)
+    return conversation
 
 
 class LevelContext(BaseModel):
@@ -18,20 +28,30 @@ class LevelContext(BaseModel):
     code: str
 
 
-def write_function(component: str, convo: Conversation) -> LevelContext:
-    user_message = f"""Write the code for: {component}. This code will be composed with the rest of the architecture, so make sure that it runs as expected. Use absolute imports. Use the following format:
+def write_function(
+    component: str, conversation: Conversation, *, tries: int = 2
+) -> LevelContext:
+    def _write_function(try_: int) -> LevelContext:
+        user_message = f"""Write the code for: {component}. Use the following format:
 ```python
 ...
-```
-"""
-    convo.add_user(user_message)
-    assistant_message = llm.stream_text(convo)
+```"""
+        conversation.add_user(user_message)
+        assistant_message = llm.stream_text(conversation)
 
-    code = extract_from_pattern(assistant_message, pattern=r"```python\n(.*?)```")
-    ast.parse(code)
-    return LevelContext(
-        component=component,
-        user_message=user_message,
-        assistant_message=assistant_message,
-        code=code,
-    )
+        code = extract_from_pattern(assistant_message, pattern=r"```python\n(.*?)```")
+        try:
+            check_imports(code)
+            return LevelContext(
+                component=component,
+                user_message=user_message,
+                assistant_message=assistant_message,
+                code=code,
+            )
+        except Exception as e:
+            if try_ == tries:
+                raise e
+            conversation.add_user(f"I found the following error:\n\n{e}.")
+            return _write_function(try_ + 1)
+
+    return _write_function(0)

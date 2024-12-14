@@ -1,11 +1,26 @@
+import ast
 import json
 import re
-from typing import Any, Dict, List, Set
+from importlib.util import find_spec
+from typing import Any, Dict, List, Optional, Set
 
 import matplotlib.pyplot as plt
 import networkx as nx
+from pydantic import BaseModel
 
+from utils.files import File
 from utils.io import print_system
+
+
+class Component(BaseModel):
+    type: str
+    name: str
+    purpose: str
+    uses: List[str]
+    pypi_packages: List[str]
+    external_infrastructure: List[str]
+    is_api: bool
+    file: Optional[File] = None
 
 
 def extract_from_pattern(response: str, *, pattern: str) -> str:
@@ -36,21 +51,22 @@ def visualize_graph(G: nx.DiGraph, *, figsize=(12, 12), k=0.15, iterations=20):
     plt.show()
 
 
-def build_graph(architecture: Dict[str, Dict[str, List[str]]]) -> nx.DiGraph:
+def build_graph(architecture: List[Component]) -> nx.DiGraph:
     G = nx.DiGraph()
-    for module, details in architecture.items():
-        G.add_node(module)
-        for dependency in details["calls"]:
-            G.add_edge(module, dependency)
+    for component in architecture:
+        G.add_node(component.name)
+        for dependency in component.uses:
+            G.add_edge(component.name, dependency)
+        for infra in component.external_infrastructure:
+            G.add_edge(component.name, f"{component.name}:{infra}")
     return G
 
 
-def group_nodes_by_dependencies(
-    architecture: Dict[str, Dict[str, List[str]]]
-) -> List[Set[str]]:
+def group_nodes_by_dependencies(architecture: List[Component]) -> List[Set[str]]:
     # Cursor function
 
-    remaining_nodes = set(architecture.keys())
+    component_map = {comp.name: comp.uses for comp in architecture}
+    remaining_nodes = set(component_map.keys())
     levels = []
 
     while remaining_nodes:
@@ -58,7 +74,7 @@ def group_nodes_by_dependencies(
         current_level = {
             node
             for node in remaining_nodes
-            if all(dep not in remaining_nodes for dep in architecture[node]["calls"])
+            if all(dep not in remaining_nodes for dep in component_map[node])
         }
 
         if not current_level:
@@ -68,3 +84,27 @@ def group_nodes_by_dependencies(
         remaining_nodes -= current_level
 
     return levels
+
+
+def control_flow_str(control_flow: Dict[str, Dict[str, List[str]]]) -> str:
+    str_ = ""
+    for component, details in control_flow.items():
+        str_ += f"{component}:\n    Calls: {', '.join(details['calls'])}\n"
+    return str_
+
+
+def check_imports(code: str) -> None:
+    tree = ast.parse(code)
+    imports = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for name in node.names:
+                imports.append(name.name)
+        elif isinstance(node, ast.ImportFrom):
+            if node.module:
+                imports.append(node.module)
+    for import_path in imports:
+        if import_path.startswith("repo."):
+            spec = find_spec(import_path)
+            if spec is None:
+                raise ImportError(f"Import '{import_path}' not found")
