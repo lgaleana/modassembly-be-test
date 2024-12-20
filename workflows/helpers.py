@@ -158,7 +158,10 @@ def save_files(
             f2.write(f1.read())
 
 
-def execute_deploy(app_name: str) -> None:
+def execute_deploy(app_name: str) -> str:
     os.chdir(f"{REPOS}/{app_name}")
     subprocess.run(["chmod", "+x", "deploy.sh"], check=True)
-    subprocess.run(["./deploy.sh", app_name], check=True)
+    output = subprocess.run(
+        ["./deploy.sh", app_name], check=True, capture_output=True, text=True
+    )
+    return output.stdout.splitlines()[-1]

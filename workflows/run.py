@@ -1,5 +1,6 @@
 import json
 import os
+import argparse
 from concurrent.futures import ThreadPoolExecutor
 
 from dotenv import load_dotenv
@@ -7,6 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from utils.files import File
+from utils.io import print_system
 from utils.state import Conversation
 from workflows.helpers import (
     Component,
@@ -22,12 +24,14 @@ from workflows.subworkflows import write_function
 
 
 if __name__ == "__main__":
-    with open("db/repos/example/config.json", "r") as f:
-        config = json.load(f)
-    architecture = {
-        a["name"]: Component.model_validate(a) for a in config["architecture"]
-    }
-    os.mkdir(f"db/repos/{config['name']}/app")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("app")
+    args = parser.parse_args()
+
+    app_name = args.app
+    with open(f"db/repos/{app_name}/config.json", "r") as f:
+        architecture = {a["name"]: Component.model_validate(a) for a in json.load(f)}
+    os.mkdir(f"db/repos/{app_name}/app")
 
     G = build_graph(list(architecture.values()))
     visualize_graph(G)
@@ -58,15 +62,16 @@ if __name__ == "__main__":
 
             file_path = f"app/components/{output.component}.py"
             os.makedirs(
-                os.path.dirname(f"{REPOS}/{config['name']}/{file_path}"), exist_ok=True
+                os.path.dirname(f"{REPOS}/{app_name}/{file_path}"), exist_ok=True
             )
             conversation.add_user(f"I saved the code in {file_path}.")
-            with open(f"{REPOS}/{config['name']}/{file_path}", "w") as f:
+            with open(f"{REPOS}/{app_name}/{file_path}", "w") as f:
                 f.write(output.code)
             architecture[output.component].file = File(
                 path=file_path, content=output.code
             )
 
-    save_files(config["name"], db_helper, main, architecture)
+    save_files(app_name, db_helper, main, architecture)
 
-    execute_deploy(config["name"])
+    service_url = execute_deploy(app_name)
+    print_system(service_url)
