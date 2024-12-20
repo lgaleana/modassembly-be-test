@@ -1,11 +1,14 @@
 import json
 import os
+from typing import List
 
 from dotenv import load_dotenv
+from pydantic import BaseModel, Field
 
 load_dotenv()
 
 from ai import llm
+from ai.function_calling import Function
 from utils.io import user_input
 from utils.state import Conversation
 from workflows.helpers import Component, build_graph, extract_json, visualize_graph
@@ -60,12 +63,34 @@ There can only be two types of components: functions and structs (like POJOs).
     architecture_raw = extract_json(assistant_message, pattern=r"```json\n(.*)\n```")
     architecture = {a["name"]: Component.model_validate(a) for a in architecture_raw}
 
+    has_db = False
+    for component in architecture.values():
+        for external in component.external_infrastructure:
+            if external == "database":
+                has_db = True
+                break
+    if has_db:
+        aux_convo = conversation.copy()
+        aux_convo.add_user(
+            f"Do we have all the dabase models that we need in the architecture? YES/NO"
+        )
+        response = llm.stream_text(aux_convo)
+        if "NO" in response:
+            conversation.add_user(
+                "We're missing one or more database models. Please add them."
+            )
+            assistant_message = llm.stream_text(conversation)
+            conversation.add_assistant(assistant_message)
+
+            architecture_raw = extract_json(
+                assistant_message, pattern=r"```json\n(.*)\n```"
+            )
+            architecture = {
+                a["name"]: Component.model_validate(a) for a in architecture_raw
+            }
+
     G = build_graph(list(architecture.values()))
     visualize_graph(G)
-
-    from ai.llm_class import llmc
-    llmc.conversation = conversation
-    llmc.chat()
 
     os.makedirs(f"db/repos/{app_name}", exist_ok=True)
     with open(f"db/repos/{app_name}/config.json", "w") as f:
