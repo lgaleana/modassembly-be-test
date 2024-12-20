@@ -13,12 +13,10 @@ from utils.state import Conversation
 from workflows.helpers import (
     Component,
     REPOS,
-    build_graph,
     execute_deploy,
     group_nodes_by_dependencies,
     load_helpers,
     save_files,
-    visualize_graph,
 )
 from workflows.subworkflows import write_function
 
@@ -27,9 +25,6 @@ def run(app_name: str) -> str:
     with open(f"db/repos/{app_name}/config.json", "r") as f:
         architecture = {a["name"]: Component.model_validate(a) for a in json.load(f)}
     os.mkdir(f"db/repos/{app_name}/app")
-
-    G = build_graph(list(architecture.values()))
-    # visualize_graph(G)
 
     conversation = Conversation()
     conversation.add_user(
