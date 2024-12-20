@@ -2,6 +2,7 @@ import ast
 import json
 import os
 import re
+import subprocess
 from importlib.util import find_spec
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -155,3 +156,9 @@ def save_files(
             f"{REPOS}/{app_name}/{file}", "w"
         ) as f2:
             f2.write(f1.read())
+
+
+def execute_deploy(app_name: str) -> None:
+    os.chdir(f"{REPOS}/{app_name}")
+    subprocess.run(["chmod", "+x", "deploy.sh"], check=True)
+    subprocess.run(["./deploy.sh", app_name], check=True)

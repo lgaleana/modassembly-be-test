@@ -12,6 +12,7 @@ from workflows.helpers import (
     Component,
     REPOS,
     build_graph,
+    execute_deploy,
     group_nodes_by_dependencies,
     load_helpers,
     save_files,
@@ -67,3 +68,5 @@ if __name__ == "__main__":
             )
 
     save_files(config["name"], db_helper, main, architecture)
+
+    execute_deploy(config["name"])
