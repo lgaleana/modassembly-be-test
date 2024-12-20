@@ -1,3 +1,4 @@
+fastapi[standard]==0.115.6
 matplotlib
 networkx
 openai

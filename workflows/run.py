@@ -23,26 +23,21 @@ from workflows.helpers import (
 from workflows.subworkflows import write_function
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("app")
-    args = parser.parse_args()
-
-    app_name = args.app
+def run(app_name: str) -> str:
     with open(f"db/repos/{app_name}/config.json", "r") as f:
         architecture = {a["name"]: Component.model_validate(a) for a in json.load(f)}
     os.mkdir(f"db/repos/{app_name}/app")
 
     G = build_graph(list(architecture.values()))
-    visualize_graph(G)
+    # visualize_graph(G)
 
     conversation = Conversation()
     conversation.add_user(
         f"Consider the following architecture of a python architecture: {architecture}"
     )
 
-    db_helper, main = load_helpers(architecture)
-    for helper in [db_helper, main]:
+    main, helpers = load_helpers(architecture)
+    for helper in [main, *helpers]:
         conversation.add_user(
             f"I wrote the code for:\n\n```python\n{helper.content}\n```"
         )
@@ -71,7 +66,16 @@ if __name__ == "__main__":
                 path=file_path, content=output.code
             )
 
-    save_files(app_name, db_helper, main, architecture)
+    save_files(app_name, main, helpers, architecture=architecture)
 
     service_url = execute_deploy(app_name)
     print_system(service_url)
+    return service_url
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("app")
+    args = parser.parse_args()
+
+    run(args.app)

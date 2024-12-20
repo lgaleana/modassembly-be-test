@@ -116,25 +116,31 @@ def check_imports(code: str) -> None:
                 raise ImportError(f"Import '{import_path}' not found")
 
 
-def load_helpers(architecture: Dict[str, Component]) -> Tuple[File, File]:
+def load_helpers(architecture: Dict[str, Component]) -> Tuple[File, Tuple[File, ...]]:
     has_db = False
     for component in architecture.values():
         for external in component.external_infrastructure:
             if external == "database":
                 has_db = True
 
-    if has_db:
-        with open(f"{REPOS}/_template/helpers/db.py", "r") as f:
-            db_helper = File(path=f"app/helpers/db.py", content=f.read())
-
     with open(f"{REPOS}/_template/main.py", "r") as f:
         main = File(path=f"app/main.py", content=f.read())
 
-    return db_helper, main
+    helpers = []
+    if has_db:
+        with open(f"{REPOS}/_template/helpers/db.py", "r") as f:
+            db_helper = File(path=f"app/helpers/db.py", content=f.read())
+            helpers.append(db_helper)
+
+    return main, tuple(helpers)
 
 
 def save_files(
-    app_name: str, db_helper: File, main: File, architecture: Dict[str, Component]
+    app_name: str,
+    main: File,
+    helpers: Tuple[File, ...],
+    *,
+    architecture: Dict[str, Component],
 ) -> None:
     main.content += "\n"
     for component in architecture.values():
@@ -145,7 +151,7 @@ def save_files(
             main.content += f"from {module} import {router_name}\n"
             main.content += f"app.include_router({router_name})\n"
 
-    for helper in [db_helper, main]:
+    for helper in [main, *helpers]:
         helper_path = f"{REPOS}/{app_name}/{helper.path}"
         os.makedirs(os.path.dirname(helper_path), exist_ok=True)
         with open(helper_path, "w") as f:
