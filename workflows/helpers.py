@@ -1,8 +1,8 @@
-import ast
 import json
 import os
 import re
 import subprocess
+from mypy import api
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 import matplotlib.pyplot as plt
@@ -11,7 +11,6 @@ from pydantic import BaseModel
 
 from utils.files import File
 from utils.io import print_system
-from utils.static_analysis import extract_router_name
 
 
 REPOS = "db/repos"
@@ -98,65 +97,6 @@ def control_flow_str(control_flow: Dict[str, Dict[str, List[str]]]) -> str:
     return str_
 
 
-def load_helpers(
-    architecture: Dict[str, Component]
-) -> Tuple[File, File, Tuple[File, ...]]:
-    pypi = set()
-    has_db = False
-    for component in architecture.values():
-        for package in component.pypi_packages:
-            pypi.add(package)
-        for external in component.external_infrastructure:
-            if external == "database":
-                has_db = True
-
-    with open(f"{REPOS}/_template/main.py", "r") as f:
-        main = File(path=f"app/main.py", content=f.read())
-
-    with open(f"{REPOS}/_template/requirements.txt", "r") as f:
-        requirements = File(path=f"requirements.txt", content=f.read())
-    requirements.content += "\n" + "\n".join(pypi)
-
-    helpers = []
-    if has_db:
-        with open(f"{REPOS}/_template/helpers/db.py", "r") as f:
-            db_helper = File(path=f"app/helpers/db.py", content=f.read())
-            helpers.append(db_helper)
-        requirements.content += "\npsycopg2-binary==2.9.10\nsqlmodel==0.0.22"
-
-    return main, requirements, tuple(helpers)
-
-
-def save_files(
-    app_name: str,
-    main: File,
-    requirements: File,
-    helpers: Tuple[File, ...],
-    *,
-    architecture: Dict[str, Component],
-) -> None:
-    main.content += "\n"
-    for component in architecture.values():
-        if component.is_api:
-            assert component.file
-            module = component.file.path.replace(".py", "").replace("/", ".")
-            router_name = extract_router_name(component.file)
-            main.content += f"from {module} import {router_name}\n"
-            main.content += f"app.include_router({router_name})\n"
-
-    for helper in [main, requirements, *helpers]:
-        helper_path = f"{REPOS}/{app_name}/{helper.path}"
-        os.makedirs(os.path.dirname(helper_path), exist_ok=True)
-        with open(helper_path, "w") as f:
-            f.write(helper.content)
-
-    for file in ["deploy.sh", "Dockerfile"]:
-        with open(f"{REPOS}/_template/{file}", "r") as f1, open(
-            f"{REPOS}/{app_name}/{file}", "w"
-        ) as f2:
-            f2.write(f1.read())
-
-
 def execute_deploy(app_name: str) -> str:
     os.chdir(f"{REPOS}/{app_name}")
     subprocess.run(["chmod", "+x", "deploy.sh"], check=True)
@@ -164,3 +104,14 @@ def execute_deploy(app_name: str) -> str:
         ["./deploy.sh", app_name], check=True, capture_output=True, text=True
     )
     return output.stdout.splitlines()[-1]
+
+
+def run_mypy(path: str) -> Tuple[str, str, int]:
+    # Run mypy with minimal flags for speed
+    return api.run(
+        [
+            "--no-incremental",  # Don't use cache
+            "--cache-dir=/dev/null",  # Don't write cache
+            path,
+        ]
+    )

@@ -1,12 +1,15 @@
+import os
+from typing import Dict
+
 from dotenv import load_dotenv
 from pydantic import BaseModel
 
 load_dotenv()
 
 from ai import llm
-from workflows.helpers import extract_from_pattern
+from workflows.helpers import Component, REPOS, extract_from_pattern, run_mypy
+from utils.files import File
 from utils.state import Conversation
-from utils.static_analysis import check_imports
 
 
 def get_architecture(conversation: Conversation, user_story: str) -> Conversation:
@@ -26,11 +29,20 @@ class LevelContext(BaseModel):
     component: str
     user_message: str
     assistant_message: str
-    code: str
+    file: File
+
+
+class MypyError(Exception):
+    def __init__(self, stdout: str, stderr: str):
+        self.stdout = stdout
+        self.stderr = stderr
+
+    def __str__(self):
+        return f"Stdout: {self.stdout}\nStderr: {self.stderr}."
 
 
 def write_function(
-    component: str, conversation: Conversation, *, tries: int = 2
+    app_name: str, component: str, conversation: Conversation, *, tries: int = 2
 ) -> LevelContext:
     def _write_function(try_: int) -> LevelContext:
         user_message = f"""Write the code for: {component}. Use the following format:
@@ -41,18 +53,80 @@ def write_function(
         assistant_message = llm.stream_text(conversation)
 
         code = extract_from_pattern(assistant_message, pattern=r"```python\n(.*?)```")
-        try:
-            check_imports(code)
+
+        file_path = f"app/components/{component}.py"
+        os.makedirs(os.path.dirname(f"{REPOS}/{app_name}/{file_path}"), exist_ok=True)
+        with open(f"{REPOS}/{app_name}/{file_path}", "w") as f:
+            f.write(code)
+
+        stdout, stderr, exit_code = run_mypy(f"{REPOS}/{app_name}/{file_path}")
+        if exit_code == 0:
             return LevelContext(
                 component=component,
                 user_message=user_message,
                 assistant_message=assistant_message,
-                code=code,
+                file=File(path=file_path, content=code),
             )
-        except Exception as e:
-            if try_ == tries:
-                raise e
-            conversation.add_user(f"I found the following error:\n\n{e}.")
-            return _write_function(try_ + 1)
+        if try_ == tries:
+            raise MypyError(stdout, stderr)
+        conversation.add_user(f"Mypy failed with:\n\n{stdout}\n\n{stderr}.")
+        return _write_function(try_ + 1)
 
     return _write_function(0)
+
+
+def save_files(
+    app_name: str,
+    architecture: Dict[str, Component],
+    conversation: Conversation,
+) -> None:
+    pypi = set()
+    has_db = False
+    for component in architecture.values():
+        for package in component.pypi_packages:
+            pypi.add(package)
+        for external in component.external_infrastructure:
+            if external == "database":
+                has_db = True
+
+    main_path = f"{REPOS}/{app_name}/app/main.py"
+    os.makedirs(os.path.dirname(main_path), exist_ok=True)
+    with open(f"{REPOS}/_template/main.py", "r") as f, open(main_path, "w") as f2:
+        content = f.read()
+        f2.write(content)
+        conversation.add_user(f"I wrote the code for:\n\n```python\n{content}\n```")
+        conversation.add_user(f"I saved the code in {main_path}.")
+
+    with open(f"{REPOS}/_template/requirements.txt", "r") as f:
+        requirements_content = f.read()
+    requirements_content += "\n" + "\n".join(pypi)
+
+    if has_db:
+        db_helper_path = f"{REPOS}/{app_name}/app/helpers/db.py"
+        os.makedirs(os.path.dirname(db_helper_path), exist_ok=True)
+        with open(f"{REPOS}/_template/helpers/db.py", "r") as f, open(
+            db_helper_path, "w"
+        ) as f2:
+            content = f.read()
+            f2.write(content)
+            conversation.add_user(f"I wrote the code for:\n\n```python\n{content}\n```")
+            conversation.add_user(f"I saved the code in {db_helper_path}.")
+        requirements_content += "\npsycopg2-binary==2.9.10\nsqlmodel==0.0.22"
+
+    for file in ["deploy.sh", "Dockerfile"]:
+        helper_path = f"{REPOS}/{app_name}/app/helpers/{file}"
+        with open(f"{REPOS}/_template/{file}", "r") as f1, open(
+            f"{REPOS}/{app_name}/{file}", "w"
+        ) as f2:
+            content = f1.read()
+            f2.write(content)
+            conversation.add_user(f"I wrote the code for:\n\n```python\n{content}\n```")
+            conversation.add_user(f"I saved the code in {helper_path}.")
+
+    requirements_path = f"{REPOS}/{app_name}/requirements.txt"
+    with open(f"{REPOS}/{app_name}/requirements.txt", "w") as f:
+        f.write(requirements_content)
+        conversation.add_user(
+            f"I wrote the code for:\n\n```python\n{requirements_content}\n```"
+        )
+        conversation.add_user(f"I saved the code in {requirements_path}.")
