@@ -1,6 +1,24 @@
 import ast
+from importlib.util import find_spec
 
 from utils.files import File
+
+
+def check_imports(code: str) -> None:
+    tree = ast.parse(code)
+    imports = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for name in node.names:
+                imports.append(name.name)
+        elif isinstance(node, ast.ImportFrom):
+            if node.module:
+                imports.append(node.module)
+    for import_path in imports:
+        if import_path.startswith("repo."):
+            spec = find_spec(import_path)
+            if spec is None:
+                raise ImportError(f"Import '{import_path}' not found")
 
 
 def extract_router_name(file: File) -> str:

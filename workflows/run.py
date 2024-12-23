@@ -31,7 +31,7 @@ def run(app_name: str) -> str:
         f"Consider the following architecture of a python architecture: {architecture}"
     )
 
-    main, helpers = load_helpers(architecture)
+    main, requirements, helpers = load_helpers(architecture)
     for helper in [main, *helpers]:
         conversation.add_user(
             f"I wrote the code for:\n\n```python\n{helper.content}\n```"
@@ -61,7 +61,7 @@ def run(app_name: str) -> str:
                 path=file_path, content=output.code
             )
 
-    save_files(app_name, main, helpers, architecture=architecture)
+    save_files(app_name, main, requirements, helpers, architecture=architecture)
 
     service_url = execute_deploy(app_name)
     print_system(service_url)

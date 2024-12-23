@@ -1,9 +1,8 @@
 import json
 import os
-from typing import List
+import argparse
 
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field
 
 load_dotenv()
 
@@ -98,6 +97,9 @@ There can only be two types of components: functions and structs (like POJOs).
 
 
 if __name__ == "__main__":
-    app_name = user_input("app name: ")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("app")
+    args = parser.parse_args()
     user_story = user_input("user story: ")
-    run(app_name, user_story)
+
+    run(args.app, user_story)

@@ -4,8 +4,9 @@ from pydantic import BaseModel
 load_dotenv()
 
 from ai import llm
-from workflows.helpers import check_imports, extract_from_pattern
+from workflows.helpers import extract_from_pattern
 from utils.state import Conversation
+from utils.static_analysis import check_imports
 
 
 def get_architecture(conversation: Conversation, user_story: str) -> Conversation:

@@ -3,7 +3,6 @@ import json
 import os
 import re
 import subprocess
-from importlib.util import find_spec
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 import matplotlib.pyplot as plt
@@ -99,26 +98,14 @@ def control_flow_str(control_flow: Dict[str, Dict[str, List[str]]]) -> str:
     return str_
 
 
-def check_imports(code: str) -> None:
-    tree = ast.parse(code)
-    imports = []
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            for name in node.names:
-                imports.append(name.name)
-        elif isinstance(node, ast.ImportFrom):
-            if node.module:
-                imports.append(node.module)
-    for import_path in imports:
-        if import_path.startswith("repo."):
-            spec = find_spec(import_path)
-            if spec is None:
-                raise ImportError(f"Import '{import_path}' not found")
-
-
-def load_helpers(architecture: Dict[str, Component]) -> Tuple[File, Tuple[File, ...]]:
+def load_helpers(
+    architecture: Dict[str, Component]
+) -> Tuple[File, File, Tuple[File, ...]]:
+    pypi = set()
     has_db = False
     for component in architecture.values():
+        for package in component.pypi_packages:
+            pypi.add(package)
         for external in component.external_infrastructure:
             if external == "database":
                 has_db = True
@@ -126,18 +113,24 @@ def load_helpers(architecture: Dict[str, Component]) -> Tuple[File, Tuple[File, 
     with open(f"{REPOS}/_template/main.py", "r") as f:
         main = File(path=f"app/main.py", content=f.read())
 
+    with open(f"{REPOS}/_template/requirements.txt", "r") as f:
+        requirements = File(path=f"requirements.txt", content=f.read())
+    requirements.content += "\n" + "\n".join(pypi)
+
     helpers = []
     if has_db:
         with open(f"{REPOS}/_template/helpers/db.py", "r") as f:
             db_helper = File(path=f"app/helpers/db.py", content=f.read())
             helpers.append(db_helper)
+        requirements.content += "\npsycopg2-binary==2.9.10\nsqlmodel==0.0.22"
 
-    return main, tuple(helpers)
+    return main, requirements, tuple(helpers)
 
 
 def save_files(
     app_name: str,
     main: File,
+    requirements: File,
     helpers: Tuple[File, ...],
     *,
     architecture: Dict[str, Component],
@@ -151,13 +144,13 @@ def save_files(
             main.content += f"from {module} import {router_name}\n"
             main.content += f"app.include_router({router_name})\n"
 
-    for helper in [main, *helpers]:
+    for helper in [main, requirements, *helpers]:
         helper_path = f"{REPOS}/{app_name}/{helper.path}"
         os.makedirs(os.path.dirname(helper_path), exist_ok=True)
         with open(helper_path, "w") as f:
             f.write(helper.content)
 
-    for file in ["deploy.sh", "Dockerfile", "requirements.txt"]:
+    for file in ["deploy.sh", "Dockerfile"]:
         with open(f"{REPOS}/_template/{file}", "r") as f1, open(
             f"{REPOS}/{app_name}/{file}", "w"
         ) as f2:
