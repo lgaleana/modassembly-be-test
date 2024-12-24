@@ -112,6 +112,7 @@ def run_mypy(path: str) -> Tuple[str, str, int]:
         [
             "--no-incremental",  # Don't use cache
             "--cache-dir=/dev/null",  # Don't write cache
+            "--strict",  # Enable comprehensive strict type checking
             path,
         ]
     )

@@ -24,7 +24,9 @@ from workflows.subworkflows import save_files, write_function
 def run(app_name: str) -> str:
     with open(f"db/repos/{app_name}/config.json", "r") as f:
         architecture = {a["name"]: Component.model_validate(a) for a in json.load(f)}
-    os.mkdir(f"db/repos/{app_name}/app")
+    os.mkdir(f"{REPOS}/{app_name}/app")
+    with open(f"{REPOS}/{app_name}/app/__init__.py", "w") as f:
+        f.write("")
 
     conversation = Conversation()
     conversation.add_user(
@@ -32,20 +34,11 @@ def run(app_name: str) -> str:
     )
 
     save_files(app_name, architecture, conversation)
-    print_system("Installing requirements...")
-    subprocess.run(
-        [
-            "python3",
-            "-m",
-            "pip",
-            "install",
-            "-r",
-            f"{REPOS}/{app_name}/requirements.txt",
-        ],
-        check=True,
-    )
 
     nodes_to_parallelize = group_nodes_by_dependencies(list(architecture.values()))
+    os.makedirs(f"{REPOS}/{app_name}/app/components", exist_ok=True)
+    with open(f"{REPOS}/{app_name}/app/components/__init__.py", "w") as f:
+        f.write("")
     for level in nodes_to_parallelize:
         with ThreadPoolExecutor(max_workers=10) as executor:
             outputs = list(
