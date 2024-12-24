@@ -104,15 +104,3 @@ def execute_deploy(app_name: str) -> str:
         ["./deploy.sh", app_name], check=True, capture_output=True, text=True
     )
     return output.stdout.splitlines()[-1]
-
-
-def run_mypy(path: str) -> Tuple[str, str, int]:
-    # Run mypy with minimal flags for speed
-    return api.run(
-        [
-            "--no-incremental",  # Don't use cache
-            "--cache-dir=/dev/null",  # Don't write cache
-            "--strict",  # Enable comprehensive strict type checking
-            path,
-        ]
-    )

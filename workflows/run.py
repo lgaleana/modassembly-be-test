@@ -1,7 +1,7 @@
 import json
 import os
 import argparse
-import subprocess
+import sys
 from concurrent.futures import ThreadPoolExecutor
 
 from dotenv import load_dotenv
@@ -24,9 +24,6 @@ from workflows.subworkflows import save_files, write_function
 def run(app_name: str) -> str:
     with open(f"db/repos/{app_name}/config.json", "r") as f:
         architecture = {a["name"]: Component.model_validate(a) for a in json.load(f)}
-    os.mkdir(f"{REPOS}/{app_name}/app")
-    with open(f"{REPOS}/{app_name}/app/__init__.py", "w") as f:
-        f.write("")
 
     conversation = Conversation()
     conversation.add_user(
@@ -35,17 +32,18 @@ def run(app_name: str) -> str:
 
     save_files(app_name, architecture, conversation)
 
-    nodes_to_parallelize = group_nodes_by_dependencies(list(architecture.values()))
-    os.makedirs(f"{REPOS}/{app_name}/app/components", exist_ok=True)
-    with open(f"{REPOS}/{app_name}/app/components/__init__.py", "w") as f:
-        f.write("")
+    sys.path.append(f"{REPOS}/{app_name}")
+    structs = set(s.name for s in architecture.values() if s.type == "struct")
+    nodes_to_parallelize = [structs] + group_nodes_by_dependencies(
+        [v for v in architecture.values() if v.type != "struct"]
+    )
     for level in nodes_to_parallelize:
-        with ThreadPoolExecutor(max_workers=10) as executor:
+        with ThreadPoolExecutor(max_workers=1) as executor:
             outputs = list(
                 executor.map(
                     write_function,
                     [app_name] * len(level),
-                    level,
+                    [architecture[l] for l in level],
                     [conversation.copy() for _ in level],
                 )
             )
@@ -53,8 +51,9 @@ def run(app_name: str) -> str:
             conversation.add_user(output.user_message)
             conversation.add_assistant(output.assistant_message)
             conversation.add_user(f"I saved the code in {output.file.path}.")
-            architecture[output.component].file = output.file
+            architecture[output.component.name].file = output.file
 
+    # Add routers
     with open(f"{REPOS}/{app_name}/app/main.py", "r") as f:
         main_content = f.read()
     main_content += "\n"
@@ -68,6 +67,7 @@ def run(app_name: str) -> str:
     with open(f"{REPOS}/{app_name}/app/main.py", "w") as f:
         f.write(main_content)
 
+    print_system("Deploying application...")
     service_url = execute_deploy(app_name)
     print_system(service_url)
     return service_url

@@ -9,23 +9,11 @@ from pydantic import BaseModel
 load_dotenv()
 
 from ai import llm
-from workflows.helpers import Component, REPOS, extract_from_pattern, run_mypy
+from workflows.helpers import Component, REPOS, extract_from_pattern
 from utils.files import File
 from utils.io import print_system
 from utils.state import Conversation
-
-
-def get_architecture(conversation: Conversation, user_story: str) -> Conversation:
-    conversation.add_user(
-        f"""Consider the following user story: {user_story}.
-
-Design the architecture (no code) of the python module (purely backend) that implements it. Be opinionated in your decisions.
-Use a modular and composable design pattern. Prefer functions over classes.
-Consider the control flow. For each component, specify the other components that it calls internally."""
-    )
-    assistant_message = llm.stream_text(conversation)
-    conversation.add_assistant(assistant_message)
-    return conversation
+from utils.static_analysis import check_imports
 
 
 def save_files(
@@ -41,6 +29,12 @@ def save_files(
         for external in component.external_infrastructure:
             if external == "database":
                 has_db = True
+
+    os.mkdir(f"{REPOS}/{app_name}/app")
+    with open(f"{REPOS}/{app_name}/__init__.py", "w") as f:
+        f.write("")
+    with open(f"{REPOS}/{app_name}/app/__init__.py", "w") as f:
+        f.write("")
 
     main_path = f"{REPOS}/{app_name}/app/main.py"
     os.makedirs(os.path.dirname(main_path), exist_ok=True)
@@ -82,6 +76,10 @@ def save_files(
         )
         conversation.add_user(f"I saved the code in {requirements_path}.")
 
+    os.makedirs(f"{REPOS}/{app_name}/app/components", exist_ok=True)
+    with open(f"{REPOS}/{app_name}/app/components/__init__.py", "w") as f:
+        f.write("")
+
     print_system("Installing requirements...")
     subprocess.run(
         [
@@ -97,26 +95,17 @@ def save_files(
 
 
 class LevelContext(BaseModel):
-    component: str
+    component: Component
     user_message: str
     assistant_message: str
     file: File
 
 
-class MypyError(Exception):
-    def __init__(self, stdout: str, stderr: str):
-        self.stdout = stdout
-        self.stderr = stderr
-
-    def __str__(self):
-        return f"Stdout: {self.stdout}\nStderr: {self.stderr}."
-
-
 def write_function(
-    app_name: str, component: str, conversation: Conversation, *, tries: int = 2
+    app_name: str, component: Component, conversation: Conversation, *, tries: int = 2
 ) -> LevelContext:
     def _write_function(try_: int) -> LevelContext:
-        user_message = f"""Write the code for: {component}. Use the following format:
+        user_message = f"""Write the code for: {component.model_dump()}. Use the following format:
 ```python
 ...
 ```"""
@@ -125,25 +114,29 @@ def write_function(
 
         code = extract_from_pattern(assistant_message, pattern=r"```python\n(.*?)```")
 
-        file_path = f"app/components/{component}.py"
+        try:
+            compile(code, "<string>", "exec")
+            check_imports(code)
+        except Exception as e:
+            import json
+
+            print_system(json.dumps(conversation, indent=2))
+            print_system(e)
+            breakpoint()
+            conversation.add_user(assistant_message)
+            if try_ == tries:
+                raise e
+            conversation.add_user(f"Found errors :: {e}. Please fix them.")
+            return _write_function(try_ + 1)
+
+        file_path = f"app/components/{component.name}.py"
         with open(f"{REPOS}/{app_name}/{file_path}", "w") as f:
             f.write(code)
-
-        stdout, stderr, exit_code = run_mypy(f"{REPOS}/{app_name}/{file_path}")
-        if exit_code == 0:
-            return LevelContext(
-                component=component,
-                user_message=user_message,
-                assistant_message=assistant_message,
-                file=File(path=file_path, content=code),
-            )
-        print_system(stdout)
-        print_system(stderr)
-        print_system(json.dumps(conversation, indent=2))
-        breakpoint()
-        if try_ == tries:
-            raise MypyError(stdout, stderr)
-        conversation.add_user(f"Mypy failed with:\n\n{stdout}\n\n{stderr}.")
-        return _write_function(try_ + 1)
+        return LevelContext(
+            component=component,
+            user_message=user_message,
+            assistant_message=assistant_message,
+            file=File(path=file_path, content=code),
+        )
 
     return _write_function(0)

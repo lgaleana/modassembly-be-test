@@ -16,9 +16,9 @@ from workflows.helpers import Component, build_graph, extract_json, visualize_gr
 def run(app_name: str, user_story: str) -> None:
     conversation = Conversation()
     conversation.add_system(
-        """You are a helpful AI assistant that designs backend architectures.
+        """You are helpful AI assistant that designs python backend architectures.
 
-"""
+The system that you design will be exposed via a set of FastAPI endpoints. Externally, you can only rely on 3 types of infrastrucutre: databases, file system, and http requests. In the case of databases, you must use on psycopg2-binary==2.9.10 and sqlmodel==0.0.22. You must specify the models that you will use."""
     )
     conversation.add_user(
         f"""Consider the following user story: {user_story}.
@@ -33,8 +33,8 @@ Consider the control flow. For each component, specify the other components that
     conversation.add_user(
         """Map the architecture into the following json.
 
-The system will be hosted as a FastAPI service. Specify which are meant to be the API endpoints. Add them if missing.
-Specify if the system relies on external infrastructure. Valid values are: database, file_system, and http.
+Specify the FastAPI endpoints. Add them if missing.
+Specify the external infrastructure that the system relies on. Valid values are: database, file_system, and http.
 Specify whether a component will need to install any pypi packages.
 There can only be two types of components: functions and structs (like POJOs).
                           
@@ -49,7 +49,7 @@ There can only be two types of components: functions and structs (like POJOs).
             "database", "file_system" or "http"
         ],
         "pypi_packages": ["The pypi packages that it will need"],
-        "is_api": true or false whether this is an endpoint to the application
+        "is_api": true or false whether this is a FastAPI endpoint
     },
     ...
 ]
@@ -61,32 +61,6 @@ There can only be two types of components: functions and structs (like POJOs).
 
     architecture_raw = extract_json(assistant_message, pattern=r"```json\n(.*)\n```")
     architecture = {a["name"]: Component.model_validate(a) for a in architecture_raw}
-
-    has_db = False
-    for component in architecture.values():
-        for external in component.external_infrastructure:
-            if external == "database":
-                has_db = True
-                break
-    if has_db:
-        aux_convo = conversation.copy()
-        aux_convo.add_user(
-            f"Do we have all the dabase models that we need in the architecture? YES/NO"
-        )
-        response = llm.stream_text(aux_convo)
-        if "NO" in response:
-            conversation.add_user(
-                "We're missing one or more database models. Please add them."
-            )
-            assistant_message = llm.stream_text(conversation)
-            conversation.add_assistant(assistant_message)
-
-            architecture_raw = extract_json(
-                assistant_message, pattern=r"```json\n(.*)\n```"
-            )
-            architecture = {
-                a["name"]: Component.model_validate(a) for a in architecture_raw
-            }
 
     G = build_graph(list(architecture.values()))
     visualize_graph(G)
