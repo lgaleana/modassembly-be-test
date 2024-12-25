@@ -32,8 +32,8 @@ def run(app_name: str) -> str:
 
     save_files(app_name, architecture, config["external_infrastructure"], conversation)
 
-    del architecture["main"]
-    del architecture["get_db"]
+    architecture.pop("main")
+    architecture.pop("get_db", None)
     sys.path.append(f"{REPOS}/{app_name}")
     structs = set(s.name for s in architecture.values() if s.type == "struct")
     nodes_to_parallelize = [structs] + group_nodes_by_dependencies(
@@ -66,7 +66,9 @@ def run(app_name: str) -> str:
             router_name = extract_router_name(component.file.content)
             main_content += f"from {module} import {router_name}\n"
             main_content += f"app.include_router({router_name})\n"
-            main_content += f"\nBase.metadata.create_all(engine)\n"
+    if "database" in config["external_infrastructure"]:
+        main_content += "\nfrom app.helpers.db import Base, engine\n"
+        main_content += "Base.metadata.create_all(engine)\n"
     with open(f"{REPOS}/{app_name}/app/main.py", "w") as f:
         f.write(main_content)
 

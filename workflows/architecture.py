@@ -1,7 +1,7 @@
 import argparse
 import json
 import os
-
+from typing import Any, Dict
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -35,7 +35,7 @@ initial_architecture = [
 ]
 
 
-def run(app_name: str, user_story: str) -> None:
+def run(app_name: str, user_story: str) -> Dict[str, Any]:
     conversation = Conversation()
     conversation.add_system(
         """You are helpful AI assistant that designs backend architectures.
@@ -127,8 +127,8 @@ Complete the architecture:
                 for dependency in component.uses:
                     if dependency not in architecture:
                         raise ValueError(
-                            f"Usage of :: {dependency} by :: "
-                            f"{component.name} not found in the architecture"
+                            f'{dependency} in "uses" of '
+                            f"{component.name} is not a component of the architecture"
                         )
                 pypi_packages.update(component.pypi_packages)
 
@@ -144,18 +144,18 @@ Complete the architecture:
                 f"Found the following error: {e}. Please fix it and generate the json again."
             )
 
-    G = build_graph(list(architecture.values()))
-    visualize_graph(G)
+    # G = build_graph(list(architecture.values()))
+    # visualize_graph(G)
 
+    output_architecture = {
+        "architecture": [s.model_dump() for s in architecture.values()],
+        "external_infrastructure": external_infrastructure,
+    }
     os.makedirs(f"db/repos/{app_name}", exist_ok=True)
     with open(f"db/repos/{app_name}/config.json", "w") as f:
-        json.dump(
-            {
-                "architecture": [s.model_dump() for s in architecture.values()],
-                "external_infrastructure": external_infrastructure,
-            },
-            f,
-        )
+        json.dump(output_architecture, f)
+
+    return output_architecture
 
 
 if __name__ == "__main__":

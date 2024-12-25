@@ -1,4 +1,5 @@
 import os
+import shutil
 from typing import Dict, List
 
 from dotenv import load_dotenv
@@ -25,6 +26,8 @@ def save_files(
         for package in component.pypi_packages:
             pypi.add(package)
 
+    if os.path.exists(f"{REPOS}/{app_name}/app"):
+        shutil.rmtree(f"{REPOS}/{app_name}/app")
     os.mkdir(f"{REPOS}/{app_name}/app")
     with open(f"{REPOS}/{app_name}/__init__.py", "w") as f:
         f.write("")
@@ -42,21 +45,25 @@ def save_files(
         ) as f2:
             f2.write(f1.read())
 
-    main_path = f"{REPOS}/{app_name}/app/main.py"
-    os.makedirs(os.path.dirname(main_path), exist_ok=True)
-    with open(f"{REPOS}/_template/app/main.py", "r") as f, open(main_path, "w") as f2:
+    main_path = "app/main.py"
+    os.makedirs(os.path.dirname(f"{REPOS}/{app_name}/{main_path}"), exist_ok=True)
+    with open(f"{REPOS}/_template/app/main.py", "r") as f, open(
+        f"{REPOS}/{app_name}/{main_path}", "w"
+    ) as f2:
         content = f.read()
         f2.write(content)
         conversation.add_user(f"I wrote the code for:\n\n```python\n{content}\n```")
         conversation.add_user(f"I saved the code in {main_path}.")
 
     if "database" in external_infrastructure:
-        db_helper_path = f"{REPOS}/{app_name}/app/helpers/db.py"
-        os.makedirs(os.path.dirname(db_helper_path), exist_ok=True)
+        db_helper_path = "app/helpers/db.py"
+        os.makedirs(
+            os.path.dirname(f"{REPOS}/{app_name}/{db_helper_path}"), exist_ok=True
+        )
         with open(f"{REPOS}/{app_name}/app/helpers/__init__.py", "w") as f:
             f.write("")
         with open(f"{REPOS}/_template/app/helpers/db.py", "r") as f, open(
-            db_helper_path, "w"
+            f"{REPOS}/{app_name}/{db_helper_path}", "w"
         ) as f2:
             content = f.read()
             f2.write(content)

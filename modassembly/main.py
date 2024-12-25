@@ -17,7 +17,8 @@ app.add_middleware(
 
 # Routers
 
-from modassembly.components.create_app_api import router
+from modassembly.components.create_architecture import router
 app.include_router(router)
-from modassembly.components.implement_app_api import router
+
+from modassembly.components.implement_architecture import router
 app.include_router(router)
