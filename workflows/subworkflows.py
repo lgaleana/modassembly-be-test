@@ -80,19 +80,6 @@ def save_files(
     with open(f"{REPOS}/{app_name}/app/components/__init__.py", "w") as f:
         f.write("")
 
-    print_system("Installing requirements...")
-    subprocess.run(
-        [
-            "python3",
-            "-m",
-            "pip",
-            "install",
-            "-r",
-            f"{REPOS}/{app_name}/requirements.txt",
-        ],
-        check=True,
-    )
-
 
 class LevelContext(BaseModel):
     component: Component

@@ -38,7 +38,7 @@ def run(app_name: str) -> str:
         [v for v in architecture.values() if v.type != "struct"]
     )
     for level in nodes_to_parallelize:
-        with ThreadPoolExecutor(max_workers=1) as executor:
+        with ThreadPoolExecutor(max_workers=10) as executor:
             outputs = list(
                 executor.map(
                     write_function,
@@ -64,6 +64,7 @@ def run(app_name: str) -> str:
             router_name = extract_router_name(component.file)
             main_content += f"from {module} import {router_name}\n"
             main_content += f"app.include_router({router_name})\n"
+            main_content += f"\nSQLModel.metadata.create_all(engine)\n"
     with open(f"{REPOS}/{app_name}/app/main.py", "w") as f:
         f.write(main_content)
 
