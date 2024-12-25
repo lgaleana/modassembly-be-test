@@ -44,7 +44,7 @@ def save_files(
 
     main_path = f"{REPOS}/{app_name}/app/main.py"
     os.makedirs(os.path.dirname(main_path), exist_ok=True)
-    with open(f"{REPOS}/_template/main.py", "r") as f, open(main_path, "w") as f2:
+    with open(f"{REPOS}/_template/app/main.py", "r") as f, open(main_path, "w") as f2:
         content = f.read()
         f2.write(content)
         conversation.add_user(f"I wrote the code for:\n\n```python\n{content}\n```")
@@ -87,7 +87,8 @@ def write_function(
             user_message += (
                 "\n\nSince this function is meant to be an endpoint, "
                 "1) add enough documentation and 2) add very specific typing, "
-                "so that it's easy to use in Swagger."
+                "so that it's easy to use in Swagger. "
+                "Remember to use pydantic models in the fastapi decorator, instead of sqlalchemy."
             )
         conversation.add_user(user_message)
         assistant_message = llm.stream_text(conversation)

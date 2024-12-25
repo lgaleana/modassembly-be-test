@@ -66,7 +66,7 @@ def run(app_name: str) -> str:
             router_name = extract_router_name(component.file.content)
             main_content += f"from {module} import {router_name}\n"
             main_content += f"app.include_router({router_name})\n"
-            main_content += f"\nSQLModel.metadata.create_all(engine)\n"
+            main_content += f"\nBase.metadata.create_all(engine)\n"
     with open(f"{REPOS}/{app_name}/app/main.py", "w") as f:
         f.write(main_content)
 

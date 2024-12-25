@@ -25,9 +25,10 @@ initial_architecture = [
         purpose="The main FastAPI script",
         uses=["Fill it in"],
         pypi_packages=[
-            "fastapi[standard]==0.115.6",
+            "fastapi==0.115.6",
             "pydantic==2.10.3",
             "python-dotenv==1.0.1",
+            "uvicorn==0.34.0",
         ],
         is_endpoint=False,
     )
@@ -90,7 +91,7 @@ Consider the control flow. For each component, specify the other components that
                 name="get_db",
                 purpose="Context manager for getting a database session",
                 uses=[],
-                pypi_packages=["psycopg2-binary==2.9.10", "sqlmodel==0.0.22"],
+                pypi_packages=["psycopg2-binary==2.9.10", "sqlalchemy==2.0.36"],
                 is_endpoint=False,
             )
         )
