@@ -1,7 +1,5 @@
-import json
 import os
-import subprocess
-from typing import Dict
+from typing import Dict, List
 
 from dotenv import load_dotenv
 from pydantic import BaseModel
@@ -19,16 +17,13 @@ from utils.static_analysis import check_imports
 def save_files(
     app_name: str,
     architecture: Dict[str, Component],
+    external_infrastructure: List[str],
     conversation: Conversation,
 ) -> None:
     pypi = set()
-    has_db = False
     for component in architecture.values():
         for package in component.pypi_packages:
             pypi.add(package)
-        for external in component.external_infrastructure:
-            if external == "database":
-                has_db = True
 
     os.mkdir(f"{REPOS}/{app_name}/app")
     with open(f"{REPOS}/{app_name}/__init__.py", "w") as f:
@@ -48,12 +43,12 @@ def save_files(
         requirements_content = f.read()
     requirements_content += "\n" + "\n".join(pypi)
 
-    if has_db:
+    if "database" in external_infrastructure:
         db_helper_path = f"{REPOS}/{app_name}/app/helpers/db.py"
         os.makedirs(os.path.dirname(db_helper_path), exist_ok=True)
         with open(f"{REPOS}/{app_name}/app/helpers/__init__.py", "w") as f:
             f.write("")
-        with open(f"{REPOS}/_template/helpers/db.py", "r") as f, open(
+        with open(f"{REPOS}/_template/app/helpers/db.py", "r") as f, open(
             db_helper_path, "w"
         ) as f2:
             content = f.read()

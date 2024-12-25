@@ -1,5 +1,4 @@
 import json
-import os
 import argparse
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -8,7 +7,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from utils.files import File
 from utils.io import print_system
 from utils.state import Conversation
 from utils.static_analysis import extract_router_name
@@ -23,15 +21,20 @@ from workflows.subworkflows import save_files, write_function
 
 def run(app_name: str) -> str:
     with open(f"db/repos/{app_name}/config.json", "r") as f:
-        architecture = {a["name"]: Component.model_validate(a) for a in json.load(f)}
+        config = json.load(f)
+        architecture = {
+            a["name"]: Component.model_validate(a) for a in config["architecture"]
+        }
 
     conversation = Conversation()
     conversation.add_user(
         f"Consider the following architecture of a python architecture: {architecture}"
     )
 
-    save_files(app_name, architecture, conversation)
+    save_files(app_name, architecture, config["external_infrastructure"], conversation)
 
+    del architecture["main"]
+    del architecture["get_db"]
     sys.path.append(f"{REPOS}/{app_name}")
     structs = set(s.name for s in architecture.values() if s.type == "struct")
     nodes_to_parallelize = [structs] + group_nodes_by_dependencies(
@@ -58,7 +61,7 @@ def run(app_name: str) -> str:
         main_content = f.read()
     main_content += "\n"
     for component in architecture.values():
-        if component.is_api:
+        if component.is_endpoint:
             assert component.file
             module = component.file.path.replace(".py", "").replace("/", ".")
             router_name = extract_router_name(component.file)

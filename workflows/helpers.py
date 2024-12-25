@@ -3,11 +3,11 @@ import os
 import re
 import subprocess
 from mypy import api
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Literal, Optional, Set
 
 import matplotlib.pyplot as plt
 import networkx as nx
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from utils.files import File
 from utils.io import print_system
@@ -16,14 +16,20 @@ from utils.io import print_system
 REPOS = "db/repos"
 
 
-class Component(BaseModel):
-    type: str
-    name: str
-    purpose: str
-    uses: List[str]
-    pypi_packages: List[str]
-    external_infrastructure: List[str]
-    is_api: bool
+class RawComponent(BaseModel):
+    type: Literal["struct", "function"] = Field(description="struct or function")
+    name: str = Field(description="The name of the struct or function")
+    purpose: str = Field(description="The purpose of the struct or function")
+    uses: List[str] = Field(
+        description="The structs or functions that this component uses internally"
+    )
+    pypi_packages: List[str] = Field(
+        description="The pypi packages that the component will need"
+    )
+    is_endpoint: bool = Field(description="Whether this is a FastAPI endpoint")
+
+
+class Component(RawComponent):
     file: Optional[File] = None
 
 
@@ -55,14 +61,12 @@ def visualize_graph(G: nx.DiGraph, *, figsize=(12, 12), k=0.15, iterations=20):
     plt.show()
 
 
-def build_graph(architecture: List[Component]) -> nx.DiGraph:
+def build_graph(architecture: List[RawComponent]) -> nx.DiGraph:
     G = nx.DiGraph()
     for component in architecture:
         G.add_node(component.name)
         for dependency in component.uses:
             G.add_edge(component.name, dependency)
-        for infra in component.external_infrastructure:
-            G.add_edge(component.name, f"{component.name}:{infra}")
     return G
 
 
