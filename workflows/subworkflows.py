@@ -11,7 +11,7 @@ from workflows.helpers import Component, REPOS, extract_from_pattern
 from utils.files import File
 from utils.io import print_system
 from utils.state import Conversation
-from utils.static_analysis import check_imports
+from utils.static_analysis import check_imports, extract_router_name
 
 
 def save_files(
@@ -91,6 +91,8 @@ def write_function(
 ```python
 ...
 ```"""
+        if component.is_endpoint:
+            user_message += "\n\nAdd proper typing to the inputs."
         conversation.add_user(user_message)
         assistant_message = llm.stream_text(conversation)
 
@@ -99,13 +101,11 @@ def write_function(
         try:
             compile(code, "<string>", "exec")
             check_imports(code)
+            if component.is_endpoint:
+                extract_router_name(code)
         except Exception as e:
-            import json
-
-            print_system(json.dumps(conversation, indent=2))
-            print_system(e)
-            breakpoint()
-            conversation.add_user(assistant_message)
+            print_system(f"!!! Error: {e}")
+            conversation.add_assistant(assistant_message)
             if try_ == tries:
                 raise e
             conversation.add_user(f"Found errors :: {e}. Please fix them.")

@@ -19,13 +19,13 @@ def check_imports(code: str) -> None:
                 # Note: We can't easily verify submodule imports without loading the module
 
 
-def extract_router_name(file: File) -> str:
-    tree = ast.parse(file.content)
+def extract_router_name(code: str) -> str:
+    tree = ast.parse(code)
     for node in ast.walk(tree):
         if isinstance(node, ast.Assign):
             if len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
                 if isinstance(node.value, ast.Call):
                     if isinstance(node.value.func, ast.Name):
-                        if node.value.func.id in ["APIRouter", "FastAPI"]:
+                        if node.value.func.id == "APIRouter":
                             return node.targets[0].id
-    raise ValueError("No router found")
+    raise ValueError("No APIRouter found")

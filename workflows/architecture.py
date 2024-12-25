@@ -33,7 +33,7 @@ def run(app_name: str, user_story: str) -> None:
     conversation.add_system(
         """You are helpful AI assistant that designs backend architectures.
 
-The system that you design will be exposed via a set of FastAPI endpoints. You can rely on 3 types of external infrastructure (not mandatory): a database, the file system and http requests."""
+The system that you design will be exposed via a set of FastAPI endpoints. If needed, you can rely on 3 types of external infrastructure: a database, the file system and http requests."""
     )
     conversation.add_user(
         f"""Consider the following user story: {user_story}.
@@ -45,36 +45,19 @@ Consider the control flow. For each component, specify the other components that
     assistant_message = llm.stream_text(conversation)
     conversation.add_assistant(assistant_message)
 
-    conversation.add_user(
+    aux_convo = conversation.copy()
+    aux_convo.add_user(
         """What types of external infrastructure does this architecture rely on?
         
 ```json
 ["database", "file_system", "http", "other"]
 ````"""
     )
-    assistant_message = llm.stream_text(conversation)
-    conversation.add_assistant(assistant_message)
-
-    external_infrastructure = extract_json(
-        assistant_message, pattern=r"```json\n(.*)\n```"
-    )
-    if "database" in external_infrastructure:
-        initial_architecture.append(
-            RawComponent(
-                type="function",
-                name="get_db",
-                purpose="Context manager for getting a database session",
-                uses=[],
-                pypi_packages=["sqlmodel==0.0.22"],
-                is_endpoint=False,
-            )
-        )
-        conversation.add_user("Remember to add your database models.")
-    if "other" in external_infrastructure:
-        raise ValueError("This type of infrastructure is not supported yet.")
+    axu_message = llm.stream_text(aux_convo)
+    external_infrastructure = extract_json(axu_message, pattern=r"```json\n(.*)\n```")
 
     conversation.add_user(
-        f"""Map the architecture into the following json:
+        f"""Map the architecture into a json like the following one:
 
 ```json
 [
@@ -88,8 +71,26 @@ Consider the control flow. For each component, specify the other components that
     }},
     ...
 ]
-```  
+```"""
+    )
 
+    if "other" in external_infrastructure:
+        raise ValueError("This type of infrastructure is not supported yet.")
+    if "database" in external_infrastructure:
+        initial_architecture.append(
+            RawComponent(
+                type="function",
+                name="get_db",
+                purpose="Context manager for getting a database session",
+                uses=[],
+                pypi_packages=["sqlmodel==0.0.22"],
+                is_endpoint=False,
+            )
+        )
+        conversation.add_user("Add the necessary database models.")
+
+    conversation.add_user(
+        f"""
 Complete the architecture:
 
 ```json
@@ -115,6 +116,12 @@ Complete the architecture:
             for component in architecture.values():
                 if " " in component.name:
                     raise ValueError(f"Invalid component name: {component.name}.")
+                for dependency in component.uses:
+                    if dependency not in architecture:
+                        raise ValueError(
+                            f"Usage of :: {dependency} by :: "
+                            f"{component.name} not found in the architecture"
+                        )
                 pypi_packages.update(component.pypi_packages)
 
             print_system("Installing requirements...")
@@ -132,6 +139,8 @@ Complete the architecture:
             break
         except Exception as e:
             print_system(e)
+            if tries == 2:
+                raise e
             conversation.add_user(
                 f"Found the following error: {e}. Please fix it and generate the json again."
             )

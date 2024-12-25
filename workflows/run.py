@@ -64,7 +64,7 @@ def run(app_name: str) -> str:
         if component.is_endpoint:
             assert component.file
             module = component.file.path.replace(".py", "").replace("/", ".")
-            router_name = extract_router_name(component.file)
+            router_name = extract_router_name(component.file.content)
             main_content += f"from {module} import {router_name}\n"
             main_content += f"app.include_router({router_name})\n"
             main_content += f"\nSQLModel.metadata.create_all(engine)\n"

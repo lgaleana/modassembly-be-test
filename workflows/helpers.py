@@ -107,4 +107,6 @@ def execute_deploy(app_name: str) -> str:
     output = subprocess.run(
         ["./deploy.sh", app_name], check=True, capture_output=True, text=True
     )
+    print_system(output.stdout)
+    print_system(output.stderr)
     return output.stdout.splitlines()[-1]
