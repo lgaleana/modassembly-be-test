@@ -1,7 +1,7 @@
+import argparse
 import json
 import os
-import argparse
-import subprocess
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -9,14 +9,20 @@ load_dotenv()
 from ai import llm
 from utils.io import user_input, print_system
 from utils.state import Conversation
-from workflows.helpers import RawComponent, build_graph, extract_json, visualize_graph
+from workflows.helpers import (
+    RawComponent,
+    build_graph,
+    extract_json,
+    install_requirements,
+    visualize_graph,
+)
 
 
 initial_architecture = [
     RawComponent(
         type="function",
         name="main",
-        purpose="The main FastAPI function",
+        purpose="The main FastAPI script",
         uses=["Fill it in"],
         pypi_packages=[
             "fastapi[standard]==0.115.6",
@@ -56,6 +62,9 @@ Consider the control flow. For each component, specify the other components that
     axu_message = llm.stream_text(aux_convo)
     external_infrastructure = extract_json(axu_message, pattern=r"```json\n(.*)\n```")
 
+    if "other" in external_infrastructure:
+        raise ValueError("This type of infrastructure is not supported yet.")
+
     conversation.add_user(
         f"""Map the architecture into a json like the following one:
 
@@ -74,8 +83,6 @@ Consider the control flow. For each component, specify the other components that
 ```"""
     )
 
-    if "other" in external_infrastructure:
-        raise ValueError("This type of infrastructure is not supported yet.")
     if "database" in external_infrastructure:
         initial_architecture.append(
             RawComponent(
@@ -83,7 +90,7 @@ Consider the control flow. For each component, specify the other components that
                 name="get_db",
                 purpose="Context manager for getting a database session",
                 uses=[],
-                pypi_packages=["sqlmodel==0.0.22"],
+                pypi_packages=["psycopg2-binary==2.9.10", "sqlmodel==0.0.22"],
                 is_endpoint=False,
             )
         )
@@ -124,27 +131,17 @@ Complete the architecture:
                         )
                 pypi_packages.update(component.pypi_packages)
 
-            print_system("Installing requirements...")
-            venv_python = f"venv/bin/python3"
-            subprocess.run(
-                [
-                    venv_python,
-                    "-m",
-                    "pip",
-                    "install",
-                    *pypi_packages,
-                ],
-                check=True,
-            )
+            install_requirements(pypi_packages, app_name)
             break
         except Exception as e:
             print_system(e)
+            tries += 1
+            breakpoint()
             if tries == 2:
                 raise e
             conversation.add_user(
                 f"Found the following error: {e}. Please fix it and generate the json again."
             )
-            tries += 1
 
     G = build_graph(list(architecture.values()))
     visualize_graph(G)

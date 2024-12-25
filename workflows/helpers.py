@@ -1,8 +1,10 @@
 import json
 import os
 import re
+import shutil
 import subprocess
-from mypy import api
+import venv
+from tempfile import mkdtemp
 from typing import Any, Dict, List, Literal, Optional, Set
 
 import matplotlib.pyplot as plt
@@ -110,3 +112,21 @@ def execute_deploy(app_name: str) -> str:
     print_system(output.stdout)
     print_system(output.stderr)
     return output.stdout.splitlines()[-1]
+
+
+def install_requirements(pypi_packages: Set[str], app_name: str) -> None:
+    venv_path = f"db/repos/{app_name}/venv"
+    os.makedirs(venv_path, exist_ok=True)
+    venv.create(venv_path, with_pip=True)
+    venv_python = os.path.join(venv_path, "bin", "python3")
+    print_system("Installing requirements...")
+    output = subprocess.run(
+        [venv_python, "-m", "pip", "install", *pypi_packages],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    print_system(output.stdout)
+    print_system(output.stderr)
+    if output.returncode != 0:
+        raise Exception(f"{output.stdout}\n{output.stderr}")

@@ -1,7 +1,7 @@
 fastapi[standard]==0.115.6
-matplotlib
-networkx
-openai
-pydantic
-python-dotenv
-tiktoken
+matplotlib==3.10.0
+networkx==3.4.2
+openai==1.58.1
+pydantic==2.10.4
+python-dotenv==1.0.1
+tiktoken==0.8.0

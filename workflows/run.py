@@ -1,5 +1,6 @@
 import json
 import argparse
+import shutil
 import sys
 from concurrent.futures import ThreadPoolExecutor
 
@@ -27,9 +28,7 @@ def run(app_name: str) -> str:
         }
 
     conversation = Conversation()
-    conversation.add_user(
-        f"Consider the following architecture of a python architecture: {architecture}"
-    )
+    conversation.add_user(f"Consider the following python architecture: {architecture}")
 
     save_files(app_name, architecture, config["external_infrastructure"], conversation)
 
@@ -73,8 +72,8 @@ def run(app_name: str) -> str:
 
     print_system("Deploying application...")
     service_url = execute_deploy(app_name)
-    print_system(service_url)
-    return service_url
+    print_system(f"{service_url}/docs")
+    return f"{service_url}/docs"
 
 
 if __name__ == "__main__":

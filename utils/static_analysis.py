@@ -1,11 +1,13 @@
 import ast
 import importlib
 import importlib.util
+import sys
 
-from utils.files import File
 
+def check_imports(code: str, app_name: str) -> None:
+    site_packages = f"db/repos/{app_name}/venv/lib/python3.13/site-packages"
+    sys.path.append(site_packages)
 
-def check_imports(code: str) -> None:
     tree = ast.parse(code)
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):

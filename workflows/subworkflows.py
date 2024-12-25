@@ -30,6 +30,17 @@ def save_files(
         f.write("")
     with open(f"{REPOS}/{app_name}/app/__init__.py", "w") as f:
         f.write("")
+    with open(f"{REPOS}/{app_name}/requirements.txt", "w") as f:
+        requirements_content = "\n".join(pypi)
+        f.write(requirements_content)
+    os.makedirs(f"{REPOS}/{app_name}/app/components", exist_ok=True)
+    with open(f"{REPOS}/{app_name}/app/components/__init__.py", "w") as f:
+        f.write("")
+    for file in ["deploy.sh", "Dockerfile"]:
+        with open(f"{REPOS}/_template/{file}", "r") as f1, open(
+            f"{REPOS}/{app_name}/{file}", "w"
+        ) as f2:
+            f2.write(f1.read())
 
     main_path = f"{REPOS}/{app_name}/app/main.py"
     os.makedirs(os.path.dirname(main_path), exist_ok=True)
@@ -38,10 +49,6 @@ def save_files(
         f2.write(content)
         conversation.add_user(f"I wrote the code for:\n\n```python\n{content}\n```")
         conversation.add_user(f"I saved the code in {main_path}.")
-
-    with open(f"{REPOS}/_template/requirements.txt", "r") as f:
-        requirements_content = f.read()
-    requirements_content += "\n" + "\n".join(pypi)
 
     if "database" in external_infrastructure:
         db_helper_path = f"{REPOS}/{app_name}/app/helpers/db.py"
@@ -55,25 +62,6 @@ def save_files(
             f2.write(content)
             conversation.add_user(f"I wrote the code for:\n\n```python\n{content}\n```")
             conversation.add_user(f"I saved the code in {db_helper_path}.")
-        requirements_content += "\npsycopg2-binary==2.9.10\nsqlmodel==0.0.22"
-
-    for file in ["deploy.sh", "Dockerfile"]:
-        with open(f"{REPOS}/_template/{file}", "r") as f1, open(
-            f"{REPOS}/{app_name}/{file}", "w"
-        ) as f2:
-            f2.write(f1.read())
-
-    requirements_path = f"{REPOS}/{app_name}/requirements.txt"
-    with open(f"{REPOS}/{app_name}/requirements.txt", "w") as f:
-        f.write(requirements_content)
-        conversation.add_user(
-            f"I wrote the code for:\n\n```python\n{requirements_content}\n```"
-        )
-        conversation.add_user(f"I saved the code in {requirements_path}.")
-
-    os.makedirs(f"{REPOS}/{app_name}/app/components", exist_ok=True)
-    with open(f"{REPOS}/{app_name}/app/components/__init__.py", "w") as f:
-        f.write("")
 
 
 class LevelContext(BaseModel):
@@ -84,15 +72,23 @@ class LevelContext(BaseModel):
 
 
 def write_function(
-    app_name: str, component: Component, conversation: Conversation, *, tries: int = 2
+    app_name: str,
+    component: Component,
+    conversation: Conversation,
+    *,
+    tries: int = 2,
 ) -> LevelContext:
     def _write_function(try_: int) -> LevelContext:
-        user_message = f"""Write the code for: {component.model_dump()}. Use the following format:
+        user_message = f"""Write actual working code (no placeholders) for: {component.model_dump()}\n\n
 ```python
 ...
 ```"""
         if component.is_endpoint:
-            user_message += "\n\nAdd proper typing to the inputs."
+            user_message += (
+                "\n\nSince this function is meant to be an endpoint, "
+                "1) add enough documentation and 2) add very specific typing, "
+                "so that it's easy to use in Swagger."
+            )
         conversation.add_user(user_message)
         assistant_message = llm.stream_text(conversation)
 
@@ -100,7 +96,7 @@ def write_function(
 
         try:
             compile(code, "<string>", "exec")
-            check_imports(code)
+            check_imports(code, app_name)
             if component.is_endpoint:
                 extract_router_name(code)
         except Exception as e:
