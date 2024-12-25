@@ -36,6 +36,10 @@ initial_architecture = [
 
 
 def run(app_name: str, user_story: str) -> Dict[str, Any]:
+    os.makedirs(f"db/repos/{app_name}", exist_ok=True)
+    with open(f"db/repos/{app_name}/config.json", "w") as f:
+        json.dump({}, f)
+
     conversation = Conversation()
     conversation.add_system(
         """You are helpful AI assistant that designs backend architectures.
@@ -150,7 +154,6 @@ Complete the architecture:
         "architecture": [s.model_dump() for s in architecture.values()],
         "external_infrastructure": external_infrastructure,
     }
-    os.makedirs(f"db/repos/{app_name}", exist_ok=True)
     with open(f"db/repos/{app_name}/config.json", "w") as f:
         json.dump(output_architecture, f)
 
