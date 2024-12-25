@@ -137,7 +137,6 @@ Complete the architecture:
         except Exception as e:
             print_system(e)
             tries += 1
-            breakpoint()
             if tries == 2:
                 raise e
             conversation.add_user(
