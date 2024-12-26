@@ -23,7 +23,7 @@ initial_architecture = [
         type="function",
         name="main",
         purpose="The main FastAPI script",
-        uses=["Fill it in"],
+        uses=["Other functions or structs"],
         pypi_packages=[
             "fastapi==0.115.6",
             "pydantic==2.10.3",
