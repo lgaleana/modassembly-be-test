@@ -86,7 +86,7 @@ def write_function(
     tries: int = 2,
 ) -> LevelContext:
     def _write_function(try_: int) -> LevelContext:
-        user_message = f"""Write actual working code (no placeholders) for: {component.model_dump()}\n\n
+        user_message = f"""Write theactual working code (no placeholders) for: {component.model_dump()}\n\n
 ```python
 ...
 ```"""
@@ -95,7 +95,7 @@ def write_function(
                 "\n\nSince this function is meant to be an endpoint, "
                 "1) add enough documentation and 2) add very specific typing, "
                 "so that it's easy to use in Swagger. "
-                "Use pydantic models in the fastapi decorator, instead of sqlalchemy models."
+                "Use pydantic models in the FastAPI decorator, instead of SQLAlchemy models."
             )
         conversation.add_user(user_message)
         assistant_message = llm.stream_text(conversation)

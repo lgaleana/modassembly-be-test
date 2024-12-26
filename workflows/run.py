@@ -28,7 +28,9 @@ def run(app_name: str) -> str:
         }
 
     conversation = Conversation()
-    conversation.add_user(f"Consider the following python architecture: {architecture}")
+    conversation.add_user(
+        f"Consider the following python architecture: {json.dumps(config['architecture'], indent=2)}"
+    )
 
     save_files(app_name, architecture, config["external_infrastructure"], conversation)
 

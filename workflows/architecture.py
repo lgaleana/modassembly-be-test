@@ -35,7 +35,7 @@ initial_architecture = [
 ]
 
 
-def run(app_name: str, user_story: str) -> Dict[str, Any]:
+def run(app_name: str, system_description: str) -> Dict[str, Any]:
     os.makedirs(f"db/repos/{app_name}", exist_ok=True)
     with open(f"db/repos/{app_name}/config.json", "w") as f:
         json.dump({}, f)
@@ -44,10 +44,10 @@ def run(app_name: str, user_story: str) -> Dict[str, Any]:
     conversation.add_system(
         """You are helpful AI assistant that designs backend architectures.
 
-The system that you design will be exposed via a set of FastAPI endpoints. If needed, you can rely on 3 types of external infrastructure: a database and http requests."""
+The system that you design will be exposed via a set of FastAPI endpoints. If needed, you can rely on 2 types of external infrastructure: a database and http requests."""
     )
     conversation.add_user(
-        f"""Consider the following user story: {user_story}.
+        f"""Consider the following system description: {system_description}.
 
 Design the architecture (no code) of the python module (purely backend) that implements it. Be opinionated and specific in your decisions.
 Use a modular and composable design pattern. Prefer functions over classes.
@@ -81,7 +81,7 @@ Consider the control flow. For each component, specify the other components that
         "purpose": "...",
         "uses": ["The other struct or functions that this component uses internally."],
         "pypi_packages": ["The pypi packages that it will need"],
-        "is_api": true or false whether this is an endpoint to the application
+        "is_api": true or false whether this is a FastAPI endpoint
     }},
     ...
 ]
@@ -93,7 +93,7 @@ Consider the control flow. For each component, specify the other components that
             RawComponent(
                 type="function",
                 name="get_db",
-                purpose="Context manager for getting a database session",
+                purpose="The context manager for getting a database session.",
                 uses=[],
                 pypi_packages=["psycopg2-binary==2.9.10", "sqlalchemy==2.0.36"],
                 is_endpoint=False,
@@ -164,6 +164,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("app")
     args = parser.parse_args()
-    user_story = user_input("user story: ")
+    system_description = user_input("system description: ")
 
-    run(args.app, user_story)
+    run(args.app, system_description)
