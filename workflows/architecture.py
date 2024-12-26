@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import shutil
 from typing import Any, Dict
 from dotenv import load_dotenv
 
@@ -68,6 +69,7 @@ Consider the control flow. For each component, specify the other components that
     external_infrastructure = extract_json(aux_message, pattern=r"```json\n(.*)\n```")
 
     if "other" in external_infrastructure:
+        shutil.rmtree(f"db/repos/{app_name}")
         raise ValueError("This type of infrastructure is not supported yet.")
 
     conversation.add_user(
@@ -144,6 +146,7 @@ Complete the architecture:
             print_system(e)
             tries += 1
             if tries == 2:
+                shutil.rmtree(f"db/repos/{app_name}")
                 raise e
             conversation.add_user(
                 f"Found the following error: {e}. Please fix it and generate the json again."

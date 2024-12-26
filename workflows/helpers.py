@@ -130,7 +130,7 @@ def install_requirements(pypi_packages: Set[str], app_name: str) -> None:
     print_system("Installing requirements...")
     output = subprocess.run(
         [venv_python, "-m", "pip", "install", *pypi_packages],
-        check=True,
+        check=False,
         capture_output=True,
         text=True,
     )
