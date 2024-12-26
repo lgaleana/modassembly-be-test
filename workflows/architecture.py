@@ -50,7 +50,7 @@ The system that you design will be exposed via a set of FastAPI endpoints. If ne
         f"""Consider the following system: {system_description}.
 
 Design the architecture (no code) of the python module (purely backend) that implements it. Be opinionated and specific in your decisions.
-Use a modular and composable design pattern. Mention each component. Prefer functions over classes.
+Use a modular and composable design pattern. Prefer functions over classes.
 Consider the control flow. For each component, specify the other components that it uses internally."""
     )
     assistant_message = llm.stream_text(conversation)
@@ -64,8 +64,8 @@ Consider the control flow. For each component, specify the other components that
 ["database", "http", "other"]
 ````"""
     )
-    axu_message = llm.stream_text(aux_convo)
-    external_infrastructure = extract_json(axu_message, pattern=r"```json\n(.*)\n```")
+    aux_message = llm.stream_text(aux_convo)
+    external_infrastructure = extract_json(aux_message, pattern=r"```json\n(.*)\n```")
 
     if "other" in external_infrastructure:
         raise ValueError("This type of infrastructure is not supported yet.")
@@ -85,7 +85,9 @@ Consider the control flow. For each component, specify the other components that
     }},
     ...
 ]
-```"""
+```
+
+The relationship between each component in the architecture is defined by the "uses" field."""
     )
 
     if "database" in external_infrastructure:
@@ -93,7 +95,7 @@ Consider the control flow. For each component, specify the other components that
             RawComponent(
                 type="function",
                 name="get_db",
-                purpose="The context manager for getting a database session. As part of the module, initializes the database.",
+                purpose="Initializes the database and gets a session.",
                 uses=[],
                 pypi_packages=["psycopg2-binary==2.9.10", "sqlalchemy==2.0.36"],
                 is_endpoint=False,
