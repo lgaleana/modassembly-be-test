@@ -89,13 +89,16 @@ def write_function(
     *,
     tries: int = 3,
 ) -> LevelContext:
-    user_message = f"Write the actual working code (no placeholders) for: {component.model_dump()}\n"
+    user_message = f"""Write the code for: {component.model_dump()}.
+
+Speficications:
+1. The code should work (no placeholders).
+2. Don't catch exceptions unless specified. Let errors raise.\n"""
     if component.is_endpoint:
         user_message += (
             "Since this function is meant to be an endpoint, "
             "1) add enough documentation and 2) add very specific typing, "
-            "so that it's easy to use in Swagger. "
-            "Use pydantic models in the FastAPI decorator, instead of SQLAlchemy models.\n"
+            "so that it's easy to use in Swagger.\n"
         )
     user_message += "\n```python\n...\n```"
 

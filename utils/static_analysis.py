@@ -42,6 +42,9 @@ class InvalidResponseModel(Exception):
 
 
 def validate_response_model(code: str) -> None:
+    namespace = {}
+    exec(code, namespace)
+
     tree = ast.parse(code)
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef):
@@ -51,7 +54,7 @@ def validate_response_model(code: str) -> None:
                         if keyword.arg == "response_model":
                             if isinstance(keyword.value, ast.Name):
                                 model_name = keyword.value.id
-                                model_class = globals().get(model_name)
+                                model_class = namespace.get(model_name)
                                 if not model_class or not isinstance(
                                     model_class(), BaseModel
                                 ):
