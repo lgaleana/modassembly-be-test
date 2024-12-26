@@ -3,6 +3,8 @@ import importlib
 import importlib.util
 import sys
 
+from pydantic import BaseModel
+
 
 def check_imports(code: str, app_name: str) -> None:
     site_packages = f"db/repos/{app_name}/venv/lib/python3.13/site-packages"
@@ -33,3 +35,27 @@ def extract_router_name(code: str) -> str:
                         if node.value.func.id == "APIRouter":
                             return node.targets[0].id
     raise ValueError("No APIRouter found")
+
+
+class InvalidResponseModel(Exception):
+    pass
+
+
+def validate_response_model(code: str) -> None:
+    tree = ast.parse(code)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef):
+            for decorator in node.decorator_list:
+                if isinstance(decorator, ast.Call):
+                    for keyword in decorator.keywords:
+                        if keyword.arg == "response_model":
+                            if isinstance(keyword.value, ast.Name):
+                                model_name = keyword.value.id
+                                model_class = globals().get(model_name)
+                                if not model_class or not isinstance(
+                                    model_class(), BaseModel
+                                ):
+                                    raise InvalidResponseModel(
+                                        "Expected instance of BaseModel, "
+                                        f"found :: {model_name}"
+                                    )
