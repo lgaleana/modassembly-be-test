@@ -44,7 +44,7 @@ def run(app_name: str, user_story: str) -> Dict[str, Any]:
     conversation.add_system(
         """You are helpful AI assistant that designs backend architectures.
 
-The system that you design will be exposed via a set of FastAPI endpoints. If needed, you can rely on 3 types of external infrastructure: a database, the file system and http requests."""
+The system that you design will be exposed via a set of FastAPI endpoints. If needed, you can rely on 3 types of external infrastructure: a database and http requests."""
     )
     conversation.add_user(
         f"""Consider the following user story: {user_story}.
@@ -61,7 +61,7 @@ Consider the control flow. For each component, specify the other components that
         """What types of external infrastructure does this architecture rely on?
         
 ```json
-["database", "file_system", "http", "other"]
+["database", "http", "other"]
 ````"""
     )
     axu_message = llm.stream_text(aux_convo)
