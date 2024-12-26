@@ -8,7 +8,7 @@ from pydantic import BaseModel
 load_dotenv()
 
 from ai import llm
-from workflows.helpers import Component, REPOS, extract_from_pattern
+from workflows.helpers import Component, REPOS, extract_from_pattern, run_mypy
 from utils.files import File
 from utils.io import print_system
 from utils.state import Conversation
@@ -85,37 +85,39 @@ def write_function(
     *,
     tries: int = 3,
 ) -> LevelContext:
+    user_message = f"Write the actual working code (no placeholders) for: {component.model_dump()}\n"
+    if component.is_endpoint:
+        user_message += (
+            "Since this function is meant to be an endpoint, "
+            "1) add enough documentation and 2) add very specific typing, "
+            "so that it's easy to use in Swagger. "
+            "Use pydantic models in the FastAPI decorator, instead of SQLAlchemy models.\n"
+        )
+    user_message += "\n```python\n...\n```"
+
     def _write_function(try_: int) -> LevelContext:
-        user_message = f"Write the actual working code (no placeholders) for: {component.model_dump()}\n"
-        if component.is_endpoint:
-            user_message += (
-                "Since this function is meant to be an endpoint, "
-                "1) add enough documentation and 2) add very specific typing, "
-                "so that it's easy to use in Swagger. "
-                "Use pydantic models in the FastAPI decorator, instead of SQLAlchemy models.\n"
-            )
-        user_message += "\n```python\n...\n```"
         conversation.add_user(user_message)
         assistant_message = llm.stream_text(conversation)
         conversation.add_assistant(assistant_message)
 
         code = extract_from_pattern(assistant_message, pattern=r"```python\n(.*?)```")
+        file_path = f"app/components/{component.name}.py"
+        with open(f"{REPOS}/{app_name}/{file_path}", "w") as f:
+            f.write(code)
 
         try:
             compile(code, "<string>", "exec")
-            check_imports(code, app_name)
+            # check_imports(code, app_name)
+            run_mypy(f"{REPOS}/{app_name}/{file_path}")
             if component.is_endpoint:
                 extract_router_name(code)
         except Exception as e:
             print_system(f"!!! Error: {e} for :: {component.name}")
             if try_ == tries:
                 raise e
-            conversation.add_user(f"Found errors :: {e}. Please fix them.")
+            conversation.add_user(f"Found errors ::\n\n{e}\n\nPlease fix them.")
             return _write_function(try_ + 1)
 
-        file_path = f"app/components/{component.name}.py"
-        with open(f"{REPOS}/{app_name}/{file_path}", "w") as f:
-            f.write(code)
         return LevelContext(
             component=component,
             user_message=user_message,

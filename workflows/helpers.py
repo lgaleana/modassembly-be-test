@@ -1,10 +1,9 @@
 import json
 import os
 import re
-import shutil
 import subprocess
 import venv
-from tempfile import mkdtemp
+from mypy import api
 from typing import Any, Dict, List, Literal, Optional, Set
 
 import matplotlib.pyplot as plt
@@ -139,3 +138,21 @@ def install_requirements(pypi_packages: Set[str], app_name: str) -> None:
     print_system(output.stderr)
     if output.returncode != 0:
         raise Exception(f"{output.stdout}\n{output.stderr}")
+
+
+class MypyError(Exception):
+    pass
+
+
+def run_mypy(file_path: str) -> None:
+    stdout, stderr, exit_code = api.run(
+        [
+            file_path,
+            "--disable-error-code=import-untyped",
+            "--disable-error-code=call-overload",
+        ]
+    )
+    print_system(stdout)
+    print_system(stderr)
+    if exit_code != 0:
+        raise MypyError(f"{exit_code}\n{stdout}")
