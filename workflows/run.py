@@ -1,6 +1,5 @@
 import json
 import argparse
-import shutil
 import sys
 from concurrent.futures import ThreadPoolExecutor
 

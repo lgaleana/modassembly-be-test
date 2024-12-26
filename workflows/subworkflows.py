@@ -15,7 +15,6 @@ from utils.state import Conversation
 from utils.static_analysis import (
     check_imports,
     extract_router_name,
-    validate_response_model,
 )
 
 
@@ -97,8 +96,8 @@ Speficications:
     if component.is_endpoint:
         user_message += (
             "Since this function is meant to be an endpoint, "
-            "1) add enough documentation and 2) add very specific typing, "
-            "so that it's easy to use in Swagger.\n"
+            "a) add enough documentation and b) add very specific typing for inputs, "
+            "so that it's easy to use in Swagger. Ignore the response_model.\n"
         )
     user_message += "\n```python\n...\n```"
 
@@ -118,7 +117,6 @@ Speficications:
             run_mypy(f"{REPOS}/{app_name}/{file_path}")
             if component.is_endpoint:
                 extract_router_name(code)
-                validate_response_model(code)
         except Exception as e:
             print_system(f"!!! Error: {e} for :: {component.name}")
             if try_ == tries:
