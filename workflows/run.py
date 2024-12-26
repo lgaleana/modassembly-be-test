@@ -37,10 +37,7 @@ def run(app_name: str) -> str:
     architecture.pop("main")
     architecture.pop("get_db", None)
     sys.path.append(f"{REPOS}/{app_name}")
-    structs = set(s.name for s in architecture.values() if s.type == "struct")
-    nodes_to_parallelize = [structs] + group_nodes_by_dependencies(
-        [v for v in architecture.values() if v.type != "struct"]
-    )
+    nodes_to_parallelize = group_nodes_by_dependencies(list(architecture.values()))
     for level in nodes_to_parallelize:
         with ThreadPoolExecutor(max_workers=10) as executor:
             outputs = list(

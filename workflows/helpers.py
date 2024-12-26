@@ -73,14 +73,19 @@ def build_graph(architecture: List[RawComponent]) -> nx.DiGraph:
 
 
 def group_nodes_by_dependencies(architecture: List[Component]) -> List[Set[str]]:
-    # Cursor function
-
     component_map = {comp.name: comp.uses for comp in architecture}
+    type_map = {comp.name: comp.type for comp in architecture}
     remaining_nodes = set(component_map.keys())
     levels = []
 
+    # First level: all structs
+    struct_level = {node for node in remaining_nodes if type_map[node] == "struct"}
+    if struct_level:
+        levels.append(struct_level)
+        remaining_nodes -= struct_level
+
+    # Process remaining nodes by dependency
     while remaining_nodes:
-        # Find nodes whose dependencies have all been processed
         current_level = {
             node
             for node in remaining_nodes
