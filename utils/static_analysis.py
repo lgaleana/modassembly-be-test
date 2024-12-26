@@ -7,6 +7,8 @@ import sys
 def check_imports(code: str, app_name: str) -> None:
     site_packages = f"db/repos/{app_name}/venv/lib/python3.13/site-packages"
     sys.path.append(site_packages)
+    site_packages = f"db/repos/{app_name}/venv/lib/python3.11/site-packages"
+    sys.path.append(site_packages)
 
     tree = ast.parse(code)
     for node in ast.walk(tree):
