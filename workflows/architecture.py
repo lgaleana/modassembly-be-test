@@ -114,7 +114,7 @@ Complete the architecture:
     )
 
     tries = 0
-    while tries < 2:
+    while tries < 3:
         assistant_message = llm.stream_text(conversation)
         conversation.add_assistant(assistant_message)
 

@@ -83,22 +83,21 @@ def write_function(
     component: Component,
     conversation: Conversation,
     *,
-    tries: int = 2,
+    tries: int = 3,
 ) -> LevelContext:
     def _write_function(try_: int) -> LevelContext:
-        user_message = f"""Write theactual working code (no placeholders) for: {component.model_dump()}\n\n
-```python
-...
-```"""
+        user_message = f"Write the actual working code (no placeholders) for: {component.model_dump()}\n"
         if component.is_endpoint:
             user_message += (
-                "\n\nSince this function is meant to be an endpoint, "
+                "Since this function is meant to be an endpoint, "
                 "1) add enough documentation and 2) add very specific typing, "
                 "so that it's easy to use in Swagger. "
-                "Use pydantic models in the FastAPI decorator, instead of SQLAlchemy models."
+                "Use pydantic models in the FastAPI decorator, instead of SQLAlchemy models.\n"
             )
+        user_message += "\n```python\n...\n```"
         conversation.add_user(user_message)
         assistant_message = llm.stream_text(conversation)
+        conversation.add_assistant(assistant_message)
 
         code = extract_from_pattern(assistant_message, pattern=r"```python\n(.*?)```")
 
@@ -108,8 +107,7 @@ def write_function(
             if component.is_endpoint:
                 extract_router_name(code)
         except Exception as e:
-            print_system(f"!!! Error: {e}")
-            conversation.add_assistant(assistant_message)
+            print_system(f"!!! Error: {e} for :: {component.name}")
             if try_ == tries:
                 raise e
             conversation.add_user(f"Found errors :: {e}. Please fix them.")
