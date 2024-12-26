@@ -95,7 +95,7 @@ def write_function(
                 "\n\nSince this function is meant to be an endpoint, "
                 "1) add enough documentation and 2) add very specific typing, "
                 "so that it's easy to use in Swagger. "
-                "Remember to use pydantic models in the fastapi decorator, instead of sqlalchemy."
+                "Use pydantic models in the fastapi decorator, instead of sqlalchemy models."
             )
         conversation.add_user(user_message)
         assistant_message = llm.stream_text(conversation)

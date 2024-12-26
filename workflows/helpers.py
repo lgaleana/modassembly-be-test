@@ -104,14 +104,18 @@ def control_flow_str(control_flow: Dict[str, Dict[str, List[str]]]) -> str:
 
 
 def execute_deploy(app_name: str) -> str:
-    os.chdir(f"{REPOS}/{app_name}")
-    subprocess.run(["chmod", "+x", "deploy.sh"], check=True)
-    output = subprocess.run(
-        ["./deploy.sh", app_name], check=True, capture_output=True, text=True
-    )
-    print_system(output.stdout)
-    print_system(output.stderr)
-    return output.stdout.splitlines()[-1]
+    original_dir = os.getcwd()
+    try:
+        os.chdir(f"{REPOS}/{app_name}")
+        subprocess.run(["chmod", "+x", "deploy.sh"], check=True)
+        output = subprocess.run(
+            ["./deploy.sh", app_name], check=True, capture_output=True, text=True
+        )
+        print_system(output.stdout)
+        print_system(output.stderr)
+        return output.stdout.splitlines()[-1]
+    finally:
+        os.chdir(original_dir)
 
 
 def install_requirements(pypi_packages: Set[str], app_name: str) -> None:
