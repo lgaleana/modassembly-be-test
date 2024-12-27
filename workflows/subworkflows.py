@@ -96,8 +96,9 @@ Speficications:
     if component.is_endpoint:
         user_message += (
             "Since this function is meant to be an endpoint, "
-            "a) add enough documentation and b) add very specific typing for inputs, "
-            "so that it's easy to use in Swagger. Ignore the response_model.\n"
+            "a) add enough documentation and b) add proper typing, "
+            "so that it's easy to use in Swagger. "
+            "Define pydantic models for inputs and OUTPUTS where needed.\n"
         )
     user_message += "\n```python\n...\n```"
 
