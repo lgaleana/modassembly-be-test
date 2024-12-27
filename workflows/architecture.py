@@ -50,7 +50,7 @@ The system that you design will be exposed via a set of FastAPI endpoints. If ne
     conversation.add_user(
         f"""Consider the following system: {system_description}.
 
-Design the architecture (no code) of the python module (purely backend) that implements it. Be opinionated and specific in your decisions.
+Design the most simple architecture (no code) of the python module (purely backend) that implements it. Be opinionated and specific in your decisions.
 Use a modular and composable design pattern. Prefer functions over classes.
 Consider the control flow. For each component, specify the other components that it uses internally."""
     )
