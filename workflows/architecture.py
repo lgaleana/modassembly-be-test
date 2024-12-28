@@ -11,7 +11,7 @@ from ai import llm
 from utils.io import user_input, print_system
 from utils.state import Conversation
 from workflows.helpers import (
-    RawComponent,
+    BaseComponent,
     build_graph,
     extract_json,
     install_requirements,
@@ -20,7 +20,7 @@ from workflows.helpers import (
 
 
 initial_architecture = [
-    RawComponent(
+    BaseComponent(
         type="function",
         name="main",
         purpose="The main FastAPI script",
@@ -94,7 +94,7 @@ The relationship between each component in the architecture is defined by the "u
 
     if "database" in external_infrastructure:
         initial_architecture.append(
-            RawComponent(
+            BaseComponent(
                 type="function",
                 name="get_db",
                 purpose="Initializes the database and gets a session.",
@@ -124,7 +124,7 @@ Complete the architecture:
             assistant_message, pattern=r"```json\n(.*)\n```"
         )
         architecture = {
-            a["name"]: RawComponent.model_validate(a) for a in architecture_raw
+            a["name"]: BaseComponent.model_validate(a) for a in architecture_raw
         }
 
         try:

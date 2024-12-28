@@ -36,7 +36,7 @@ class Function(ABC, Generic[Parameters]):
             function=FunctionDefinition(
                 name=cls.__name__,
                 description=cls.description,
-                parameters=cls.parameters_schema().schema(),
+                parameters=cls.parameters_schema().model_json_schema(),
             ),
             type="function",
         )

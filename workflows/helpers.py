@@ -4,11 +4,11 @@ import re
 import subprocess
 import venv
 from mypy import api
-from typing import Any, Dict, List, Literal, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Union, Annotated, Literal
 
 import matplotlib.pyplot as plt
 import networkx as nx
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, RootModel
 
 from utils.files import File
 from utils.io import print_system
@@ -17,35 +17,85 @@ from utils.io import print_system
 REPOS = "db/repos"
 
 
-class RawComponent(BaseModel):
-    type: Literal["struct", "function"] = Field(description="struct or function")
+class BaseComponent(BaseModel):
+    type: str = Field(description="The type of component (sqlalchemymodel or function)")
     name: str = Field(description="The name of the struct or function")
-    purpose: str = Field(description="The purpose of the struct or function")
-    uses: List[str] = Field(
-        description="The structs or functions that this component uses internally"
-    )
+    namespace: str = Field(description="The namespace of the struct or function")
     pypi_packages: List[str] = Field(
         description="The pypi packages that the component will need"
+    )
+
+    @property
+    def key(self) -> str:
+        return f"{self.namespace}.{self.name}" if self.namespace else self.name
+
+
+class SQLAlchemyModel(BaseComponent):
+    type: Literal["sqlalchemymodel"] = "sqlalchemymodel"
+    fields: List[str] = Field(description="The fields of the model")
+
+
+class Function(BaseComponent):
+    type: Literal["function"] = "function"
+    purpose: str = Field(description="The purpose of the function")
+    uses: List[str] = Field(
+        description="The structs or functions that this component uses internally"
     )
     is_endpoint: bool = Field(description="Whether this is a FastAPI endpoint")
 
 
-class Component(RawComponent):
+class Component(RootModel):
+    root: Annotated[Union[SQLAlchemyModel, Function], Field(discriminator="type")]
+
+    @property
+    def key(self) -> str:
+        return self.root.key
+
+    @classmethod
+    def model_json_schema(cls) -> Dict[str, Any]:
+        """Returns a simplified schema suitable for OpenAI function calls"""
+        # Get base schema (common fields for all components)
+        base_schema = BaseComponent.model_json_schema()
+        # Get type-specific fields from each subclass
+        sqlalchemy_fields = {
+            k: v
+            for k, v in SQLAlchemyModel.model_json_schema()["properties"].items()
+            if k not in base_schema["properties"]
+        }
+        function_fields = {
+            k: v
+            for k, v in Function.model_json_schema()["properties"].items()
+            if k not in base_schema["properties"]
+        }
+        # Update the type field to be an enum of possible values
+        base_schema["properties"]["type"] = {
+            "type": "string",
+            "enum": ["sqlalchemymodel", "function"],
+            "description": "The type of component (sqlalchemymodel or function)",
+        }
+        # Combine all properties
+        base_schema["properties"].update(sqlalchemy_fields)
+        base_schema["properties"].update(function_fields)
+        return base_schema
+
+
+class ImplementedComponent(BaseModel):
+    base: Component
     file: Optional[File] = None
 
 
-def extract_from_pattern(response: str, *, pattern: str) -> str:
-    match = re.search(pattern, response, re.DOTALL)
-    if not match:
-        raise ValueError("No match found in response")
-    extracted = match.group(1)
-    print_system(extracted)
-    return extracted
+def extract_from_pattern(response: str, *, pattern: str) -> List[str]:
+    matches = re.findall(pattern, response, re.DOTALL)
+    if not matches:
+        raise ValueError("No matches found in response")
+    for match in matches:
+        print_system(match)
+    return matches
 
 
-def extract_json(response: str, *, pattern: str) -> Any:
+def extract_json(response: str, *, pattern: str) -> List[Any]:
     json_str = extract_from_pattern(response, pattern=pattern)
-    return json.loads(json_str)
+    return [json.loads(json_str) for json_str in json_str]
 
 
 def visualize_graph(G: nx.DiGraph, *, figsize=(12, 12), k=0.15, iterations=20):
@@ -62,7 +112,7 @@ def visualize_graph(G: nx.DiGraph, *, figsize=(12, 12), k=0.15, iterations=20):
     plt.show()
 
 
-def build_graph(architecture: List[RawComponent]) -> nx.DiGraph:
+def build_graph(architecture: List[BaseComponent]) -> nx.DiGraph:
     G = nx.DiGraph()
     for component in architecture:
         G.add_node(component.name)
@@ -71,31 +121,39 @@ def build_graph(architecture: List[RawComponent]) -> nx.DiGraph:
     return G
 
 
-def group_nodes_by_dependencies(architecture: List[Component]) -> List[Set[str]]:
-    component_map = {comp.name: comp.uses for comp in architecture}
-    type_map = {comp.name: comp.type for comp in architecture}
-    remaining_nodes = set(component_map.keys())
+def group_nodes_by_dependencies(
+    architecture: List[ImplementedComponent],
+) -> List[Set[str]]:
     levels = []
 
-    # First level: all structs
-    struct_level = {node for node in remaining_nodes if type_map[node] == "struct"}
-    if struct_level:
-        levels.append(struct_level)
-        remaining_nodes -= struct_level
+    # First level: all SQLAlchemy models
+    levels.append(
+        {
+            comp.base.root.key
+            for comp in architecture
+            if comp.base.root.type == "sqlalchemymodel"
+        }
+    )
 
-    # Process remaining nodes by dependency
-    while remaining_nodes:
+    # Process functions by dependency
+    functions = {
+        comp.base.root.key: comp.base.root.uses
+        for comp in architecture
+        if comp.base.root.type == "function"
+    }
+    remaining_functions = set(functions.keys())
+    while remaining_functions:
         current_level = {
-            node
-            for node in remaining_nodes
-            if all(dep not in remaining_nodes for dep in component_map[node])
+            func
+            for func in remaining_functions
+            if all(dep not in remaining_functions for dep in functions[func])
         }
 
         if not current_level:
             raise ValueError("Circular dependency detected")
 
         levels.append(current_level)
-        remaining_nodes -= current_level
+        remaining_functions -= current_level
 
     return levels
 
