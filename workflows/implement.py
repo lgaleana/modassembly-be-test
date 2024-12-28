@@ -15,6 +15,7 @@ from workflows.helpers import (
     Function,
     ImplementedComponent,
     REPOS,
+    SQLAlchemyModel,
     execute_deploy,
     group_nodes_by_dependencies,
 )
@@ -39,9 +40,14 @@ def run(app_name: str) -> str:
     architecture.pop("main")
     architecture.pop("helpers.get_db")
     sys.path.append(f"{REPOS}/{app_name}")
-    nodes_to_parallelize = group_nodes_by_dependencies(list(architecture.values()))
-    for level in nodes_to_parallelize:
-        print_system(f"Implementing level {level}\n")
+    models_to_parallelize = group_nodes_by_dependencies(
+        [m for m in architecture.values() if isinstance(m.base.root, SQLAlchemyModel)]
+    )
+    functions_to_parallelize = group_nodes_by_dependencies(
+        [f for f in architecture.values() if isinstance(f.base.root, Function)]
+    )
+    for level in models_to_parallelize + functions_to_parallelize:
+        print_system(f"Implementing :: {level}\n")
         with ThreadPoolExecutor(max_workers=10) as executor:
             outputs = list(
                 executor.map(
@@ -63,7 +69,10 @@ def run(app_name: str) -> str:
         main_content = f.read()
     main_content += "\n"
     for component in architecture.values():
-        if isinstance(component.base.root, Function) and component.base.root.is_endpoint:
+        if (
+            isinstance(component.base.root, Function)
+            and component.base.root.is_endpoint
+        ):
             assert component.file
             module = component.file.path.replace(".py", "").replace("/", ".")
             router_name = extract_router_name(component.file.content)

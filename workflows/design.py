@@ -23,8 +23,8 @@ initial_config = {
         FunctionComponent(
             name="main",
             namespace="",
-            purpose="The main FastAPI script",
-            uses=["Other functions or structs"],
+            purpose="The main FastAPI script.",
+            uses=["Other sqlalchemymodels or functions"],
             pypi_packages=[
                 "fastapi==0.115.6",
                 "pydantic==2.10.3",
@@ -86,7 +86,8 @@ You will be given the backend architecture of a python module that is hosted on 
         "type": "sqlalchemymodel",
         "name": "The name of the sqlalchemymodel",
         "namespace": "The namespace of the sqlalchemymodel",
-        "fields": ["The fields of the model"],
+        "fields": ["The fields of the sqlalchemymodel"],
+        "associations": ["The other sqlalchemymodels that this model is associated with"],
         "pypi_packages": ["The pypi packages that it will need"],
     }},
      {{

@@ -1,4 +1,5 @@
 import json
+import importlib
 import os
 import re
 import subprocess
@@ -12,15 +13,16 @@ from pydantic import BaseModel, Field, RootModel
 
 from utils.files import File
 from utils.io import print_system
+from utils.static_analysis import extract_sqlalchemy_models
 
 
 REPOS = "db/repos"
 
 
 class BaseComponent(BaseModel):
-    type: str = Field(description="The type of component (sqlalchemymodel or function)")
-    name: str = Field(description="The name of the struct or function")
-    namespace: str = Field(description="The namespace of the struct or function")
+    type: str = Field(description="sqlalchemymodel or function")
+    name: str = Field(description="The name of the sqlalchemymodel or function")
+    namespace: str = Field(description="The namespace of the component")
     pypi_packages: List[str] = Field(
         description="The pypi packages that the component will need"
     )
@@ -33,13 +35,16 @@ class BaseComponent(BaseModel):
 class SQLAlchemyModel(BaseComponent):
     type: Literal["sqlalchemymodel"] = "sqlalchemymodel"
     fields: List[str] = Field(description="The fields of the model")
+    associations: List[str] = Field(
+        description="The other sqlalchemymodels that this model is associated with"
+    )
 
 
 class Function(BaseComponent):
     type: Literal["function"] = "function"
     purpose: str = Field(description="The purpose of the function")
     uses: List[str] = Field(
-        description="The structs or functions that this component uses internally"
+        description="The sqlalchemymodels or functions that this component uses internally"
     )
     is_endpoint: bool = Field(description="Whether this is a FastAPI endpoint")
 
@@ -125,44 +130,28 @@ def group_nodes_by_dependencies(
     architecture: List[ImplementedComponent],
 ) -> List[Set[str]]:
     levels = []
+    dependencies = {}
+    for component in architecture:
+        if isinstance(component.base.root, SQLAlchemyModel):
+            dependencies[component.base.root.key] = component.base.root.associations
+        elif isinstance(component.base.root, Function):
+            dependencies[component.base.root.key] = component.base.root.uses
 
-    # First level: all SQLAlchemy models
-    levels.append(
-        {
-            comp.base.root.key
-            for comp in architecture
-            if comp.base.root.type == "sqlalchemymodel"
-        }
-    )
-
-    # Process functions by dependency
-    functions = {
-        comp.base.root.key: comp.base.root.uses
-        for comp in architecture
-        if comp.base.root.type == "function"
-    }
-    remaining_functions = set(functions.keys())
-    while remaining_functions:
+    remaining_components = set(dependencies.keys())
+    while remaining_components:
         current_level = {
-            func
-            for func in remaining_functions
-            if all(dep not in remaining_functions for dep in functions[func])
+            component
+            for component in remaining_components
+            if all(dep not in remaining_components for dep in dependencies[component])
         }
 
         if not current_level:
             raise ValueError("Circular dependency detected")
 
         levels.append(current_level)
-        remaining_functions -= current_level
+        remaining_components -= current_level
 
     return levels
-
-
-def control_flow_str(control_flow: Dict[str, Dict[str, List[str]]]) -> str:
-    str_ = ""
-    for component, details in control_flow.items():
-        str_ += f"{component}:\n    Calls: {', '.join(details['calls'])}\n"
-    return str_
 
 
 def execute_deploy(app_name: str) -> str:
@@ -196,6 +185,21 @@ def install_requirements(pypi_packages: Set[str], app_name: str) -> None:
     print_system(output.stderr)
     if output.returncode != 0:
         raise Exception(f"{output.stdout}\n{output.stderr}")
+
+
+def create_tables(app_name: str, namespace: str, code: str) -> None:
+    models = extract_sqlalchemy_models(code)
+    for model in models:
+        module_path = f"db.repos.{app_name}.app.{namespace}.{model}"
+        models_module = importlib.import_module(module_path)
+        model_class = getattr(models_module, model)
+        db_module = importlib.import_module(f"db.repos.{app_name}.app.helpers.db")
+        engine = getattr(db_module, "engine")
+        try:
+            model_class.__table__.drop(bind=engine)
+        except Exception:
+            pass
+        model_class.__table__.create(bind=engine)
 
 
 class MypyError(Exception):

@@ -2,8 +2,7 @@ import ast
 import importlib
 import importlib.util
 import sys
-
-from pydantic import BaseModel
+from typing import List
 
 
 def check_imports(code: str, app_name: str) -> None:
@@ -35,3 +34,15 @@ def extract_router_name(code: str) -> str:
                         if node.value.func.id == "APIRouter":
                             return node.targets[0].id
     raise ValueError("No APIRouter found")
+
+
+def extract_sqlalchemy_models(code: str) -> List[str]:
+    models = []
+    tree = ast.parse(code)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef):
+            for base in node.bases:
+                if isinstance(base, ast.Name) and base.id == "Base":
+                    models.append(node.name)
+                    break
+    return models

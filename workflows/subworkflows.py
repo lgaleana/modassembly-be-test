@@ -9,11 +9,11 @@ load_dotenv()
 
 from ai import llm
 from workflows.helpers import (
-    Component,
     Function,
     ImplementedComponent,
     REPOS,
     SQLAlchemyModel,
+    create_tables,
     extract_from_pattern,
     run_mypy,
 )
@@ -94,20 +94,24 @@ def write_function(
     *,
     tries: int = 3,
 ) -> LevelContext:
-    user_message = f"""Write the code for: {component.model_dump()}.
+    user_message = f"""Write the code for: {component.base.model_dump()}.
 
 Speficications:
-1. The code should work (no placeholders).
-2. Don't catch exceptions unless specified. Let errors raise.\n"""
+- The code should work (no placeholders).
+- Don't catch exceptions unless specified. Let errors raise.\n"""
     if isinstance(component.base.root, Function) and component.base.root.is_endpoint:
         user_message += (
-            "Since this function is meant to be an endpoint, "
+            "- Since this function is meant to be an endpoint, "
             "a) add enough documentation and b) add proper typing, "
-            "so that it's easy to use in Swagger. "
-            "Define pydantic models for inputs and OUTPUTS where needed.\n"
+            "so that it's easy to use in Swagger.\n"
+            "- Define pydantic models for inputs and OUTPUTS where needed.\n"
+            "- Convert types correctly between sqlalchemy and pydantic.\n"
         )
     elif isinstance(component.base.root, SQLAlchemyModel):
-        user_message += "Import Base from app.helpers.db.\n"
+        user_message += (
+            "- Import Base from app.helpers.db.\n"
+            "- Only use `ForeignKey` if the other model exists in the architecture.\n"
+        )
     user_message += "\n```python\n...\n```"
 
     def _write_function(try_: int) -> LevelContext:
@@ -122,7 +126,7 @@ Speficications:
             if len(patterns) > 1:
                 raise ValueError(
                     f"Found {len(patterns)} code blocks.\n"
-                    f"Write only the code for :: {component.model_dump()}"
+                    f"Write only the code for :: {component.base.model_dump()}"
                 )
             code = patterns[0]
 
@@ -142,6 +146,8 @@ Speficications:
                 and component.base.root.is_endpoint
             ):
                 extract_router_name(code)
+            elif isinstance(component.base.root, SQLAlchemyModel):
+                create_tables(app_name, component.base.root.namespace, code)
         except Exception as e:
             print_system(f"!!! Error: {e} for :: {component.base.root.name}")
             if try_ == tries:
