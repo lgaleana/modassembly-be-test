@@ -1,7 +1,7 @@
 import json
 import argparse
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from dotenv import load_dotenv
 
@@ -9,6 +9,7 @@ load_dotenv()
 
 from utils.architecture import (
     Function,
+    ImplementedComponent,
     SQLAlchemyModel,
     load_config,
     save_config,
@@ -23,12 +24,29 @@ from workflows.helpers import (
 from workflows.subworkflows import ImplementationContext, save_files, write_component
 
 
-def run(config: Dict[str, Any], app_name: str) -> str:
-    architecture = {c.base.key: c for c in config["architecture"]}
-    raw_architecture = [c.base.model_dump() for c in architecture.values()]
+def run(config: Dict[str, Any], new_architecture: List[ImplementedComponent]) -> str:
+    app_name = config["name"]
+    saved_architecture = config["architecture"]
     external_infrastructure = ["database", "http"]
 
+    architecture = {}
+    for component in saved_architecture:
+        if not component.file:
+            architecture[component.base.key] = component
+    for new_component in new_architecture:
+        for old_component in saved_architecture:
+            if (
+                new_component.base.key == old_component.base.key
+                and new_component != old_component
+            ):
+                architecture[new_component.base.key] = new_component
+                break
+
+    if not architecture:
+        return config["url"]
+
     conversation = Conversation()
+    raw_architecture = [c.base.model_dump() for c in architecture.values()]
     conversation.add_user(
         f"Consider the following python architecture: {json.dumps(raw_architecture, indent=2)}"
     )
@@ -107,4 +125,4 @@ if __name__ == "__main__":
 
     config = load_config(args.app)
 
-    run(config, args.app)
+    run(config, [])

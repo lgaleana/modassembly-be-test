@@ -111,6 +111,7 @@ initial_config = {
     ],
     "external_infrastructure": ["database", "http"],
     "stories": [],
+    "url": None,
 }
 
 
@@ -125,6 +126,7 @@ def load_config(app_name: str) -> Dict[str, Union[str, List[ImplementedComponent
         ],
         "external_infrastructure": config["external_infrastructure"],
         "stories": config["stories"],
+        "url": config["url"],
     }
 
 
@@ -136,6 +138,7 @@ def save_config(config: Dict[str, Union[str, List[ImplementedComponent]]]) -> No
         "architecture": raw_architecture,
         "external_infrastructure": config["external_infrastructure"],
         "stories": config["stories"],
+        "url": config["url"],
     }
     print_system(json.dumps(raw_config, indent=2))
     with open(f"db/repos/{config['name']}/config.json", "w") as f:
