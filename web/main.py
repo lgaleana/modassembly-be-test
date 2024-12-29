@@ -18,6 +18,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(create_app_router)
-app.include_router(design_router)
-app.include_router(implement_router)
+app.include_router(create_app_router, prefix="/create-app")
+app.include_router(design_router, prefix="/design")
+app.include_router(implement_router, prefix="/implement")
