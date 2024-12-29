@@ -16,7 +16,7 @@ from workflows.helpers import (
     execute_deploy,
     group_nodes_by_dependencies,
 )
-from workflows.subworkflows import save_files, write_function
+from workflows.subworkflows import save_files, write_component
 
 
 def run(app_name: str) -> str:
@@ -41,7 +41,7 @@ def run(app_name: str) -> str:
         with ThreadPoolExecutor(max_workers=10) as executor:
             outputs = list(
                 executor.map(
-                    write_function,
+                    write_component,
                     [app_name] * len(level),
                     [architecture[l] for l in level],
                     [conversation.copy() for _ in level],

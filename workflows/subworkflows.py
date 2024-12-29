@@ -1,9 +1,8 @@
-import os
 import sys
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from dotenv import load_dotenv
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 load_dotenv()
 
@@ -11,6 +10,8 @@ from ai import llm
 from workflows.helpers import (
     Function,
     ImplementedComponent,
+    ModelImplementationError,
+    MypyError,
     REPOS,
     SQLAlchemyModel,
     create_folders_if_not_exist,
@@ -21,7 +22,7 @@ from workflows.helpers import (
 from utils.files import File
 from utils.io import print_system
 from utils.state import Conversation
-from utils.static_analysis import extract_router_name
+from utils.static_analysis import RouterNotFoundError, extract_router_name
 
 
 def save_files(
@@ -66,21 +67,31 @@ def save_files(
             conversation.add_user(f"I saved the code in {db_helper_path}.")
 
 
-class LevelContext(BaseModel):
+class ImplementationContext(BaseModel):
     component: ImplementedComponent
-    user_message: str
-    assistant_message: str
+    user_message: Optional[str] = None
+    assistant_message: Optional[str] = None
+    error: Optional[Exception] = None
+    tries: int = 0
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
-def write_function(
+class MultipleCodeBlocksError(Exception):
+    pass
+
+
+class CompilationError(Exception):
+    pass
+
+
+def write_component(
     app_name: str,
-    component: ImplementedComponent,
+    context: ImplementationContext,
     conversation: Conversation,
-    *,
-    tries: int = 3,
-) -> LevelContext:
+) -> ImplementationContext:
     sys.path.append(f"{REPOS}/{app_name}")
 
+    component = context.component
     user_message = f"""Write the code for: {component.base.model_dump()}.
 
 Speficications:
@@ -102,53 +113,55 @@ Speficications:
             "- Only use `ForeignKey` if the other model exists in the architecture.\n"
         )
     user_message += "\n```python\n...\n```"
+    conversation.add_user(user_message)
 
-    def _write_function(try_: int) -> LevelContext:
-        conversation.add_user(user_message)
-        assistant_message = llm.stream_text(conversation)
-        conversation.add_assistant(assistant_message)
+    assistant_message = llm.stream_text(conversation)
+    patterns = extract_from_pattern(assistant_message, pattern=r"```python\n(.*?)```")
+    try:
+        if len(patterns) > 1:
+            raise MultipleCodeBlocksError(
+                f"Found {len(patterns)} code blocks.\n"
+                f"Write only the code for :: {component.base.model_dump()}"
+            )
+        code = patterns[0]
+
+        create_folders_if_not_exist(app_name, f"app.{component.base.root.namespace}")
+        folders = component.base.root.namespace.replace(".", "/")
+        file_path = f"app/{folders}/{component.base.root.name}.py"
+        with open(f"{REPOS}/{app_name}/{file_path}", "w") as f:
+            f.write(code)
 
         try:
-            patterns = extract_from_pattern(
-                assistant_message, pattern=r"```python\n(.*?)```"
-            )
-            if len(patterns) > 1:
-                raise ValueError(
-                    f"Found {len(patterns)} code blocks.\n"
-                    f"Write only the code for :: {component.base.model_dump()}"
-                )
-            code = patterns[0]
-
-            create_folders_if_not_exist(
-                app_name, f"app.{component.base.root.namespace}"
-            )
-            folders = component.base.root.namespace.replace(".", "/")
-            file_path = f"app/{folders}/{component.base.root.name}.py"
-            with open(f"{REPOS}/{app_name}/{file_path}", "w") as f:
-                f.write(code)
-
             compile(code, "<string>", "exec")
-            # check_imports(code, app_name)
-            run_mypy(f"{REPOS}/{app_name}/{file_path}")
-            if (
-                isinstance(component.base.root, Function)
-                and component.base.root.is_endpoint
-            ):
-                extract_router_name(code)
-            elif isinstance(component.base.root, SQLAlchemyModel):
-                create_tables(app_name, component.base.root.namespace, code)
         except Exception as e:
-            print_system(f"!!! Error: {e} for :: {component.base.root.name}")
-            if try_ == tries:
-                raise e
-            conversation.add_user(f"Found errors ::\n\n{e}\n\nPlease fix them.")
-            return _write_function(try_ + 1)
+            raise CompilationError(f"Compilation error: {e}")
+        run_mypy(f"{REPOS}/{app_name}/{file_path}")
+        if (
+            isinstance(component.base.root, Function)
+            and component.base.root.is_endpoint
+        ):
+            extract_router_name(code)
+        elif isinstance(component.base.root, SQLAlchemyModel):
+            create_tables(app_name, component.base.root.namespace, code)
 
         component.file = File(path=file_path, content=code)
-        return LevelContext(
+        return ImplementationContext(
             component=component,
             user_message=user_message,
             assistant_message=assistant_message,
         )
-
-    return _write_function(0)
+    except (
+        MultipleCodeBlocksError,
+        CompilationError,
+        MypyError,
+        RouterNotFoundError,
+        ModelImplementationError,
+    ) as e:
+        print_system(f"!!! Error: {e} for :: {component.base.root.name}")
+        return ImplementationContext(
+            component=component,
+            user_message=user_message,
+            assistant_message=assistant_message,
+            error=e,
+            tries=context.tries + 1,
+        )

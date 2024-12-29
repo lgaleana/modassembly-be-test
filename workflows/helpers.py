@@ -11,7 +11,6 @@ import matplotlib.pyplot as plt
 import networkx as nx
 
 from utils.architecture import (
-    BaseComponent,
     Function,
     ImplementedComponent,
     SQLAlchemyModel,
@@ -51,12 +50,16 @@ def visualize_graph(G: nx.DiGraph, *, figsize=(12, 12), k=0.15, iterations=20):
     plt.show()
 
 
-def build_graph(architecture: List[BaseComponent]) -> nx.DiGraph:
+def build_graph(architecture: List[ImplementedComponent]) -> nx.DiGraph:
     G = nx.DiGraph()
     for component in architecture:
-        G.add_node(component.name)
-        for dependency in component.uses:
-            G.add_edge(component.name, dependency)
+        G.add_node(component.base.key)
+        if isinstance(component.base.root, SQLAlchemyModel):
+            for dependency in component.base.root.associations:
+                G.add_edge(component.base.key, dependency)
+        elif isinstance(component.base.root, Function):
+            for dependency in component.base.root.uses:
+                G.add_edge(component.base.key, dependency)
     return G
 
 
@@ -159,6 +162,10 @@ def execute_deploy(app_name: str) -> str:
         os.chdir(original_dir)
 
 
+class ModelImplementationError(Exception):
+    pass
+
+
 def create_tables(app_name: str, namespace: str, code: str) -> None:
     from sqlalchemy import create_engine
     from sqlalchemy.schema import MetaData
@@ -167,22 +174,25 @@ def create_tables(app_name: str, namespace: str, code: str) -> None:
     # Create new MetaData instance and Base for clean state
     metadata = MetaData()
     Base = declarative_base(metadata=metadata)
-    
+
     models = extract_sqlalchemy_models(code)
     test_engine = create_engine("sqlite:///:memory:")
-    
+
     for model in models:
         module_path = f"db.repos.{app_name}.app.{namespace}.{model}"
         models_module = importlib.import_module(module_path)
         model_class = getattr(models_module, model)
         # Clear any existing table definition
-        if hasattr(model_class, '__table__'):
+        if hasattr(model_class, "__table__"):
             model_class.__table__ = None
         # Make the model inherit from the new Base
         model_class.__bases__ = (Base,)
-        
-    # Create all tables with new metadata
-    metadata.create_all(bind=test_engine)
+
+    try:
+        # Create all tables with new metadata
+        metadata.create_all(bind=test_engine)
+    except Exception as e:
+        raise ModelImplementationError(f"Error creating tables: {e}")
 
 
 class MypyError(Exception):
@@ -199,4 +209,4 @@ def run_mypy(file_path: str) -> None:
     print_system(stdout)
     print_system(stderr)
     if exit_code != 0:
-        raise MypyError(f"{exit_code}\n{stdout}")
+        raise MypyError(f"{stdout}\n{stderr}")

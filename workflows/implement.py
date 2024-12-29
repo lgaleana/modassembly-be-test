@@ -20,7 +20,7 @@ from workflows.helpers import (
     group_nodes_by_dependencies,
     update_main,
 )
-from workflows.subworkflows import save_files, write_function
+from workflows.subworkflows import ImplementationContext, save_files, write_component
 
 
 def run(config: Dict[str, Any], app_name: str) -> str:
@@ -48,18 +48,47 @@ def run(config: Dict[str, Any], app_name: str) -> str:
         with ThreadPoolExecutor(max_workers=10) as executor:
             outputs = list(
                 executor.map(
-                    write_function,
+                    write_component,
                     [app_name] * len(level),
-                    [architecture[l] for l in level],
+                    [ImplementationContext(component=architecture[l]) for l in level],
                     [conversation.copy() for _ in level],
                 )
             )
-        for output in outputs:
-            assert output.component.file
-            conversation.add_user(output.user_message)
-            conversation.add_assistant(output.assistant_message)
-            conversation.add_user(f"I saved the code in {output.component.file.path}.")
-            architecture[output.component.base.key].file = output.component.file
+
+        def _update(context: ImplementationContext) -> None:
+            assert (
+                context.user_message
+                and context.assistant_message
+                and context.component.file
+            )
+            conversation.add_user(context.user_message)
+            conversation.add_assistant(context.assistant_message)
+            conversation.add_user(f"I saved the code in {context.component.file.path}.")
+            architecture[context.component.base.key].file = context.component.file
+
+        correct_implementations = [o for o in outputs if not o.error]
+        wrong_implementations = [o for o in outputs if o.error]
+        for output in correct_implementations:
+            _update(output)
+
+        if not wrong_implementations:
+            continue
+
+        for output in wrong_implementations:
+            while True:
+                if output.tries == 3:
+                    assert output.error
+                    raise output.error
+                assert output.user_message and output.assistant_message
+                conversation.add_user(output.user_message)
+                conversation.add_assistant(output.assistant_message)
+                conversation.add_user(
+                    f"Found errors ::\n\n{output.error}\n\nPlease fix them."
+                )
+                output = write_component(app_name, output, conversation.copy())
+                if not output.error:
+                    _update(output)
+                    break
 
     update_main(app_name, architecture, external_infrastructure)
 

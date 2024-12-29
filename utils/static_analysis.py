@@ -24,6 +24,10 @@ def check_imports(code: str, app_name: str) -> None:
                 # Note: We can't easily verify submodule imports without loading the module
 
 
+class RouterNotFoundError(Exception):
+    pass
+
+
 def extract_router_name(code: str) -> str:
     tree = ast.parse(code)
     for node in ast.walk(tree):
@@ -33,7 +37,7 @@ def extract_router_name(code: str) -> str:
                     if isinstance(node.value.func, ast.Name):
                         if node.value.func.id == "APIRouter":
                             return node.targets[0].id
-    raise ValueError("No APIRouter found")
+    raise RouterNotFoundError("No APIRouter found")
 
 
 def extract_sqlalchemy_models(code: str) -> List[str]:

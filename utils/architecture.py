@@ -1,5 +1,4 @@
 import json
-import os
 from typing import Any, Dict, List, Optional, Union, Annotated, Literal
 
 from pydantic import BaseModel, Field, RootModel
@@ -80,29 +79,38 @@ class ImplementedComponent(BaseModel):
 
 initial_config = {
     "architecture": [
-        Function(
-            name="main",
-            namespace="",
-            purpose="The main FastAPI script.",
-            uses=["Other sqlalchemymodels or functions"],
-            pypi_packages=[
-                "fastapi==0.115.6",
-                "pydantic==2.10.3",
-                "python-dotenv==1.0.1",
-                "uvicorn==0.34.0",
-            ],
-            is_endpoint=False,
+        ImplementedComponent(
+            base=Component(
+                Function(
+                    name="main",
+                    namespace="",
+                    purpose="The main FastAPI script.",
+                    uses=["Other sqlalchemymodels or functions"],
+                    pypi_packages=[
+                        "fastapi==0.115.6",
+                        "pydantic==2.10.3",
+                        "python-dotenv==1.0.1",
+                        "uvicorn==0.34.0",
+                    ],
+                    is_endpoint=False,
+                )
+            )
         ),
-        Function(
-            name="get_db",
-            namespace="helpers",
-            purpose="Initializes the database and gets a session.",
-            uses=[],
-            pypi_packages=["psycopg2-binary==2.9.10", "sqlalchemy==2.0.36"],
-            is_endpoint=False,
+        ImplementedComponent(
+            base=Component(
+                Function(
+                    name="get_db",
+                    namespace="helpers",
+                    purpose="Initializes the database and gets a session.",
+                    uses=[],
+                    pypi_packages=["psycopg2-binary==2.9.10", "sqlalchemy==2.0.36"],
+                    is_endpoint=False,
+                )
+            )
         ),
     ],
     "external_infrastructure": ["database", "http"],
+    "stories": [],
 }
 
 
@@ -116,6 +124,7 @@ def load_config(app_name: str) -> Dict[str, Union[str, List[ImplementedComponent
             ImplementedComponent.model_validate(a) for a in config["architecture"]
         ],
         "external_infrastructure": config["external_infrastructure"],
+        "stories": config["stories"],
     }
 
 
@@ -126,6 +135,7 @@ def save_config(config: Dict[str, Union[str, List[ImplementedComponent]]]) -> No
         "name": config["name"],
         "architecture": raw_architecture,
         "external_infrastructure": config["external_infrastructure"],
+        "stories": config["stories"],
     }
     print_system(json.dumps(raw_config, indent=2))
     with open(f"db/repos/{config['name']}/config.json", "w") as f:
@@ -139,7 +149,4 @@ def save_config(config: Dict[str, Union[str, List[ImplementedComponent]]]) -> No
 def create_initial_config(app_name: str):
     config = initial_config.copy()
     config["name"] = app_name
-    config["architecture"] = [
-        ImplementedComponent(base=c) for c in config["architecture"]
-    ]
     save_config(config)

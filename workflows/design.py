@@ -15,17 +15,17 @@ from utils.architecture import (
     load_config,
     save_config,
 )
-from utils.io import user_input
+from utils.io import print_system, user_input
 from utils.state import Conversation
-from workflows.helpers import REPOS
+from workflows.helpers import REPOS, build_graph, visualize_graph
 
 
-class AddComponent(Function[Component]):
-    description = "Adds a sqlalchemymodel or function to the architecture."
+class UpdateComponent(Function[Component]):
+    description = "Adds or updates a sqlalchemymodel or function to the architecture."
 
 
 def run(config: Dict[str, Any], user_story: str) -> Tuple[str, Dict[str, Any]]:
-    architecture = [c.base.root for c in config["architecture"]]
+    architecture = {c.base.root.key: c for c in config["architecture"]}
 
     conversation = Conversation()
     conversation.add_system(
@@ -35,58 +35,100 @@ You will be given the backend architecture of a python module that is hosted on 
 ```json
 [
     {{
-        "type": "sqlalchemymodel",
-        "name": "The name of the sqlalchemymodel",
-        "namespace": "The namespace of the sqlalchemymodel",
-        "fields": ["The fields of the sqlalchemymodel"],
-        "associations": ["The other sqlalchemymodels that this model is associated with"],
-        "pypi_packages": ["The pypi packages that it will need"],
+        "base": {{
+            "type": "sqlalchemymodel",
+            "name": "The name of the sqlalchemymodel",
+            "namespace": "The namespace of the sqlalchemymodel",
+            "fields": ["The fields of the sqlalchemymodel"],
+            "associations": ["The other sqlalchemymodels that this model is associated with"],
+            "pypi_packages": ["The pypi packages that it will need"],
+        }},
+        "file": null
     }},
-     {{
-        "type": "function",
-        "name": "The name of the function",
-        "namespace": "The namespace of the function",
-        "purpose": "What the component does",
-        "uses": ["The other namespace.functions or namespace.sqlalchemymodels that this component uses internally."],
-        "pypi_packages": ["The pypi packages that it will need"],
-        "is_endpoint": true or false whether this is a FastAPI endpoint
+    {{
+        "base": {{
+            "type": "function",
+            "name": "The name of the function",
+            "namespace": "The namespace of the function",
+            "purpose": "What the component does",
+            "uses": ["The other namespace.functions or namespace.sqlalchemymodels that this component uses internally."],
+            "pypi_packages": ["The pypi packages that it will need"],
+            "is_endpoint": true or false whether this is a FastAPI endpoint
+        }},
+         "file": null
     }},
     ...
 ]
 ```
 
+There are 2 types of "base" components: sqlalchemymodels and functions. A component can be added if it doesn't already exist in the architecture. And it can only be updated if it doesn't have a file associated with it. To update a component with an implemented file, the user must update it manually.
+
 You will also be given the set of GCP infrastructure that you have access to.
-Given an user story, build the architecture by adding components. Prefer the most simple design."""
+Given an user story, build the architecture by adding base components.
+Always prefer the most simple design."""
     )
 
-    raw_architecture = json.dumps([c.model_dump() for c in architecture], indent=4)
+    raw_architecture = json.dumps(
+        [c.model_dump() for c in architecture.values()], indent=4
+    )
+    conversation.add_user("Stories so far:\n" + "\n".join(config['stories']))
     conversation.add_user(f"Architecture:\n{raw_architecture}")
     conversation.add_user(
         "Available GCP infrastructure:\n- Cloud SQL.\n- External HTTP requests."
     )
-    conversation.add_user(f"User story: {user_story}")
+    conversation.add_user(f"New user story: {user_story}")
+
+    assistant_message = None
+    valid_components = []
     while True:
         next = llm.stream_next(
             conversation,
-            tools=[AddComponent.tool()],
+            tools=[UpdateComponent.tool()],
         )
 
         if isinstance(next, llm.RawFunctionParams):
             conversation.add_raw_tool(next)
-            components = AddComponent.parse_arguments(next)
+            components = UpdateComponent.parse_arguments(next)
+
+            invalid_components = []
             for component in components:
-                architecture.append(component)
+                if not component.key in architecture:
+                    valid_components.append(component)
+                elif architecture[component.key].file is None:
+                    valid_components.append(component)
+                else:
+                    invalid_components.append(component)
+
+            if len(components) > len(invalid_components):
+                tool_response = f"Done.\n"
+                if invalid_components:
+                    tool_response += (
+                        "However, the following components were not updated "
+                        f"because they already have a file associated with them: "
+                        f"{', '.join(c.key for c in invalid_components)}"
+                    )
+            else:
+                tool_response = "Unable to update any components because they already have a file associated with them."
+            print_system(f"Invalid components: {invalid_components}")
             raw_architecture = json.dumps(
-                [a.model_dump() for a in architecture], indent=4
+                [c.model_dump() for c in architecture.values()], indent=4
             )
-            conversation.add_tool_response(f"Done:\n{raw_architecture}")
-            config["architecture"] = [
-                ImplementedComponent(base=c) for c in architecture
-            ]
+            tool_response += f"\n\nArchitecture:\n{raw_architecture}"
+            conversation.add_tool_response(tool_response)
+
+            for component in valid_components:
+                architecture[component.key] = ImplementedComponent(base=component)
+            config["architecture"] = list(architecture.values())
             save_config(config)
         else:
-            conversation.add_assistant(next)
-            return next, config
+            assistant_message = next
+            conversation.add_assistant(assistant_message)
+            break
+
+    if valid_components:
+        config["stories"].append(user_story)
+        save_config(config)
+    return assistant_message, config
 
 
 if __name__ == "__main__":
@@ -101,4 +143,7 @@ if __name__ == "__main__":
 
     user_story = user_input("user story: ")
 
-    run(config, user_story)
+    _, config = run(config, user_story)
+
+    graph = build_graph(config["architecture"])
+    visualize_graph(graph)

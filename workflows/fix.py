@@ -11,7 +11,7 @@ from utils.architecture import load_config, save_config
 from utils.io import print_system
 from utils.state import Conversation
 from workflows.helpers import execute_deploy, extract_json
-from workflows.subworkflows import write_function
+from workflows.subworkflows import write_component
 
 
 ERROR = """ERROR 2024-12-29T04:06:29.230750Z Traceback (most recent call last): File "/usr/local/lib/python3.13/site-packages/uvicorn/protocols/http/h11_impl.py", line 403, in run_asgi result = await app( # type: ignore[func-returns-value]
@@ -102,7 +102,7 @@ Given the log of an error:
     for component in components:
         component_to_fix = architecture[component]
         conversation.add_user(f"Fix :: {component}")
-        output = write_function(app_name, component_to_fix, conversation.copy())
+        output = write_component(app_name, component_to_fix, conversation.copy())
 
         conversation.add_assistant(output.assistant_message)
         assert output.component.file
