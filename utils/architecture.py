@@ -137,8 +137,9 @@ def save_config(config: Dict[str, Union[str, List[ImplementedComponent]]]) -> No
 
 
 def create_initial_config(app_name: str):
-    initial_config["name"] = app_name
-    initial_config["architecture"] = [
-        ImplementedComponent(base=c) for c in initial_config["architecture"]
+    config = initial_config.copy()
+    config["name"] = app_name
+    config["architecture"] = [
+        ImplementedComponent(base=c) for c in config["architecture"]
     ]
-    save_config(initial_config)
+    save_config(config)
