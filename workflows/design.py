@@ -1,7 +1,7 @@
 import argparse
 import json
 import os
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -24,7 +24,7 @@ class AddComponent(Function[Component]):
     description = "Adds a sqlalchemymodel or function to the architecture."
 
 
-def run(config: Dict[str, Any], user_story: str) -> str:
+def run(config: Dict[str, Any], user_story: str) -> Tuple[str, Dict[str, Any]]:
     architecture = [c.base.root for c in config["architecture"]]
 
     conversation = Conversation()
@@ -86,7 +86,7 @@ Given an user story, build the architecture by adding components. Prefer the mos
             save_config(config)
         else:
             conversation.add_assistant(next)
-            return next
+            return next, config
 
 
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
 import os
+from typing import Any, Dict
 
 from fastapi import APIRouter
 from pydantic import BaseModel
@@ -16,9 +17,15 @@ class Request(BaseModel):
     user_story: str
 
 
-@router.post("/chat", response_model=str)
-async def chat(request: Request) -> str:
+class Response(BaseModel):
+    message: str
+    config: Dict[str, Any]
+
+
+@router.post("/chat", response_model=Response)
+async def chat(request: Request) -> Response:
     if not os.path.exists(f"{REPOS}/{request.app_name}/config.json"):
         create_initial_config(request.app_name)
     config = load_config(request.app_name)
-    return design.run(config, request.user_story)
+    message, config = design.run(config, request.user_story)
+    return Response(message=message, config=config)
