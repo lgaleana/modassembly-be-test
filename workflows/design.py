@@ -79,7 +79,7 @@ Given an user story, build the architecture by adding components. Prefer the mos
             raw_architecture = json.dumps(
                 [a.model_dump() for a in architecture], indent=4
             )
-            conversation.add_tool_response(raw_architecture)
+            conversation.add_tool_response(f"Done:\n{raw_architecture}")
             config["architecture"] = [
                 ImplementedComponent(base=c) for c in architecture
             ]
