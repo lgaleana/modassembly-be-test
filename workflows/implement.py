@@ -13,6 +13,7 @@ from utils.architecture import (
     SQLAlchemyModel,
     load_config,
     save_config,
+    update_architecture_diff,
 )
 from utils.io import print_system
 from utils.state import Conversation
@@ -32,6 +33,7 @@ def run(config: Dict[str, Any], new_architecture: List[ImplementedComponent]) ->
     architecture = {}
     for component in saved_architecture:
         if not component.file:
+            print_system(f"Will update {component.base.key}")
             architecture[component.base.key] = component
     for new_component in new_architecture:
         for old_component in saved_architecture:
@@ -39,11 +41,9 @@ def run(config: Dict[str, Any], new_architecture: List[ImplementedComponent]) ->
                 new_component.base.key == old_component.base.key
                 and new_component != old_component
             ):
+                print_system(f"Will update {new_component.base.key}")
                 architecture[new_component.base.key] = new_component
                 break
-
-    if not architecture:
-        return config["url"]
 
     conversation = Conversation()
     raw_architecture = [c.base.model_dump() for c in architecture.values()]
@@ -108,7 +108,10 @@ def run(config: Dict[str, Any], new_architecture: List[ImplementedComponent]) ->
                     _update(output)
                     break
 
-    update_main(app_name, architecture, external_infrastructure)
+    update_architecture_diff(config, list(architecture.values()))
+    config = load_config(app_name)
+
+    update_main(app_name, config["architecture"], external_infrastructure)
 
     print_system("Deploying application...")
     service_url = execute_deploy(app_name)

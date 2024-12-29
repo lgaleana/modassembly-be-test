@@ -124,13 +124,13 @@ def group_nodes_by_dependencies(
 
 def update_main(
     app_name: str,
-    architecture: Dict[str, ImplementedComponent],
+    architecture: List[ImplementedComponent],
     external_infrastructure: List[str],
 ) -> None:
     with open(f"{REPOS}/{app_name}/app/main.py", "r") as f:
         main_content = f.read()
     main_content += "\n"
-    for component in architecture.values():
+    for component in architecture:
         if (
             isinstance(component.base.root, Function)
             and component.base.root.is_endpoint
