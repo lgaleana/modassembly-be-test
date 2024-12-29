@@ -160,18 +160,29 @@ def execute_deploy(app_name: str) -> str:
 
 
 def create_tables(app_name: str, namespace: str, code: str) -> None:
+    from sqlalchemy import create_engine
+    from sqlalchemy.schema import MetaData
+    from sqlalchemy.ext.declarative import declarative_base
+
+    # Create new MetaData instance and Base for clean state
+    metadata = MetaData()
+    Base = declarative_base(metadata=metadata)
+    
     models = extract_sqlalchemy_models(code)
+    test_engine = create_engine("sqlite:///:memory:")
+    
     for model in models:
         module_path = f"db.repos.{app_name}.app.{namespace}.{model}"
         models_module = importlib.import_module(module_path)
         model_class = getattr(models_module, model)
-        db_module = importlib.import_module(f"db.repos.{app_name}.app.helpers.db")
-        engine = getattr(db_module, "engine")
-        try:
-            model_class.__table__.drop(bind=engine)
-        except Exception:
-            pass
-        model_class.__table__.create(bind=engine)
+        # Clear any existing table definition
+        if hasattr(model_class, '__table__'):
+            model_class.__table__ = None
+        # Make the model inherit from the new Base
+        model_class.__bases__ = (Base,)
+        
+    # Create all tables with new metadata
+    metadata.create_all(bind=test_engine)
 
 
 class MypyError(Exception):
