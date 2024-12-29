@@ -10,42 +10,14 @@ from ai import llm
 from ai.function_calling import Function
 from utils.architecture import (
     Component,
-    Function as FunctionComponent,
     ImplementedComponent,
+    create_initial_config,
     load_config,
     save_config,
 )
 from utils.io import user_input
 from utils.state import Conversation
 from workflows.helpers import REPOS
-
-
-initial_config = {
-    "architecture": [
-        FunctionComponent(
-            name="main",
-            namespace="",
-            purpose="The main FastAPI script.",
-            uses=["Other sqlalchemymodels or functions"],
-            pypi_packages=[
-                "fastapi==0.115.6",
-                "pydantic==2.10.3",
-                "python-dotenv==1.0.1",
-                "uvicorn==0.34.0",
-            ],
-            is_endpoint=False,
-        ),
-        FunctionComponent(
-            name="get_db",
-            namespace="helpers",
-            purpose="Initializes the database and gets a session.",
-            uses=[],
-            pypi_packages=["psycopg2-binary==2.9.10", "sqlalchemy==2.0.36"],
-            is_endpoint=False,
-        ),
-    ],
-    "external_infrastructure": ["database", "http"],
-}
 
 
 class AddComponent(Function[Component]):
@@ -123,12 +95,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if not os.path.exists(f"{REPOS}/{args.app}"):
-        os.makedirs(f"{REPOS}/{args.app}")
-        initial_config["name"] = args.app
-        initial_config["architecture"] = [
-            ImplementedComponent(base=c) for c in initial_config["architecture"]
-        ]
-        save_config(initial_config)
+        os.mkdir(f"{REPOS}/{args.app}")
+        create_initial_config(args.app)
     config = load_config(args.app)
 
     user_story = user_input("user story: ")

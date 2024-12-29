@@ -1,4 +1,5 @@
 import json
+import os
 from typing import Any, Dict, List, Optional, Union, Annotated, Literal
 
 from pydantic import BaseModel, Field, RootModel
@@ -77,6 +78,34 @@ class ImplementedComponent(BaseModel):
     file: Optional[File] = None
 
 
+initial_config = {
+    "architecture": [
+        Function(
+            name="main",
+            namespace="",
+            purpose="The main FastAPI script.",
+            uses=["Other sqlalchemymodels or functions"],
+            pypi_packages=[
+                "fastapi==0.115.6",
+                "pydantic==2.10.3",
+                "python-dotenv==1.0.1",
+                "uvicorn==0.34.0",
+            ],
+            is_endpoint=False,
+        ),
+        Function(
+            name="get_db",
+            namespace="helpers",
+            purpose="Initializes the database and gets a session.",
+            uses=[],
+            pypi_packages=["psycopg2-binary==2.9.10", "sqlalchemy==2.0.36"],
+            is_endpoint=False,
+        ),
+    ],
+    "external_infrastructure": ["database", "http"],
+}
+
+
 def load_config(app_name: str) -> Dict[str, Union[str, List[ImplementedComponent]]]:
     with open(f"db/repos/{app_name}/config.json", "r") as f:
         config = json.load(f)
@@ -105,3 +134,11 @@ def save_config(config: Dict[str, Union[str, List[ImplementedComponent]]]) -> No
             f,
             indent=2,
         )
+
+
+def create_initial_config(app_name: str):
+    initial_config["name"] = app_name
+    initial_config["architecture"] = [
+        ImplementedComponent(base=c) for c in initial_config["architecture"]
+    ]
+    save_config(initial_config)
