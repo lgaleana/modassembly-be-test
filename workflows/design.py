@@ -1,21 +1,24 @@
 import argparse
 import json
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict
 from dotenv import load_dotenv
 
 load_dotenv()
 
 from ai import llm
 from ai.function_calling import Function
-from utils.io import print_system, user_input
-from utils.state import Conversation
-from workflows.helpers import (
+from utils.architecture import (
     Component,
     Function as FunctionComponent,
-    REPOS,
+    ImplementedComponent,
     SQLAlchemyModel,
+    load_config,
+    save_config,
 )
+from utils.io import print_system, user_input
+from utils.state import Conversation
+from workflows.helpers import REPOS
 
 
 initial_config = {
@@ -46,34 +49,12 @@ initial_config = {
 }
 
 
-def update_config(
-    config: Dict[str, Any],
-    *,
-    architecture: List[Component],
-) -> Dict[str, Any]:
-    raw_architecture = [c.model_dump() for c in architecture]
-    config = {
-        "name": config["name"],
-        "architecture": raw_architecture,
-        "external_infrastructure": config["external_infrastructure"],
-    }
-    with open(f"{REPOS}/{args.app}/config.json", "w") as f:
-        json.dump(config, f)
-    print_system(json.dumps(config, indent=2))
-    return config
-
-
 class AddComponent(Function[Component]):
     description = "Adds a sqlalchemymodel or function to the architecture."
 
 
 def run(config: Dict[str, Any], user_story: str) -> None:
-    architecture = []
-    for c in config["architecture"]:
-        if c["type"] == "sqlalchemymodel":
-            architecture.append(SQLAlchemyModel.model_validate(c))
-        elif c["type"] == "function":
-            architecture.append(FunctionComponent.model_validate(c))
+    architecture = [c.base.root for c in config["architecture"]]
 
     conversation = Conversation()
     conversation.add_system(
@@ -107,7 +88,7 @@ You will also be given the set of GCP infrastructure that you have access to.
 Given an user story, build the architecture by adding components."""
     )
 
-    raw_architecture = json.dumps([a.model_dump() for a in architecture], indent=4)
+    raw_architecture = json.dumps([c.model_dump() for c in architecture], indent=4)
     conversation.add_user(f"Architecture:\n{raw_architecture}")
     conversation.add_user(
         "Available GCP infrastructure:\n- Cloud SQL.\n- External HTTP requests."
@@ -128,7 +109,10 @@ Given an user story, build the architecture by adding components."""
                 [a.model_dump() for a in architecture], indent=4
             )
             conversation.add_tool_response(raw_architecture)
-            config = update_config(config, architecture=architecture)
+            config["architecture"] = [
+                ImplementedComponent(base=c) for c in architecture
+            ]
+            save_config(config)
         else:
             conversation.add_assistant(next)
             break
@@ -142,10 +126,11 @@ if __name__ == "__main__":
     if not os.path.exists(f"{REPOS}/{args.app}"):
         os.makedirs(f"{REPOS}/{args.app}")
         initial_config["name"] = args.app
-        update_config(initial_config, architecture=initial_config["architecture"])
-    with open(f"{REPOS}/{args.app}/config.json", "r") as f:
-        config = json.load(f)
-    print_system(json.dumps(config, indent=2))
+        initial_config["architecture"] = [
+            ImplementedComponent(base=c) for c in initial_config["architecture"]
+        ]
+        save_config(initial_config)
+    config = load_config(args.app)
 
     user_story = user_input("user story: ")
 

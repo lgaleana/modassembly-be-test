@@ -4,7 +4,7 @@ from typing import Dict, Any
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from workflows.architecture import run
+from workflows.design_legacy import run
 
 router = APIRouter()
 

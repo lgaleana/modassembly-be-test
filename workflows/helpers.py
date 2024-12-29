@@ -5,88 +5,22 @@ import re
 import subprocess
 import venv
 from mypy import api
-from typing import Any, Dict, List, Optional, Set, Union, Annotated, Literal
+from typing import Any, Dict, List, Set
 
 import matplotlib.pyplot as plt
 import networkx as nx
-from pydantic import BaseModel, Field, RootModel
 
-from utils.files import File
+from utils.architecture import (
+    BaseComponent,
+    Function,
+    ImplementedComponent,
+    SQLAlchemyModel,
+)
 from utils.io import print_system
-from utils.static_analysis import extract_sqlalchemy_models
+from utils.static_analysis import extract_router_name, extract_sqlalchemy_models
 
 
 REPOS = "db/repos"
-
-
-class BaseComponent(BaseModel):
-    type: str = Field(description="sqlalchemymodel or function")
-    name: str = Field(description="The name of the sqlalchemymodel or function")
-    namespace: str = Field(description="The namespace of the component")
-    pypi_packages: List[str] = Field(
-        description="The pypi packages that the component will need"
-    )
-
-    @property
-    def key(self) -> str:
-        return f"{self.namespace}.{self.name}" if self.namespace else self.name
-
-
-class SQLAlchemyModel(BaseComponent):
-    type: Literal["sqlalchemymodel"] = "sqlalchemymodel"
-    fields: List[str] = Field(description="The fields of the model")
-    associations: List[str] = Field(
-        description="The other sqlalchemymodels that this model is associated with"
-    )
-
-
-class Function(BaseComponent):
-    type: Literal["function"] = "function"
-    purpose: str = Field(description="The purpose of the function")
-    uses: List[str] = Field(
-        description="The sqlalchemymodels or functions that this component uses internally"
-    )
-    is_endpoint: bool = Field(description="Whether this is a FastAPI endpoint")
-
-
-class Component(RootModel):
-    root: Annotated[Union[SQLAlchemyModel, Function], Field(discriminator="type")]
-
-    @property
-    def key(self) -> str:
-        return self.root.key
-
-    @classmethod
-    def model_json_schema(cls) -> Dict[str, Any]:
-        """Returns a simplified schema suitable for OpenAI function calls"""
-        # Get base schema (common fields for all components)
-        base_schema = BaseComponent.model_json_schema()
-        # Get type-specific fields from each subclass
-        sqlalchemy_fields = {
-            k: v
-            for k, v in SQLAlchemyModel.model_json_schema()["properties"].items()
-            if k not in base_schema["properties"]
-        }
-        function_fields = {
-            k: v
-            for k, v in Function.model_json_schema()["properties"].items()
-            if k not in base_schema["properties"]
-        }
-        # Update the type field to be an enum of possible values
-        base_schema["properties"]["type"] = {
-            "type": "string",
-            "enum": ["sqlalchemymodel", "function"],
-            "description": "The type of component (sqlalchemymodel or function)",
-        }
-        # Combine all properties
-        base_schema["properties"].update(sqlalchemy_fields)
-        base_schema["properties"].update(function_fields)
-        return base_schema
-
-
-class ImplementedComponent(BaseModel):
-    base: Component
-    file: Optional[File] = None
 
 
 def extract_from_pattern(response: str, *, pattern: str) -> List[str]:
@@ -126,6 +60,24 @@ def build_graph(architecture: List[BaseComponent]) -> nx.DiGraph:
     return G
 
 
+def install_requirements(pypi_packages: Set[str], app_name: str) -> None:
+    venv_path = f"db/repos/{app_name}/venv"
+    os.makedirs(venv_path, exist_ok=True)
+    venv.create(venv_path, with_pip=True)
+    venv_python = os.path.join(venv_path, "bin", "python3")
+    print_system("Installing requirements...")
+    output = subprocess.run(
+        [venv_python, "-m", "pip", "install", *pypi_packages],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    print_system(output.stdout)
+    print_system(output.stderr)
+    if output.returncode != 0:
+        raise Exception(f"{output.stdout}\n{output.stderr}")
+
+
 def group_nodes_by_dependencies(
     architecture: List[ImplementedComponent],
 ) -> List[Set[str]]:
@@ -154,6 +106,31 @@ def group_nodes_by_dependencies(
     return levels
 
 
+def update_main(
+    app_name: str,
+    architecture: Dict[str, ImplementedComponent],
+    external_infrastructure: List[str],
+) -> None:
+    with open(f"{REPOS}/{app_name}/app/main.py", "r") as f:
+        main_content = f.read()
+    main_content += "\n"
+    for component in architecture.values():
+        if (
+            isinstance(component.base.root, Function)
+            and component.base.root.is_endpoint
+        ):
+            assert component.file
+            module = component.file.path.replace(".py", "").replace("/", ".")
+            router_name = extract_router_name(component.file.content)
+            main_content += f"from {module} import {router_name}\n"
+            main_content += f"app.include_router({router_name})\n"
+    if "database" in external_infrastructure:
+        main_content += "\nfrom app.helpers.db import Base, engine\n"
+        main_content += "Base.metadata.create_all(engine)\n"
+    with open(f"{REPOS}/{app_name}/app/main.py", "w") as f:
+        f.write(main_content)
+
+
 def execute_deploy(app_name: str) -> str:
     original_dir = os.getcwd()
     try:
@@ -167,24 +144,6 @@ def execute_deploy(app_name: str) -> str:
         return output.stdout.splitlines()[-1]
     finally:
         os.chdir(original_dir)
-
-
-def install_requirements(pypi_packages: Set[str], app_name: str) -> None:
-    venv_path = f"db/repos/{app_name}/venv"
-    os.makedirs(venv_path, exist_ok=True)
-    venv.create(venv_path, with_pip=True)
-    venv_python = os.path.join(venv_path, "bin", "python3")
-    print_system("Installing requirements...")
-    output = subprocess.run(
-        [venv_python, "-m", "pip", "install", *pypi_packages],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    print_system(output.stdout)
-    print_system(output.stderr)
-    if output.returncode != 0:
-        raise Exception(f"{output.stdout}\n{output.stderr}")
 
 
 def create_tables(app_name: str, namespace: str, code: str) -> None:
@@ -211,7 +170,6 @@ def run_mypy(file_path: str) -> None:
         [
             file_path,
             "--disable-error-code=import-untyped",
-            "--disable-error-code=call-overload",
         ]
     )
     print_system(stdout)
