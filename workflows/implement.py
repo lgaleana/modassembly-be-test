@@ -1,7 +1,7 @@
 import json
 import argparse
 from concurrent.futures import ThreadPoolExecutor
-from typing import List
+from typing import Any, Dict
 
 from dotenv import load_dotenv
 
@@ -23,9 +23,7 @@ from workflows.helpers import (
 from workflows.subworkflows import save_files, write_function
 
 
-def run(app_name: str) -> str:
-    config = load_config(app_name)
-    assert isinstance(config["architecture"], List)
+def run(config: Dict[str, Any], app_name: str) -> str:
     architecture = {c.base.key: c for c in config["architecture"]}
     raw_architecture = [c.base.model_dump() for c in architecture.values()]
     external_infrastructure = ["database", "http"]
@@ -78,4 +76,6 @@ if __name__ == "__main__":
     parser.add_argument("app")
     args = parser.parse_args()
 
-    run(args.app)
+    config = load_config(args.app)
+
+    run(config, args.app)

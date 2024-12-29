@@ -78,6 +78,19 @@ def install_requirements(pypi_packages: Set[str], app_name: str) -> None:
         raise Exception(f"{output.stdout}\n{output.stderr}")
 
 
+def create_folders_if_not_exist(app_name: str, namespace: str) -> None:
+    packages = namespace.split(".")
+    current_path = f"{REPOS}/{app_name}"
+    for package in packages:
+        current_path = os.path.join(current_path, package)
+        if not os.path.exists(current_path):
+            os.makedirs(current_path)
+        init_file = os.path.join(current_path, "__init__.py")
+        if not os.path.exists(init_file):
+            with open(init_file, "w") as f:
+                f.write("")
+
+
 def group_nodes_by_dependencies(
     architecture: List[ImplementedComponent],
 ) -> List[Set[str]]:

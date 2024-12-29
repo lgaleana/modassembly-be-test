@@ -52,7 +52,7 @@ class AddComponent(Function[Component]):
     description = "Adds a sqlalchemymodel or function to the architecture."
 
 
-def run(config: Dict[str, Any], user_story: str) -> None:
+def run(config: Dict[str, Any], user_story: str) -> str:
     architecture = [c.base.root for c in config["architecture"]]
 
     conversation = Conversation()
@@ -114,7 +114,7 @@ Given an user story, build the architecture by adding components. Prefer the mos
             save_config(config)
         else:
             conversation.add_assistant(next)
-            break
+            return next
 
 
 if __name__ == "__main__":

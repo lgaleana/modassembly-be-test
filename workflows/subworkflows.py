@@ -13,6 +13,7 @@ from workflows.helpers import (
     ImplementedComponent,
     REPOS,
     SQLAlchemyModel,
+    create_folders_if_not_exist,
     create_tables,
     extract_from_pattern,
     run_mypy,
@@ -21,19 +22,6 @@ from utils.files import File
 from utils.io import print_system
 from utils.state import Conversation
 from utils.static_analysis import extract_router_name
-
-
-def create_folders_if_not_exist(app_name: str, namespace: str) -> None:
-    packages = namespace.split(".")
-    current_path = f"{REPOS}/{app_name}"
-    for package in packages:
-        current_path = os.path.join(current_path, package)
-        if not os.path.exists(current_path):
-            os.makedirs(current_path)
-        init_file = os.path.join(current_path, "__init__.py")
-        if not os.path.exists(init_file):
-            with open(init_file, "w") as f:
-                f.write("")
 
 
 def save_files(
