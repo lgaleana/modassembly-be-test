@@ -12,11 +12,10 @@ from utils.architecture import (
     Component,
     Function as FunctionComponent,
     ImplementedComponent,
-    SQLAlchemyModel,
     load_config,
     save_config,
 )
-from utils.io import print_system, user_input
+from utils.io import user_input
 from utils.state import Conversation
 from workflows.helpers import REPOS
 
@@ -60,7 +59,7 @@ def run(config: Dict[str, Any], user_story: str) -> None:
     conversation.add_system(
         """You are helpful AI assistant that designs backend architectures.
 
-You will be given the backend architecture of a python module that is hosted on Cloud Run as a FastAPI. The architecture will be represented as a json of the following format:
+You will be given the backend architecture of a python module that is hosted on Cloud Run as a FastAPI. The architecture will be represented as a json in the following format:
 ```json
 [
     {{
@@ -85,7 +84,7 @@ You will be given the backend architecture of a python module that is hosted on 
 ```
 
 You will also be given the set of GCP infrastructure that you have access to.
-Given an user story, build the architecture by adding components."""
+Given an user story, build the architecture by adding components. Prefer the most simple design."""
     )
 
     raw_architecture = json.dumps([c.model_dump() for c in architecture], indent=4)

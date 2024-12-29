@@ -1,6 +1,5 @@
 import json
 import argparse
-import sys
 from concurrent.futures import ThreadPoolExecutor
 from typing import List
 
@@ -17,7 +16,6 @@ from utils.architecture import (
 from utils.io import print_system
 from utils.state import Conversation
 from workflows.helpers import (
-    REPOS,
     execute_deploy,
     group_nodes_by_dependencies,
     update_main,
@@ -41,7 +39,6 @@ def run(app_name: str) -> str:
 
     architecture.pop("main")
     architecture.pop("helpers.get_db")
-    sys.path.append(f"{REPOS}/{app_name}")
     models_to_parallelize = group_nodes_by_dependencies(
         [m for m in architecture.values() if isinstance(m.base.root, SQLAlchemyModel)]
     )

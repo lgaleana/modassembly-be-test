@@ -1,5 +1,5 @@
 import os
-import shutil
+import sys
 from typing import Dict, List
 
 from dotenv import load_dotenv
@@ -20,10 +20,7 @@ from workflows.helpers import (
 from utils.files import File
 from utils.io import print_system
 from utils.state import Conversation
-from utils.static_analysis import (
-    check_imports,
-    extract_router_name,
-)
+from utils.static_analysis import extract_router_name
 
 
 def create_folders_if_not_exist(app_name: str, namespace: str) -> None:
@@ -94,10 +91,13 @@ def write_function(
     *,
     tries: int = 3,
 ) -> LevelContext:
+    sys.path.append(f"{REPOS}/{app_name}")
+
     user_message = f"""Write the code for: {component.base.model_dump()}.
 
 Speficications:
 - The code should work (no placeholders).
+- Pick the most simple implementation.
 - Don't catch exceptions unless specified. Let errors raise.\n"""
     if isinstance(component.base.root, Function) and component.base.root.is_endpoint:
         user_message += (
@@ -105,7 +105,8 @@ Speficications:
             "a) add enough documentation and b) add proper typing, "
             "so that it's easy to use in Swagger.\n"
             "- Define pydantic models for inputs and OUTPUTS where needed.\n"
-            "- Convert types correctly between sqlalchemy and pydantic.\n"
+            "- Avoid condecimal.\n"
+            "- Make sure that datetime in pydantic matches datetime in sqlalchemy.\n"
         )
     elif isinstance(component.base.root, SQLAlchemyModel):
         user_message += (
