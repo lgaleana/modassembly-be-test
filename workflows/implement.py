@@ -39,7 +39,7 @@ def run(config: Dict[str, Any], new_architecture: List[ImplementedComponent]) ->
         for old_component in saved_architecture:
             if (
                 new_component.base.key == old_component.base.key
-                and new_component != old_component
+                and new_component.base.root != old_component.base.root
             ):
                 print_system(f"Will update {new_component.base.key}")
                 architecture[new_component.base.key] = new_component
@@ -116,6 +116,7 @@ def run(config: Dict[str, Any], new_architecture: List[ImplementedComponent]) ->
     print_system("Deploying application...")
     service_url = execute_deploy(app_name)
 
+    config["url"] = service_url
     save_config(config)
     print_system(f"{service_url}/docs")
     return f"{service_url}/docs"

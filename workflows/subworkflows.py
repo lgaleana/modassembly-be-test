@@ -55,6 +55,7 @@ def save_files(
         f2.write(content)
         conversation.add_user(f"I wrote the code for:\n\n```python\n{content}\n```")
         conversation.add_user(f"I saved the code in {main_path}.")
+        architecture["main"].file = File(path=main_path, content=content)
 
     if "database" in external_infrastructure:
         db_helper_path = "app/helpers/db.py"
@@ -65,6 +66,9 @@ def save_files(
             f2.write(content)
             conversation.add_user(f"I wrote the code for:\n\n```python\n{content}\n```")
             conversation.add_user(f"I saved the code in {db_helper_path}.")
+            architecture["helpers.get_db"].file = File(
+                path=db_helper_path, content=content
+            )
 
 
 class ImplementationContext(BaseModel):
