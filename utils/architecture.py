@@ -150,22 +150,20 @@ def save_config(config: Dict[str, Union[str, List[ImplementedComponent]]]) -> No
 
 
 def update_architecture_diff(
-    config: Dict[str, Any], architecture_diff: List[ImplementedComponent]
+    architecture: List[ImplementedComponent],
+    architecture_diff: List[ImplementedComponent],
 ) -> None:
-    existing_architecture = config["architecture"]
     for component in architecture_diff:
         # Find matching component index, if it exists
         found = False
-        for i, existing_component in enumerate(existing_architecture):
+        for i, existing_component in enumerate(architecture):
             if component.base.key == existing_component.base.key:
-                existing_architecture[i] = component
+                architecture[i] = component
                 found = True
                 break
 
         if not found:
-            existing_architecture.append(component)
-
-    save_config(config)
+            architecture.append(component)
 
 
 def create_initial_config(app_name: str):

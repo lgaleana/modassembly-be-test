@@ -28,13 +28,21 @@ from workflows.subworkflows import ImplementationContext, save_files, write_comp
 def run(config: Dict[str, Any], new_architecture: List[ImplementedComponent]) -> str:
     app_name = config["name"]
     saved_architecture = config["architecture"]
+    whole_architecture = saved_architecture.copy()
+    update_architecture_diff(whole_architecture, new_architecture)
     external_infrastructure = ["database", "http"]
 
-    architecture = {}
+    conversation = Conversation()
+    raw_architecture = [c.base.model_dump() for c in whole_architecture]
+    conversation.add_user(
+        f"Consider the following python architecture: {json.dumps(raw_architecture, indent=2)}"
+    )
+
+    architecture_to_update = {}
     for component in saved_architecture:
         if not component.file:
             print_system(f"Will update {component.base.key}")
-            architecture[component.base.key] = component
+            architecture_to_update[component.base.key] = component
     for new_component in new_architecture:
         for old_component in saved_architecture:
             if (
@@ -42,24 +50,26 @@ def run(config: Dict[str, Any], new_architecture: List[ImplementedComponent]) ->
                 and new_component.base.root != old_component.base.root
             ):
                 print_system(f"Will update {new_component.base.key}")
-                architecture[new_component.base.key] = new_component
+                architecture_to_update[new_component.base.key] = new_component
                 break
 
-    conversation = Conversation()
-    raw_architecture = [c.base.model_dump() for c in architecture.values()]
-    conversation.add_user(
-        f"Consider the following python architecture: {json.dumps(raw_architecture, indent=2)}"
-    )
+    save_files(app_name, architecture_to_update, external_infrastructure, conversation)
 
-    save_files(app_name, architecture, external_infrastructure, conversation)
-
-    architecture.pop("main")
-    architecture.pop("helpers.get_db")
+    architecture_to_update.pop("main")
+    architecture_to_update.pop("helpers.get_db")
     models_to_parallelize = group_nodes_by_dependencies(
-        [m for m in architecture.values() if isinstance(m.base.root, SQLAlchemyModel)]
+        [
+            m
+            for m in architecture_to_update.values()
+            if isinstance(m.base.root, SQLAlchemyModel)
+        ]
     )
     functions_to_parallelize = group_nodes_by_dependencies(
-        [f for f in architecture.values() if isinstance(f.base.root, Function)]
+        [
+            f
+            for f in architecture_to_update.values()
+            if isinstance(f.base.root, Function)
+        ]
     )
     for level in models_to_parallelize + functions_to_parallelize:
         print_system(f"Implementing :: {level}\n")
@@ -68,7 +78,10 @@ def run(config: Dict[str, Any], new_architecture: List[ImplementedComponent]) ->
                 executor.map(
                     write_component,
                     [app_name] * len(level),
-                    [ImplementationContext(component=architecture[l]) for l in level],
+                    [
+                        ImplementationContext(component=architecture_to_update[l])
+                        for l in level
+                    ],
                     [conversation.copy() for _ in level],
                 )
             )
@@ -82,7 +95,9 @@ def run(config: Dict[str, Any], new_architecture: List[ImplementedComponent]) ->
             conversation.add_user(context.user_message)
             conversation.add_assistant(context.assistant_message)
             conversation.add_user(f"I saved the code in {context.component.file.path}.")
-            architecture[context.component.base.key].file = context.component.file
+            architecture_to_update[context.component.base.key].file = (
+                context.component.file
+            )
 
         correct_implementations = [o for o in outputs if not o.error]
         wrong_implementations = [o for o in outputs if o.error]
@@ -108,8 +123,9 @@ def run(config: Dict[str, Any], new_architecture: List[ImplementedComponent]) ->
                     _update(output)
                     break
 
-    update_architecture_diff(config, list(architecture.values()))
-    config = load_config(app_name)
+    update_architecture_diff(
+        config["architecture"], list(architecture_to_update.values())
+    )
 
     update_main(app_name, config["architecture"], external_infrastructure)
 
