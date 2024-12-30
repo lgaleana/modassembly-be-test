@@ -125,7 +125,7 @@ def load_config(app_name: str) -> Dict[str, Union[str, List[ImplementedComponent
             ImplementedComponent.model_validate(a) for a in config["architecture"]
         ],
         "external_infrastructure": config["external_infrastructure"],
-        "stories": config["stories"],
+        "conversation": config["conversation"],
         "url": config["url"],
     }
 
@@ -137,7 +137,7 @@ def save_config(config: Dict[str, Union[str, List[ImplementedComponent]]]) -> No
         "name": config["name"],
         "architecture": raw_architecture,
         "external_infrastructure": config["external_infrastructure"],
-        "stories": config["stories"],
+        "conversation": config["conversation"],
         "url": config["url"],
     }
     print_system(json.dumps(raw_config, indent=2))

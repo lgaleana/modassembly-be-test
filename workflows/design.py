@@ -21,10 +21,10 @@ from workflows.helpers import REPOS, build_graph, visualize_graph
 
 
 class UpdateComponent(Function[Component]):
-    description = "Adds or updates a sqlalchemymodel or function to the architecture."
+    description = "Adds or updates one sqlalchemymodel or function to the architecture."
 
 
-def run(config: Dict[str, Any], user_story: str) -> Tuple[str, Dict[str, Any]]:
+def run(config: Dict[str, Any], user_story: str) -> Dict[str, Any]:
     architecture = {c.base.root.key: c for c in config["architecture"]}
 
     if not config["conversation"]:
@@ -51,8 +51,8 @@ def run(config: Dict[str, Any], user_story: str) -> Tuple[str, Dict[str, Any]]:
                 "type": "function",
                 "name": "The name of the function",
                 "namespace": "The namespace of the function",
-                "purpose": "What the component does",
-                "uses": ["The other namespace.functions or namespace.sqlalchemymodels that this component uses internally."],
+                "purpose": "What the function does",
+                "uses": ["The other namespace.functions or namespace.sqlalchemymodels that this function uses internally."],
                 "pypi_packages": ["The pypi packages that it will need"],
                 "is_endpoint": true or false whether this is a FastAPI endpoint
             }},
@@ -65,7 +65,7 @@ def run(config: Dict[str, Any], user_story: str) -> Tuple[str, Dict[str, Any]]:
     There are 2 types of "base" components: sqlalchemymodels and functions. A component can be added if it doesn't already exist in the architecture. And it can only be updated if it doesn't have a file associated with it. To update a component with an implemented file, the user must update it manually.
 
     You will also be given the set of GCP infrastructure that you have access to.
-    Given an user story, build the architecture by adding base components.
+    Given an user story, build the architecture by adding base components. Use a modular and composable design pattern. Prefer functions over classes.
     Always prefer the most simple design."""
         )
 
@@ -93,25 +93,35 @@ def run(config: Dict[str, Any], user_story: str) -> Tuple[str, Dict[str, Any]]:
             conversation.add_raw_tool(next)
             components = UpdateComponent.parse_arguments(next)
 
-            invalid_components = []
+            invalid_components = {}
             for component in components:
-                if not component.key in architecture:
-                    valid_components.append(component)
-                elif architecture[component.key].file is None:
-                    valid_components.append(component)
-                else:
-                    invalid_components.append(component)
-
-            if len(components) > len(invalid_components):
-                tool_response = f"Done.\n"
-                if invalid_components:
-                    tool_response += (
-                        "However, the following components were not updated "
-                        f"because they already have a file associated with them: "
-                        f"{', '.join(c.key for c in invalid_components)}"
+                if component.key in architecture and architecture[component.key].file:
+                    invalid_components[component.key] = (
+                        f"{component.key} :: is already implemented"
                     )
-            else:
-                tool_response = "Unable to update any components because they already have a file associated with them."
+                elif component.root.type == "sqlalchemymodel":
+                    for association in component.root.associations:
+                        if association not in architecture:
+                            invalid_components[component.key] = (
+                                f"{association} :: doesn't exist in the architecture, "
+                                f"for component :: {component.key}"
+                            )
+                else:
+                    for use in component.root.uses:
+                        if use not in architecture:
+                            invalid_components[component.key] = (
+                                f"{use} :: doesn't exist in the architecture, "
+                                f"for component :: {component.key}"
+                            )
+                if component.key not in invalid_components:
+                    valid_components.append(component)
+
+            tool_response = f"Done.\n"
+            if invalid_components:
+                tool_response += (
+                    "The following components were not updated "
+                    f"{', '.join(c for c in invalid_components.values())}"
+                )
             print_system(f"Invalid components: {invalid_components}")
             raw_architecture = json.dumps(
                 [c.model_dump() for c in architecture.values()], indent=4
@@ -122,10 +132,10 @@ def run(config: Dict[str, Any], user_story: str) -> Tuple[str, Dict[str, Any]]:
             for component in valid_components:
                 architecture[component.key] = ImplementedComponent(base=component)
             config["architecture"] = list(architecture.values())
-            save_config(config)
         else:
+            conversation.add_assistant(next)
             save_config(config)
-            return next, config
+            return config
 
 
 if __name__ == "__main__":
@@ -140,7 +150,7 @@ if __name__ == "__main__":
 
     user_story = user_input("user story: ")
 
-    _, config = run(config, user_story)
+    config = run(config, user_story)
 
     graph = build_graph(config["architecture"])
     visualize_graph(graph)

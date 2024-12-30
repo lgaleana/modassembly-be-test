@@ -17,15 +17,9 @@ class Request(BaseModel):
     user_story: str
 
 
-class Response(BaseModel):
-    message: str
-    config: Dict[str, Any]
-
-
-@router.post("/chat", response_model=Response)
-async def chat(request: Request) -> Response:
+@router.post("/chat", response_model=Dict[str, Any])
+async def chat(request: Request) -> Dict[str, Any]:
     if not os.path.exists(f"{REPOS}/{request.app_name}/config.json"):
         create_initial_config(request.app_name)
     config = load_config(request.app_name)
-    message, config = design.run(config, request.user_story)
-    return Response(message=message, config=config)
+    return design.run(config, request.user_story)
