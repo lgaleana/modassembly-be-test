@@ -169,3 +169,5 @@ Speficications:
             error=e,
             tries=context.tries + 1,
         )
+    finally:
+        sys.path.remove(f"{REPOS}/{app_name}")
