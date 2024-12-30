@@ -176,7 +176,10 @@ def create_tables(app_name: str, namespace: str, code: str) -> None:
     Base = declarative_base(metadata=metadata)
 
     models = extract_sqlalchemy_models(code)
-    test_engine = create_engine("sqlite:///:memory:")
+    # Create a unique database identifier using app_name and namespace
+    test_engine = create_engine(
+        f"sqlite:///file:{app_name}?mode=memory&cache=shared&uri=true"
+    )
 
     for model in models:
         module_path = f"db.repos.{app_name}.app.{namespace}.{model}"
