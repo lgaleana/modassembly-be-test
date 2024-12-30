@@ -154,14 +154,12 @@ def update_architecture_diff(
     architecture_diff: List[ImplementedComponent],
 ) -> None:
     for component in architecture_diff:
-        # Find matching component index, if it exists
         found = False
         for i, existing_component in enumerate(architecture):
             if component.base.key == existing_component.base.key:
                 architecture[i] = component
                 found = True
                 break
-
         if not found:
             architecture.append(component)
 

@@ -33,14 +33,18 @@ def run(config: Dict[str, Any], new_architecture: List[ImplementedComponent]) ->
     external_infrastructure = ["database", "http"]
 
     conversation = Conversation()
-    raw_architecture = [c.base.model_dump() for c in whole_architecture]
+    raw_architecture = [c.model_dump() for c in whole_architecture]
     conversation.add_user(
         f"Consider the following python architecture: {json.dumps(raw_architecture, indent=2)}"
     )
 
     architecture_to_update = {}
     for component in saved_architecture:
-        if not component.file:
+        if (
+            not component.file
+            or component.base.key == "main"
+            or component.base.key == "helpers.get_db"
+        ):
             print_system(f"Will update {component.base.key}")
             architecture_to_update[component.base.key] = component
     for new_component in new_architecture:
