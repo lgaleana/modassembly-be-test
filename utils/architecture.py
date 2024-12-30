@@ -110,7 +110,7 @@ initial_config = {
         ),
     ],
     "external_infrastructure": ["database", "http"],
-    "stories": [],
+    "conversation": [],
     "url": None,
 }
 
