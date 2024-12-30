@@ -1,7 +1,7 @@
 import argparse
 import json
 import os
-from typing import Any, Dict, Tuple
+from typing import Any, Dict
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -79,10 +79,8 @@ def run(config: Dict[str, Any], user_story: str) -> Dict[str, Any]:
     else:
         conversation = Conversation(config["conversation"])
     config["conversation"] = conversation
-    conversation.add_user(user_story)
+    conversation.add_user(f"User story: {user_story}")
 
-    assistant_message = None
-    valid_components = []
     while True:
         next = llm.stream_next(
             conversation,
@@ -93,25 +91,28 @@ def run(config: Dict[str, Any], user_story: str) -> Dict[str, Any]:
             conversation.add_raw_tool(next)
             components = UpdateComponent.parse_arguments(next)
 
+            valid_components = []
             invalid_components = {}
             for component in components:
                 if component.key in architecture and architecture[component.key].file:
                     invalid_components[component.key] = (
-                        f"{component.key} :: is already implemented"
+                        f"{component.key} :: already has a file associated with it"
                     )
                 elif component.root.type == "sqlalchemymodel":
                     for association in component.root.associations:
                         if association not in architecture:
                             invalid_components[component.key] = (
                                 f"{association} :: doesn't exist in the architecture, "
-                                f"for component :: {component.key}"
+                                f"for component :: {component.key}. "
+                                "Make sure to reference models that exist in the architecture."
                             )
                 else:
                     for use in component.root.uses:
                         if use not in architecture:
                             invalid_components[component.key] = (
                                 f"{use} :: doesn't exist in the architecture, "
-                                f"for component :: {component.key}"
+                                f"for component :: {component.key}. "
+                                "Make sure to reference functions that exist in the architecture."
                             )
                 if component.key not in invalid_components:
                     valid_components.append(component)
@@ -119,8 +120,8 @@ def run(config: Dict[str, Any], user_story: str) -> Dict[str, Any]:
             tool_response = f"Done.\n"
             if invalid_components:
                 tool_response += (
-                    "The following components were not updated "
-                    f"{', '.join(c for c in invalid_components.values())}"
+                    "The following components were not updated\n"
+                    + "\n".join(invalid_components.values())
                 )
             print_system(f"Invalid components: {invalid_components}")
             raw_architecture = json.dumps(

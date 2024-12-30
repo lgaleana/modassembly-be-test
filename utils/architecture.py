@@ -109,7 +109,7 @@ initial_config = {
             )
         ),
     ],
-    "external_infrastructure": ["database", "http"],
+    "external_infrastructure": ["http", "postgres"],
     "conversation": [],
     "url": None,
 }
@@ -164,7 +164,10 @@ def update_architecture_diff(
             architecture.append(component)
 
 
-def create_initial_config(app_name: str):
+def create_initial_config(
+    app_name: str,
+) -> Dict[str, Union[str, List[ImplementedComponent]]]:
     config = initial_config.copy()
     config["name"] = app_name
     save_config(config)
+    return config
