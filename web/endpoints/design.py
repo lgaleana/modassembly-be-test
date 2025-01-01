@@ -1,9 +1,9 @@
 from typing import Any, Dict
 
 from fastapi import APIRouter
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
-from utils.architecture import load_config
+from utils.state import Conversation
 from workflows import design
 
 
@@ -15,7 +15,14 @@ class Request(BaseModel):
     user_story: str
 
 
-@router.post("/chat", response_model=Dict[str, Any])
-async def chat(request: Request) -> Dict[str, Any]:
-    config = load_config(request.app_name)
-    return design.run(config, request.user_story)
+class Response(BaseModel):
+    config: Dict[str, Any]
+    conversation: Conversation
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+
+@router.post("/chat", response_model=Response)
+async def chat(request: Request) -> Response:
+    config, conversation = design.run(request.app_name, request.user_story)
+    return Response(config=config, conversation=conversation)

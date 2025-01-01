@@ -80,19 +80,16 @@ class Conversation(List[Dict[str, Any]]):
     def empty(self) -> bool:
         return len(self) == 0
 
-    def persist(self, *, namespace: str, name: Optional[str] = None) -> None:
-        if not getattr(self, "name", None):
-            self.name = name or get_time_name()
-
-        with open(f"db/{namespace}/{self.name}.json", "w") as file:
+    def persist(self, app_name: Optional[str] = None) -> None:
+        with open(f"db/repos/{app_name}/conversation.json", "w") as file:
             json.dump(self, file, indent=4)
 
     def count_tokens(self) -> int:
         return sum(count_tokens(m["content"]) for m in self)
 
     @staticmethod
-    def load(namespace: str, name: str) -> "Conversation":
-        with open(f"db/{namespace}/{name}.json", "r") as file:
+    def load(app_name: str) -> "Conversation":
+        with open(f"db/repos/{app_name}/conversation.json", "r") as file:
             payload = json.load(file)
         return Conversation(payload)
 

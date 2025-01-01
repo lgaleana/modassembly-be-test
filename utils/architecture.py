@@ -11,9 +11,6 @@ class BaseComponent(BaseModel):
     type: str = Field(description="sqlalchemymodel or function")
     name: str = Field(description="The name of the sqlalchemymodel or function")
     namespace: str = Field(description="The namespace of the component")
-    pypi_packages: List[str] = Field(
-        description="The pypi packages that the component will need"
-    )
 
     @property
     def key(self) -> str:
@@ -74,6 +71,7 @@ class Component(RootModel):
 
 class ImplementedComponent(BaseModel):
     base: Component
+    pypi_packages: Optional[List[str]] = None
     file: Optional[File] = None
 
 
@@ -86,12 +84,6 @@ initial_config = {
                     namespace="",
                     purpose="The main FastAPI script.",
                     uses=["Other sqlalchemymodels or functions"],
-                    pypi_packages=[
-                        "fastapi==0.115.6",
-                        "pydantic==2.10.3",
-                        "python-dotenv==1.0.1",
-                        "uvicorn==0.34.0",
-                    ],
                     is_endpoint=False,
                 )
             )
@@ -101,16 +93,14 @@ initial_config = {
                 Function(
                     name="get_db",
                     namespace="helpers",
-                    purpose="Initializes the database and gets a session.",
+                    purpose="Initializes the Postgres database and gets a session.",
                     uses=[],
-                    pypi_packages=["psycopg2-binary==2.9.10", "sqlalchemy==2.0.36"],
                     is_endpoint=False,
                 )
             )
         ),
     ],
     "external_infrastructure": ["http", "postgres"],
-    "conversation": [],
     "url": None,
 }
 
@@ -125,7 +115,6 @@ def load_config(app_name: str) -> Dict[str, Union[str, List[ImplementedComponent
             ImplementedComponent.model_validate(a) for a in config["architecture"]
         ],
         "external_infrastructure": config["external_infrastructure"],
-        "conversation": config["conversation"],
         "url": config["url"],
     }
 
@@ -137,7 +126,6 @@ def save_config(config: Dict[str, Union[str, List[ImplementedComponent]]]) -> No
         "name": config["name"],
         "architecture": raw_architecture,
         "external_infrastructure": config["external_infrastructure"],
-        "conversation": config["conversation"],
         "url": config["url"],
     }
     print_system(json.dumps(raw_config, indent=2))
