@@ -43,8 +43,13 @@ You will be given the backend architecture of a python module that is hosted on 
             "type": "sqlalchemymodel",
             "name": "The name of the sqlalchemymodel",
             "namespace": "The namespace of the sqlalchemymodel",
-            "fields": ["The fields of the sqlalchemymodel"],
-            "associations": ["The other sqlalchemymodels that this model is associated with"]
+            "fields": [
+                {{
+                    "name": "The name of the field",
+                    "purpose": "What the field is used for"
+                }}
+            ],
+            "associations": ["The other namespace.sqlalchemymodels that this model is associated with"]
         }},
         "pypi_packages": ["The pypi packages that it will need"]
         "file": Whether the component has been implemented in code, in a file

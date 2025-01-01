@@ -18,8 +18,12 @@ class BaseComponent(BaseModel):
 
 
 class SQLAlchemyModel(BaseComponent):
+    class ModelField(BaseModel):
+        name: str = Field(description="The name of the field")
+        purpose: str = Field(description="The type of the field")
+
     type: Literal["sqlalchemymodel"] = "sqlalchemymodel"
-    fields: List[str] = Field(description="The fields of the model")
+    fields: List[ModelField] = Field(description="The fields of the model")
     associations: List[str] = Field(
         description="The other sqlalchemymodels that this model is associated with"
     )
@@ -75,36 +79,6 @@ class ImplementedComponent(BaseModel):
     file: Optional[File] = None
 
 
-initial_config = {
-    "architecture": [
-        ImplementedComponent(
-            base=Component(
-                Function(
-                    name="main",
-                    namespace="",
-                    purpose="The main FastAPI script.",
-                    uses=["Other sqlalchemymodels or functions"],
-                    is_endpoint=False,
-                )
-            )
-        ),
-        ImplementedComponent(
-            base=Component(
-                Function(
-                    name="get_db",
-                    namespace="helpers",
-                    purpose="Initializes the Postgres database and gets a session.",
-                    uses=[],
-                    is_endpoint=False,
-                )
-            )
-        ),
-    ],
-    "external_infrastructure": ["http", "postgres"],
-    "url": None,
-}
-
-
 def load_config(app_name: str) -> Dict[str, Union[str, List[ImplementedComponent]]]:
     with open(f"db/repos/{app_name}/config.json", "r") as f:
         config = json.load(f)
@@ -150,6 +124,97 @@ def update_architecture_diff(
                 break
         if not found:
             architecture.append(component)
+
+
+initial_config = {
+    "architecture": [
+        ImplementedComponent(
+            base=Component(
+                Function(
+                    name="main",
+                    namespace="",
+                    purpose="The main FastAPI script.",
+                    uses=["Other sqlalchemymodels or functions"],
+                    is_endpoint=False,
+                )
+            )
+        ),
+        ImplementedComponent(
+            base=Component(
+                Function(
+                    name="get_session",
+                    namespace="modassembly.database",
+                    purpose="Initializes the Postgres database and gets a session.",
+                    uses=[],
+                    is_endpoint=False,
+                )
+            )
+        ),
+        ImplementedComponent(
+            base=Component(
+                SQLAlchemyModel(
+                    name="User",
+                    namespace="modassembly.authentication.models",
+                    fields=[
+                        SQLAlchemyModel.ModelField(
+                            name="id", purpose="Primary key, autoincremental"
+                        ),
+                        SQLAlchemyModel.ModelField(
+                            name="email", purpose="The email of the user, can't be null"
+                        ),
+                        SQLAlchemyModel.ModelField(
+                            name="password",
+                            purpose="The hashed password, can't be null",
+                        ),
+                        SQLAlchemyModel.ModelField(
+                            name="role", purpose='"user" or "admin", default to "user"'
+                        ),
+                    ],
+                    associations=[],
+                )
+            )
+        ),
+        ImplementedComponent(
+            base=Component(
+                Function(
+                    name="create_access_token",
+                    namespace="modassembly.authentication.core",
+                    purpose="Encodes a JWT token using the user's email and an expiration time.",
+                    uses=[],
+                    is_endpoint=False,
+                )
+            )
+        ),
+        ImplementedComponent(
+            base=Component(
+                Function(
+                    name="authenticate",
+                    namespace="modassembly.authentication.core",
+                    purpose="Decodes the JWT token and retrieves an user. IMPORTANT: Used by the endpoints for authentication.",
+                    uses=["modassembly.authentication.models.User"],
+                    is_endpoint=False,
+                )
+            )
+        ),
+        ImplementedComponent(
+            base=Component(
+                Function(
+                    name="login_api",
+                    namespace="modassembly.authentication.endpoints",
+                    purpose="Logs in an user. Gets the user, verifies the password and creates a new JWT token.",
+                    uses=[
+                        "modassembly.database.get_session",
+                        "modassembly.authentication.models.User",
+                        "modassembly.authentication.core.create_access_token",
+                    ],
+                    is_endpoint=True,
+                )
+            )
+        ),
+    ],
+    "external_infrastructure": ["http", "database", "authentication"],
+    "url": None,
+}
 
 
 def create_initial_config(
