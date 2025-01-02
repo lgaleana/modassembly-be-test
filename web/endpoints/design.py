@@ -12,7 +12,7 @@ router = APIRouter()
 
 class Request(BaseModel):
     app_name: str
-    user_story: str
+    user_message: str
 
 
 class Response(BaseModel):
@@ -24,5 +24,5 @@ class Response(BaseModel):
 
 @router.post("/chat", response_model=Response)
 async def chat(request: Request) -> Response:
-    config, conversation = design.run(request.app_name, request.user_story)
+    config, conversation = design.run(request.app_name, request.user_message)
     return Response(config=config, conversation=conversation)

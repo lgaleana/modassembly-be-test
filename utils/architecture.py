@@ -139,7 +139,6 @@ initial_config = {
                     uses=["Other sqlalchemymodels or functions"],
                     is_endpoint=False,
                     pypi_packages=[
-                        "bcrypt==4.0.1",
                         "fastapi==0.115.6",
                         "pydantic==2.10.4",
                         "python-dotenv==1.0.1",
@@ -149,103 +148,120 @@ initial_config = {
                 )
             )
         ),
-        ImplementedComponent(
-            base=Component(
-                Function(
-                    name="get_session",
-                    namespace="modassembly.database",
-                    purpose="1) Initializes the Postgres database. 2) Gets a session.",
-                    uses=[],
-                    is_endpoint=False,
-                    pypi_packages=["psycopg2-binary==2.9.10", "sqlalchemy==2.0.36"],
-                )
-            )
-        ),
-        ImplementedComponent(
-            base=Component(
-                SQLAlchemyModel(
-                    name="User",
-                    namespace="models",
-                    fields=[
-                        SQLAlchemyModel.ModelField(
-                            name="id", purpose="Primary key, autoincremental"
-                        ),
-                        SQLAlchemyModel.ModelField(
-                            name="email", purpose="The email of the user, can't be null"
-                        ),
-                        SQLAlchemyModel.ModelField(
-                            name="password",
-                            purpose="The hashed password, can't be null",
-                        ),
-                        SQLAlchemyModel.ModelField(
-                            name="role", purpose='"user" or "admin", default to "user"'
-                        ),
-                    ],
-                    associations=[],
-                    pypi_packages=["sqlalchemy==2.0.36"],
-                )
-            )
-        ),
-        ImplementedComponent(
-            base=Component(
-                Function(
-                    name="create_access_token",
-                    namespace="modassembly.authentication.core",
-                    purpose="1) Encodes a JWT token using the user's email and an expiration time.",
-                    uses=[],
-                    is_endpoint=False,
-                    pypi_packages=["pyjwt==2.10.1"],
-                )
-            )
-        ),
-        ImplementedComponent(
-            base=Component(
-                Function(
-                    name="authenticate",
-                    namespace="modassembly.authentication.core",
-                    purpose="1) Decodes the JWT token. 2) Retrieves an user. IMPORTANT: Used by the endpoints for authentication.",
-                    uses=["models.User"],
-                    is_endpoint=False,
-                    pypi_packages=[
-                        "pyjwt==2.10.1",
-                        "fastapi==0.115.6",
-                        "sqlalchemy==2.0.36",
-                    ],
-                )
-            )
-        ),
-        ImplementedComponent(
-            base=Component(
-                Function(
-                    name="login_api",
-                    namespace="modassembly.authentication.endpoints",
-                    purpose="Logs in an user. 1) Gets the user. 2) Verifies the password. 3) Creates a new JWT token.",
-                    uses=[
-                        "modassembly.database.get_session",
-                        "models.User",
-                        "modassembly.authentication.core.create_access_token",
-                    ],
-                    is_endpoint=True,
-                    pypi_packages=[
-                        "fastapi==0.115.6",
-                        "passlib==1.7.4",
-                        "pydantic==2.10.4",
-                        "sqlalchemy==2.0.36",
-                    ],
-                )
-            )
-        ),
     ],
     "pypi_packages": None,
-    "external_infrastructure": ["http", "database", "authentication"],
+    "external_infrastructure": ["http"],
     "url": None,
 }
 
 
+db_components = [
+    ImplementedComponent(
+        base=Component(
+            Function(
+                name="get_session",
+                namespace="modassembly.database",
+                purpose="1) Initializes the Postgres database. 2) Gets a session.",
+                uses=[],
+                is_endpoint=False,
+                pypi_packages=["psycopg2-binary==2.9.10", "sqlalchemy==2.0.36"],
+            )
+        )
+    ),
+]
+
+
+auth_components = [
+    ImplementedComponent(
+        base=Component(
+            SQLAlchemyModel(
+                name="User",
+                namespace="models",
+                fields=[
+                    SQLAlchemyModel.ModelField(
+                        name="id", purpose="Primary key, autoincremental"
+                    ),
+                    SQLAlchemyModel.ModelField(
+                        name="email", purpose="The email of the user, can't be null"
+                    ),
+                    SQLAlchemyModel.ModelField(
+                        name="password",
+                        purpose="The hashed password, can't be null",
+                    ),
+                    SQLAlchemyModel.ModelField(
+                        name="role", purpose='"user" or "admin", default to "user"'
+                    ),
+                ],
+                associations=[],
+                pypi_packages=["sqlalchemy==2.0.36"],
+            )
+        )
+    ),
+    ImplementedComponent(
+        base=Component(
+            Function(
+                name="create_access_token",
+                namespace="modassembly.authentication.core",
+                purpose="1) Encodes a JWT token using the user's email and an expiration time.",
+                uses=[],
+                is_endpoint=False,
+                pypi_packages=["pyjwt==2.10.1"],
+            )
+        )
+    ),
+    ImplementedComponent(
+        base=Component(
+            Function(
+                name="authenticate",
+                namespace="modassembly.authentication.core",
+                purpose="1) Decodes the JWT token. 2) Retrieves an user. IMPORTANT: Used by the endpoints for authentication.",
+                uses=["models.User"],
+                is_endpoint=False,
+                pypi_packages=[
+                    "pyjwt==2.10.1",
+                    "fastapi==0.115.6",
+                    "sqlalchemy==2.0.36",
+                ],
+            )
+        )
+    ),
+    ImplementedComponent(
+        base=Component(
+            Function(
+                name="login_api",
+                namespace="modassembly.authentication.endpoints",
+                purpose="Logs in an user. 1) Gets the user. 2) Verifies the password. 3) Creates a new JWT token.",
+                uses=[
+                    "modassembly.database.get_session",
+                    "models.User",
+                    "modassembly.authentication.core.create_access_token",
+                ],
+                is_endpoint=True,
+                pypi_packages=[
+                    "bcrypt==4.0.1",
+                    "fastapi==0.115.6",
+                    "passlib==1.7.4",
+                    "pydantic==2.10.4",
+                    "sqlalchemy==2.0.36",
+                ],
+            )
+        )
+    ),
+]
+
+
 def create_initial_config(
     app_name: str,
+    external_infrastructure: List[str],
 ) -> Dict[str, Any]:
     config = initial_config.copy()
     config["name"] = app_name
+
+    if "database" in external_infrastructure:
+        config["architecture"].extend(db_components)
+        if "authentication" in external_infrastructure:
+            config["architecture"].extend(auth_components)
+    config["external_infrastructure"] = external_infrastructure
+
     save_config(config)
     return config

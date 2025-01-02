@@ -159,11 +159,12 @@ Always prefer the most simple design."""
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("app")
+    parser.add_argument("--infra", nargs="+", default=["http", "database"])
     args = parser.parse_args()
 
     if not os.path.exists(f"{REPOS}/{args.app}"):
         os.mkdir(f"{REPOS}/{args.app}")
-        create_initial_config(args.app)
+        create_initial_config(args.app, args.infra)
         Conversation().persist(app_name=args.app)
 
     config, _ = run(args.app, user_input("user: "))
