@@ -1,5 +1,5 @@
 import sys
-from typing import Dict, List, Optional
+from typing import List, Optional, Set
 
 from dotenv import load_dotenv
 from pydantic import BaseModel, ConfigDict
@@ -25,50 +25,41 @@ from utils.state import Conversation
 from utils.static_analysis import RouterNotFoundError, extract_router_name
 
 
-def save_files(
+def save_templates(
     app_name: str,
-    architecture: Dict[str, ImplementedComponent],
-    external_infrastructure: List[str],
+    architecture: List[ImplementedComponent],
     conversation: Conversation,
 ) -> None:
-    create_folders_if_not_exist(app_name, "app")
-    create_folders_if_not_exist(app_name, "app.helpers")
-
-    pypi = set()
-    for component in architecture.values():
-        for package in component.base.root.pypi_packages:
-            pypi.add(package)
-    with open(f"{REPOS}/{app_name}/requirements.txt", "w") as f:
-        requirements_content = "\n".join(pypi)
-        f.write(requirements_content)
     for file in ["deploy.sh", "Dockerfile"]:
         with open(f"{REPOS}/_template/{file}", "r") as f1, open(
             f"{REPOS}/{app_name}/{file}", "w"
         ) as f2:
             f2.write(f1.read())
 
-    main_path = "app/main.py"
-    with open(f"{REPOS}/_template/app/main.py", "r") as f, open(
-        f"{REPOS}/{app_name}/{main_path}", "w"
-    ) as f2:
-        content = f.read()
-        f2.write(content)
-        conversation.add_user(f"I wrote the code for:\n\n```python\n{content}\n```")
-        conversation.add_user(f"I saved the code in {main_path}.")
-        architecture["main"].file = File(path=main_path, content=content)
-
-    if "database" in external_infrastructure:
-        db_helper_path = "app/helpers/db.py"
-        with open(f"{REPOS}/_template/app/helpers/db.py", "r") as f, open(
-            f"{REPOS}/{app_name}/{db_helper_path}", "w"
+    modassembly_components = {
+        "main": "app/main.py",
+        "modassembly.database.get_session": "app/modassembly/database/get_session.py",
+        "models.User": "app/models/User.py",
+        "modassembly.authentication.core.create_access_token": "app/modassembly/authentication/core/create_access_token.py",
+        "modassembly.authentication.core.authenticate": "app/modassembly/authentication/core/authenticate.py",
+        "modassembly.authentication.endpoints.login_api": "app/modassembly/authentication/endpoints/login_api.py",
+    }
+    for component in architecture:
+        if not component.base.key in modassembly_components:
+            continue
+        module = component.base.key
+        file_path = modassembly_components[module]
+        package = ".".join(module.split(".")[:-1])
+        create_folders_if_not_exist(app_name, f"app.{package}")
+        with open(f"{REPOS}/_template/{file_path}", "r") as f1, open(
+            f"{REPOS}/{app_name}/{file_path}", "w"
         ) as f2:
-            content = f.read()
+            content = f1.read()
             f2.write(content)
+            print_system(f"Saving :: {module}")
             conversation.add_user(f"I wrote the code for:\n\n```python\n{content}\n```")
-            conversation.add_user(f"I saved the code in {db_helper_path}.")
-            architecture["helpers.get_db"].file = File(
-                path=db_helper_path, content=content
-            )
+            conversation.add_user(f"I saved the code in {file_path}.")
+            component.file = File(path=file_path, content=content)
 
 
 class ImplementationContext(BaseModel):
@@ -91,6 +82,7 @@ class CompilationError(Exception):
 def write_component(
     app_name: str,
     context: ImplementationContext,
+    external_infrastructure: List[str],
     conversation: Conversation,
 ) -> ImplementationContext:
     sys.path.append(f"{REPOS}/{app_name}")
@@ -100,6 +92,7 @@ def write_component(
 
 Speficications:
 - The code should work (no placeholders).
+- Use appropriate typing in function arguments and return types.
 - Pick the most simple implementation.
 - Don't catch exceptions unless specified. Let errors raise.\n"""
     if isinstance(component.base.root, Function) and component.base.root.is_endpoint:
@@ -111,9 +104,11 @@ Speficications:
             "- Avoid condecimal.\n"
             "- Make sure that datetime in pydantic matches datetime in sqlalchemy.\n"
         )
+        if "authentication" in external_infrastructure:
+            user_message += "- Authenticate it with app.modassembly.authentication.core.authenticate.\n"
     elif isinstance(component.base.root, SQLAlchemyModel):
         user_message += (
-            "- Import Base from app.helpers.db.\n"
+            "- Import Base from app.modassembly.database.get_session.\n"
             "- Only use `ForeignKey` if the other model exists in the architecture.\n"
         )
     user_message += "\n```python\n...\n```"

@@ -11,6 +11,7 @@ class BaseComponent(BaseModel):
     type: str = Field(description="sqlalchemymodel or function")
     name: str = Field(description="The name of the sqlalchemymodel or function")
     namespace: str = Field(description="The namespace of the component")
+    pypi_packages: List[str] = Field(description="The pypi packages that it will need")
 
     @property
     def key(self) -> str:
@@ -75,11 +76,10 @@ class Component(RootModel):
 
 class ImplementedComponent(BaseModel):
     base: Component
-    pypi_packages: Optional[List[str]] = None
     file: Optional[File] = None
 
 
-def load_config(app_name: str) -> Dict[str, Union[str, List[ImplementedComponent]]]:
+def load_config(app_name: str) -> Dict[str, Any]:
     with open(f"db/repos/{app_name}/config.json", "r") as f:
         config = json.load(f)
     print_system(json.dumps(config, indent=2))
@@ -88,17 +88,19 @@ def load_config(app_name: str) -> Dict[str, Union[str, List[ImplementedComponent
         "architecture": [
             ImplementedComponent.model_validate(a) for a in config["architecture"]
         ],
+        "pypi_packages": config["pypi_packages"],
         "external_infrastructure": config["external_infrastructure"],
         "url": config["url"],
     }
 
 
-def save_config(config: Dict[str, Union[str, List[ImplementedComponent]]]) -> None:
+def save_config(config: Dict[str, Any]) -> None:
     assert isinstance(config["architecture"], List)
     raw_architecture = [c.model_dump() for c in config["architecture"]]
     raw_config = {
         "name": config["name"],
         "architecture": raw_architecture,
+        "pypi_packages": config["pypi_packages"],
         "external_infrastructure": config["external_infrastructure"],
         "url": config["url"],
     }
@@ -136,6 +138,14 @@ initial_config = {
                     purpose="The main FastAPI script.",
                     uses=["Other sqlalchemymodels or functions"],
                     is_endpoint=False,
+                    pypi_packages=[
+                        "bcrypt==4.0.1",
+                        "fastapi==0.115.6",
+                        "pydantic==2.10.4",
+                        "python-dotenv==1.0.1",
+                        "python-multipart==0.0.20",
+                        "uvicorn==0.34.0",
+                    ],
                 )
             )
         ),
@@ -144,9 +154,10 @@ initial_config = {
                 Function(
                     name="get_session",
                     namespace="modassembly.database",
-                    purpose="Initializes the Postgres database and gets a session.",
+                    purpose="1) Initializes the Postgres database. 2) Gets a session.",
                     uses=[],
                     is_endpoint=False,
+                    pypi_packages=["psycopg2-binary==2.9.10", "sqlalchemy==2.0.36"],
                 )
             )
         ),
@@ -154,7 +165,7 @@ initial_config = {
             base=Component(
                 SQLAlchemyModel(
                     name="User",
-                    namespace="modassembly.authentication.models",
+                    namespace="models",
                     fields=[
                         SQLAlchemyModel.ModelField(
                             name="id", purpose="Primary key, autoincremental"
@@ -171,6 +182,7 @@ initial_config = {
                         ),
                     ],
                     associations=[],
+                    pypi_packages=["sqlalchemy==2.0.36"],
                 )
             )
         ),
@@ -179,9 +191,10 @@ initial_config = {
                 Function(
                     name="create_access_token",
                     namespace="modassembly.authentication.core",
-                    purpose="Encodes a JWT token using the user's email and an expiration time.",
+                    purpose="1) Encodes a JWT token using the user's email and an expiration time.",
                     uses=[],
                     is_endpoint=False,
+                    pypi_packages=["pyjwt==2.10.1"],
                 )
             )
         ),
@@ -190,9 +203,14 @@ initial_config = {
                 Function(
                     name="authenticate",
                     namespace="modassembly.authentication.core",
-                    purpose="Decodes the JWT token and retrieves an user. IMPORTANT: Used by the endpoints for authentication.",
-                    uses=["modassembly.authentication.models.User"],
+                    purpose="1) Decodes the JWT token. 2) Retrieves an user. IMPORTANT: Used by the endpoints for authentication.",
+                    uses=["models.User"],
                     is_endpoint=False,
+                    pypi_packages=[
+                        "pyjwt==2.10.1",
+                        "fastapi==0.115.6",
+                        "sqlalchemy==2.0.36",
+                    ],
                 )
             )
         ),
@@ -201,17 +219,24 @@ initial_config = {
                 Function(
                     name="login_api",
                     namespace="modassembly.authentication.endpoints",
-                    purpose="Logs in an user. Gets the user, verifies the password and creates a new JWT token.",
+                    purpose="Logs in an user. 1) Gets the user. 2) Verifies the password. 3) Creates a new JWT token.",
                     uses=[
                         "modassembly.database.get_session",
-                        "modassembly.authentication.models.User",
+                        "models.User",
                         "modassembly.authentication.core.create_access_token",
                     ],
                     is_endpoint=True,
+                    pypi_packages=[
+                        "fastapi==0.115.6",
+                        "passlib==1.7.4",
+                        "pydantic==2.10.4",
+                        "sqlalchemy==2.0.36",
+                    ],
                 )
             )
         ),
     ],
+    "pypi_packages": None,
     "external_infrastructure": ["http", "database", "authentication"],
     "url": None,
 }
@@ -219,7 +244,7 @@ initial_config = {
 
 def create_initial_config(
     app_name: str,
-) -> Dict[str, Union[str, List[ImplementedComponent]]]:
+) -> Dict[str, Any]:
     config = initial_config.copy()
     config["name"] = app_name
     save_config(config)

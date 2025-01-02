@@ -16,5 +16,4 @@ class Request(BaseModel):
 
 @router.post("", response_model=str)
 async def implement_architecture(request: Request) -> str:
-    config = load_config(request.app_name)
-    return implement.run(config, request.architecture)
+    return implement.run(request.app_name, request.architecture)

@@ -5,11 +5,12 @@ import re
 import subprocess
 import venv
 from mypy import api
-from typing import Any, Dict, List, Set
+from typing import Any, List, Set
 
 import matplotlib.pyplot as plt
 import networkx as nx
 
+from ai import llm
 from utils.architecture import (
     Function,
     ImplementedComponent,
@@ -63,14 +64,28 @@ def build_graph(architecture: List[ImplementedComponent]) -> nx.DiGraph:
     return G
 
 
-def install_requirements(pypi_packages: Set[str], app_name: str) -> None:
+class InstallRequirementsError(Exception):
+    pass
+
+
+def install_requirements(
+    app_name: str,
+    architecture: List[ImplementedComponent],
+) -> None:
+    pypi_packages = set()
+    for component in architecture:
+        pypi_packages.update(component.base.root.pypi_packages)
+    requirements_path = f"{REPOS}/{app_name}/requirements.txt"
+    with open(requirements_path, "w") as f:
+        f.write("\n".join(pypi_packages))
+
     venv_path = f"db/repos/{app_name}/venv"
     os.makedirs(venv_path, exist_ok=True)
     venv.create(venv_path, with_pip=True)
     venv_python = os.path.join(venv_path, "bin", "python3")
     print_system("Installing requirements...")
     output = subprocess.run(
-        [venv_python, "-m", "pip", "install", *pypi_packages],
+        [venv_python, "-m", "pip", "install", "-r", requirements_path],
         check=False,
         capture_output=True,
         text=True,
@@ -87,7 +102,7 @@ def create_folders_if_not_exist(app_name: str, namespace: str) -> None:
     for package in packages:
         current_path = os.path.join(current_path, package)
         if not os.path.exists(current_path):
-            os.makedirs(current_path)
+            os.mkdir(current_path)
         init_file = os.path.join(current_path, "__init__.py")
         if not os.path.exists(init_file):
             with open(init_file, "w") as f:
@@ -125,11 +140,16 @@ def group_nodes_by_dependencies(
 def update_main(
     app_name: str,
     architecture: List[ImplementedComponent],
-    external_infrastructure: List[str],
+    external_infrastructure,
 ) -> None:
     with open(f"{REPOS}/{app_name}/app/main.py", "r") as f:
         main_content = f.read()
     main_content += "\n"
+    if "authentication" in external_infrastructure:
+        main_content += (
+            "from app.modassembly.authentication.endpoints.login_api import router\n"
+        )
+        main_content += "app.include_router(router)\n"
     for component in architecture:
         if (
             isinstance(component.base.root, Function)
@@ -141,7 +161,10 @@ def update_main(
             main_content += f"from {module} import {router_name}\n"
             main_content += f"app.include_router({router_name})\n"
     if "database" in external_infrastructure:
-        main_content += "\nfrom app.helpers.db import Base, engine\n"
+        main_content += "\n# Database\n"
+        main_content += (
+            "\nfrom app.modassembly.database.get_session import Base, engine\n"
+        )
         main_content += "Base.metadata.create_all(engine)\n"
     with open(f"{REPOS}/{app_name}/app/main.py", "w") as f:
         f.write(main_content)
@@ -171,28 +194,21 @@ def create_tables(app_name: str, namespace: str, code: str) -> None:
     from sqlalchemy.schema import MetaData
     from sqlalchemy.ext.declarative import declarative_base
 
-    # Create new MetaData instance and Base for clean state
     metadata = MetaData()
     Base = declarative_base(metadata=metadata)
-
     models = extract_sqlalchemy_models(code)
-    # Create a unique database identifier using app_name and namespace
     test_engine = create_engine(
         f"sqlite:///file:{app_name}?mode=memory&cache=shared&uri=true"
     )
-
     for model in models:
         module_path = f"db.repos.{app_name}.app.{namespace}.{model}"
         models_module = importlib.import_module(module_path)
         model_class = getattr(models_module, model)
-        # Clear any existing table definition
         if hasattr(model_class, "__table__"):
             model_class.__table__ = None
-        # Make the model inherit from the new Base
+        model_class.metadata.clear()
         model_class.__bases__ = (Base,)
-
     try:
-        # Create all tables with new metadata
         metadata.create_all(bind=test_engine)
     except Exception as e:
         raise ModelImplementationError(f"Error creating tables: {e}")
@@ -207,6 +223,7 @@ def run_mypy(file_path: str) -> None:
         [
             file_path,
             "--disable-error-code=import-untyped",
+            "--disable-error-code=call-overload",
         ]
     )
     print_system(stdout)

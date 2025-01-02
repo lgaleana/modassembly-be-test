@@ -20,17 +20,22 @@ from utils.state import Conversation
 from workflows.helpers import (
     execute_deploy,
     group_nodes_by_dependencies,
+    install_requirements,
     update_main,
 )
-from workflows.subworkflows import ImplementationContext, save_files, write_component
+from workflows.subworkflows import (
+    ImplementationContext,
+    save_templates,
+    write_component,
+)
 
 
-def run(config: Dict[str, Any], new_architecture: List[ImplementedComponent]) -> str:
-    app_name = config["name"]
+def run(app_name: str, new_architecture: List[ImplementedComponent]) -> str:
+    config = load_config(app_name)
     saved_architecture = config["architecture"]
+
     whole_architecture = saved_architecture.copy()
     update_architecture_diff(whole_architecture, new_architecture)
-    external_infrastructure = ["database", "http"]
 
     conversation = Conversation()
     raw_architecture = [c.model_dump() for c in whole_architecture]
@@ -38,14 +43,13 @@ def run(config: Dict[str, Any], new_architecture: List[ImplementedComponent]) ->
         f"Consider the following python architecture: {json.dumps(raw_architecture, indent=2)}"
     )
 
+    save_templates(app_name, saved_architecture, conversation)
+    install_requirements(app_name, whole_architecture)
+
     architecture_to_update = {}
     for component in saved_architecture:
-        if (
-            not component.file
-            or component.base.key == "main"
-            or component.base.key == "helpers.get_db"
-        ):
-            print_system(f"Will update {component.base.key}")
+        if not component.file:
+            print_system(f"Will update :: {component.base.key}")
             architecture_to_update[component.base.key] = component
     for new_component in new_architecture:
         for old_component in saved_architecture:
@@ -53,14 +57,11 @@ def run(config: Dict[str, Any], new_architecture: List[ImplementedComponent]) ->
                 new_component.base.key == old_component.base.key
                 and new_component.base.root != old_component.base.root
             ):
-                print_system(f"Will update {new_component.base.key}")
+                print_system(f"Will update :: {new_component.base.key}")
                 architecture_to_update[new_component.base.key] = new_component
                 break
+    print_system()
 
-    save_files(app_name, architecture_to_update, external_infrastructure, conversation)
-
-    architecture_to_update.pop("main")
-    architecture_to_update.pop("helpers.get_db")
     models_to_parallelize = group_nodes_by_dependencies(
         [
             m
@@ -86,6 +87,7 @@ def run(config: Dict[str, Any], new_architecture: List[ImplementedComponent]) ->
                         ImplementationContext(component=architecture_to_update[l])
                         for l in level
                     ],
+                    [config["external_infrastructure"]] * len(level),
                     [conversation.copy() for _ in level],
                 )
             )
@@ -122,21 +124,23 @@ def run(config: Dict[str, Any], new_architecture: List[ImplementedComponent]) ->
                 conversation.add_user(
                     f"Found errors ::\n\n{output.error}\n\nPlease fix them."
                 )
-                output = write_component(app_name, output, conversation.copy())
+                output = write_component(
+                    app_name,
+                    output,
+                    config["external_infrastructure"],
+                    conversation.copy(),
+                )
                 if not output.error:
                     _update(output)
                     break
 
-    update_architecture_diff(
-        config["architecture"], list(architecture_to_update.values())
-    )
-
-    update_main(app_name, config["architecture"], external_infrastructure)
+    update_architecture_diff(saved_architecture, list(architecture_to_update.values()))
+    update_main(app_name, saved_architecture, config["external_infrastructure"])
 
     print_system("Deploying application...")
     service_url = execute_deploy(app_name)
 
-    config["url"] = service_url
+    config["url"] = f"{service_url}/docs"
     save_config(config)
     print_system(f"{service_url}/docs")
     return f"{service_url}/docs"
@@ -147,6 +151,4 @@ if __name__ == "__main__":
     parser.add_argument("app")
     args = parser.parse_args()
 
-    config = load_config(args.app)
-
-    run(config, [])
+    run(args.app, [])

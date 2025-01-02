@@ -27,7 +27,6 @@ class UpdateComponent(Function[Component]):
 def run(app_name: str, user_message: str) -> Tuple[Dict[str, Any], Conversation]:
     config = load_config(app_name)
     conversation = Conversation.load(app_name)
-    assert isinstance(config["architecture"], list)
     architecture = {c.base.root.key: c for c in config["architecture"]}
 
     if len(conversation) == 0:
@@ -49,9 +48,9 @@ You will be given the backend architecture of a python module that is hosted on 
                     "purpose": "What the field is used for"
                 }}
             ],
-            "associations": ["The other namespace.sqlalchemymodels that this model is associated with"]
+            "associations": ["The other namespace.sqlalchemymodels that this model is associated with"],
+            "pypi_packages": ["The pypi packages that the sqlalchemymodel will need"]
         }},
-        "pypi_packages": ["The pypi packages that it will need"]
         "file": Whether the component has been implemented in code, in a file
     }},
     {{
@@ -59,11 +58,11 @@ You will be given the backend architecture of a python module that is hosted on 
             "type": "function",
             "name": "The name of the function",
             "namespace": "The namespace of the function",
-            "purpose": "What the function does",
+            "purpose": "What the function does, step by step. Ie: 1) ... 2)...",
             "uses": ["The other namespace.functions or namespace.sqlalchemymodels that this function uses internally."]
             "is_endpoint": true or false whether this is a FastAPI endpoint
+            "pypi_packages": ["The pypi packages that the function will need"]
         }},
-        "pypi_packages": ...
         "file": ...
     }},
     ...
@@ -73,14 +72,17 @@ You will be given the backend architecture of a python module that is hosted on 
 There are 2 types of "base" components: sqlalchemymodels and functions. A base component can be added if it doesn't already exist in the architecture. And it can only be updated if it hasn't been implemented in a file. To update a component with an implemented file, the user must update it manually.
 
 You will also be given the set of GCP infrastructure that you have access to.
-Follow user instructions to build the architecture by adding base components. Use a modular and composable design pattern. Prefer functions over classes.
+Follow user instructions to build the architecture by adding base components. Use a modular and composable design pattern. Too many steps probably means that you should break it apart. Prefer functions over classes.
 Always prefer the most simple design."""
         )
 
         raw_architecture = json.dumps(
             [c.model_dump() for c in architecture.values()], indent=4
         )
-        conversation.add_user(f"Architecture:\n{raw_architecture}")
+        conversation.add_user(
+            f"Initial architecture:\n\n{raw_architecture}\n\n"
+            "IMPORTANT: The modassembly namespace is reserved. Use a different one."
+        )
         conversation.add_user(
             "Available GCP infrastructure:\n- Cloud SQL.\n- External HTTP requests."
         )
@@ -103,6 +105,12 @@ Always prefer the most simple design."""
                     invalid_components[component.key] = (
                         f"{component.key} :: already has a file associated with it"
                     )
+                elif "modassembly" in component.key:
+                    invalid_components[component.key] = (
+                        f"modassembly :: is reserved for internal use. "
+                        f"for component :: {component.key}. "
+                        "Use a different namespace."
+                    )
                 elif component.root.type == "sqlalchemymodel":
                     for association in component.root.associations:
                         if association not in architecture:
@@ -122,22 +130,25 @@ Always prefer the most simple design."""
                 if component.key not in invalid_components:
                     valid_components.append(component)
 
-            tool_response = f"Done.\n"
+            tool_response = ""
+            if len(valid_components) > len(invalid_components):
+                tool_response = f"Done.\n"
             if invalid_components:
                 tool_response += (
-                    "The following components were not updated\n"
+                    "The following components were not updated:\n"
                     + "\n".join(invalid_components.values())
                 )
             print_system(f"Invalid components: {invalid_components}")
+
+            for component in valid_components:
+                architecture[component.key] = ImplementedComponent(base=component)
+            config["architecture"] = list(architecture.values())
+
             raw_architecture = json.dumps(
                 [c.model_dump() for c in architecture.values()], indent=4
             )
             tool_response += f"\n\nArchitecture:\n{raw_architecture}"
             conversation.add_tool_response(tool_response)
-
-            for component in valid_components:
-                architecture[component.key] = ImplementedComponent(base=component)
-            config["architecture"] = list(architecture.values())
         else:
             conversation.add_assistant(next)
             conversation.persist(app_name=app_name)
