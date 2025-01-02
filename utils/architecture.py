@@ -10,7 +10,10 @@ from utils.io import print_system
 class BaseComponent(BaseModel):
     type: str = Field(description="sqlalchemymodel or function")
     name: str = Field(description="The name of the sqlalchemymodel or function")
-    namespace: str = Field(description="The namespace of the component")
+    namespace: str = Field(
+        description="The virtual location of the component, ie, the file path. "
+        "Use a dot notation."
+    )
     pypi_packages: List[str] = Field(description="The pypi packages that it will need")
 
     @property
