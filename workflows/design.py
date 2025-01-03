@@ -158,7 +158,7 @@ Follow the user's instructions to build the architecture by adding or updating b
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("app")
-    parser.add_argument("--infra", nargs="+", default=["http", "database"])
+    parser.add_argument("--infra", nargs="+", default=["http", "database", "authentication"])
     args = parser.parse_args()
 
     if not os.path.exists(f"{REPOS}/{args.app}"):

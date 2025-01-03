@@ -20,7 +20,7 @@ from utils.io import print_system
 from utils.static_analysis import extract_router_name, extract_sqlalchemy_models
 
 
-REPOS = "db/repos"
+REPOS = os.path.expanduser("~/repos")
 
 
 def extract_from_pattern(response: str, *, pattern: str) -> List[str]:
@@ -79,7 +79,7 @@ def install_requirements(
     with open(requirements_path, "w") as f:
         f.write("\n".join(pypi_packages))
 
-    venv_path = f"db/repos/{app_name}/venv"
+    venv_path = f"{REPOS}/{app_name}/venv"
     os.makedirs(venv_path, exist_ok=True)
     venv.create(venv_path, with_pip=True)
     venv_python = os.path.join(venv_path, "bin", "python3")
@@ -201,7 +201,7 @@ def create_tables(app_name: str, namespace: str, code: str) -> None:
         f"sqlite:///file:{app_name}?mode=memory&cache=shared&uri=true"
     )
     for model in models:
-        module_path = f"db.repos.{app_name}.app.{namespace}.{model}"
+        module_path = f"app.{namespace}.{model}"
         models_module = importlib.import_module(module_path)
         model_class = getattr(models_module, model)
         if hasattr(model_class, "__table__"):

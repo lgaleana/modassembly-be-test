@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, Union, Annotated, Literal
 
 from pydantic import BaseModel, Field, RootModel
 
-from utils.files import File
+from utils.files import File, REPOS
 from utils.io import print_system
 
 
@@ -83,7 +83,7 @@ class ImplementedComponent(BaseModel):
 
 
 def load_config(app_name: str) -> Dict[str, Any]:
-    with open(f"db/repos/{app_name}/config.json", "r") as f:
+    with open(f"{REPOS}/{app_name}/config.json", "r") as f:
         config = json.load(f)
     print_system(json.dumps(config, indent=2))
     return {
@@ -108,7 +108,7 @@ def save_config(config: Dict[str, Any]) -> None:
         "url": config["url"],
     }
     print_system(json.dumps(raw_config, indent=2))
-    with open(f"db/repos/{config['name']}/config.json", "w") as f:
+    with open(f"{REPOS}/{config['name']}/config.json", "w") as f:
         json.dump(
             raw_config,
             f,

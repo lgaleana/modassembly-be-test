@@ -114,21 +114,22 @@ def run(app_name: str, new_architecture: List[ImplementedComponent]) -> str:
             continue
 
         for output in wrong_implementations:
+            error_conversation = conversation.copy()
             while True:
                 if output.tries == 3:
                     assert output.error
                     raise output.error
                 assert output.user_message and output.assistant_message
-                conversation.add_user(output.user_message)
-                conversation.add_assistant(output.assistant_message)
-                conversation.add_user(
-                    f"Found errors ::\n\n{output.error}\n\nPlease fix them."
+                error_conversation.add_user(output.user_message)
+                error_conversation.add_assistant(output.assistant_message)
+                error_conversation.add_user(
+                    f"Found the following errors ::\n\n{output.error}"
                 )
                 output = write_component(
                     app_name,
                     output,
                     config["external_infrastructure"],
-                    conversation.copy(),
+                    error_conversation.copy(),
                 )
                 if not output.error:
                     _update(output)

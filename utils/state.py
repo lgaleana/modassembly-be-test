@@ -3,8 +3,8 @@ import json
 from copy import deepcopy
 from typing import Any, Dict, List, Optional
 
-
 from ai.tokens import count_tokens
+from utils.files import REPOS
 
 
 class Conversation(List[Dict[str, Any]]):
@@ -81,7 +81,7 @@ class Conversation(List[Dict[str, Any]]):
         return len(self) == 0
 
     def persist(self, app_name: Optional[str] = None) -> None:
-        with open(f"db/repos/{app_name}/conversation.json", "w") as file:
+        with open(f"{REPOS}/{app_name}/conversation.json", "w") as file:
             json.dump(self, file, indent=4)
 
     def count_tokens(self) -> int:
@@ -89,7 +89,7 @@ class Conversation(List[Dict[str, Any]]):
 
     @staticmethod
     def load(app_name: str) -> "Conversation":
-        with open(f"db/repos/{app_name}/conversation.json", "r") as file:
+        with open(f"{REPOS}/{app_name}/conversation.json", "r") as file:
             payload = json.load(file)
         return Conversation(payload)
 

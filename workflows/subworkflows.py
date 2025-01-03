@@ -30,8 +30,8 @@ def save_templates(
     architecture: List[ImplementedComponent],
     conversation: Conversation,
 ) -> None:
-    for file in ["deploy.sh", "Dockerfile"]:
-        with open(f"{REPOS}/_template/{file}", "r") as f1, open(
+    for file in [".gitignore", "deploy.sh", "Dockerfile"]:
+        with open(f"db/_template/{file}", "r") as f1, open(
             f"{REPOS}/{app_name}/{file}", "w"
         ) as f2:
             f2.write(f1.read())
@@ -51,7 +51,7 @@ def save_templates(
         file_path = modassembly_components[module]
         package = ".".join(module.split(".")[:-1])
         create_folders_if_not_exist(app_name, f"app.{package}")
-        with open(f"{REPOS}/_template/{file_path}", "r") as f1, open(
+        with open(f"db/_template/{file_path}", "r") as f1, open(
             f"{REPOS}/{app_name}/{file_path}", "w"
         ) as f2:
             content = f1.read()
@@ -95,17 +95,19 @@ Speficications:
 - Use appropriate typing in function arguments and return types.
 - Pick the most simple implementation.
 - Don't catch exceptions unless specified. Let errors raise.\n"""
-    if isinstance(component.base.root, Function) and component.base.root.is_endpoint:
+    if isinstance(component.base.root, Function):
+        if component.base.root.is_endpoint:
+            user_message += (
+                "- Since this function is meant to be an endpoint, "
+                "a) add enough documentation and b) add proper typing, "
+                "so that it's easy to use in Swagger.\n"
+            )
+            if "authentication" in external_infrastructure:
+                user_message += "- Authenticate it with app.modassembly.authentication.core.authenticate.\n"
         user_message += (
-            "- Since this function is meant to be an endpoint, "
-            "a) add enough documentation and b) add proper typing, "
-            "so that it's easy to use in Swagger.\n"
-            "- Define pydantic models for inputs and OUTPUTS where needed.\n"
-            "- Avoid condecimal.\n"
-            "- Make sure that datetime in pydantic matches datetime in sqlalchemy.\n"
+            "When using SQLALchemy models, access the actual column values. "
+            "Example for a string attribute: `model.attribute.__str__()`."
         )
-        if "authentication" in external_infrastructure:
-            user_message += "- Authenticate it with app.modassembly.authentication.core.authenticate.\n"
     elif isinstance(component.base.root, SQLAlchemyModel):
         user_message += (
             "- Import Base from app.modassembly.database.get_session.\n"
