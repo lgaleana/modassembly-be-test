@@ -14,6 +14,10 @@ class BaseComponent(BaseModel):
         description="The virtual location of the component, ie, the file path. "
         "Use a dot notation."
     )
+    dependencies: List[str] = Field(
+        description="The other namespace.sqlalchemymodels or "
+        "namespace.functions that this component depends on"
+    )
     pypi_packages: List[str] = Field(description="The pypi packages that it will need")
 
     @property
@@ -28,17 +32,11 @@ class SQLAlchemyModel(BaseComponent):
 
     type: Literal["sqlalchemymodel"] = "sqlalchemymodel"
     fields: List[ModelField] = Field(description="The fields of the model")
-    associations: List[str] = Field(
-        description="The other sqlalchemymodels that this model is associated with"
-    )
 
 
 class Function(BaseComponent):
     type: Literal["function"] = "function"
     purpose: str = Field(description="The purpose of the function")
-    uses: List[str] = Field(
-        description="The sqlalchemymodels or functions that this component uses internally"
-    )
     is_endpoint: bool = Field(description="Whether this is a FastAPI endpoint")
 
 
@@ -141,7 +139,7 @@ initial_config = {
                     name="main",
                     namespace="",
                     purpose="The main FastAPI script.",
-                    uses=["Other sqlalchemymodels or functions"],
+                    dependencies=["Other sqlalchemymodels or functions"],
                     is_endpoint=False,
                     pypi_packages=[
                         "fastapi==0.115.6",
@@ -167,7 +165,7 @@ db_components = [
                 name="get_session",
                 namespace="modassembly.database",
                 purpose="1) Initializes the Postgres database. 2) Gets a session.",
-                uses=[],
+                dependencies=[],
                 is_endpoint=False,
                 pypi_packages=["psycopg2-binary==2.9.10", "sqlalchemy==2.0.36"],
             )
@@ -197,7 +195,7 @@ auth_components = [
                         name="role", purpose='"user" or "admin", default to "user"'
                     ),
                 ],
-                associations=[],
+                dependencies=[],
                 pypi_packages=["sqlalchemy==2.0.36"],
             )
         )
@@ -208,7 +206,7 @@ auth_components = [
                 name="create_access_token",
                 namespace="modassembly.authentication.core",
                 purpose="1) Encodes a JWT token using the user's email and an expiration time.",
-                uses=[],
+                dependencies=[],
                 is_endpoint=False,
                 pypi_packages=["pyjwt==2.10.1"],
             )
@@ -220,7 +218,7 @@ auth_components = [
                 name="authenticate",
                 namespace="modassembly.authentication.core",
                 purpose="1) Decodes the JWT token. 2) Retrieves an user. IMPORTANT: Used by the endpoints for authentication.",
-                uses=["models.User"],
+                dependencies=["models.User"],
                 is_endpoint=False,
                 pypi_packages=[
                     "pyjwt==2.10.1",
@@ -236,7 +234,7 @@ auth_components = [
                 name="login_api",
                 namespace="modassembly.authentication.endpoints",
                 purpose="Logs in an user. 1) Gets the user. 2) Verifies the password. 3) Creates a new JWT token.",
-                uses=[
+                dependencies=[
                     "modassembly.database.get_session",
                     "models.User",
                     "modassembly.authentication.core.create_access_token",

@@ -13,7 +13,6 @@ import networkx as nx
 from utils.architecture import (
     Function,
     ImplementedComponent,
-    SQLAlchemyModel,
     create_initial_config,
 )
 from utils.github import (
@@ -30,18 +29,25 @@ from utils.static_analysis import extract_router_name, extract_sqlalchemy_models
 REPOS = os.path.expanduser("~/repos")
 
 
+class PatternMatchError(Exception):
+    pass
+
+
 def extract_from_pattern(response: str, *, pattern: str) -> List[str]:
     matches = re.findall(pattern, response, re.DOTALL)
     if not matches:
-        raise ValueError("No matches found in response")
+        raise PatternMatchError(f"No matches found for pattern :: {pattern}")
     for match in matches:
         print_system(match)
     return matches
 
 
-def extract_json(response: str, *, pattern: str) -> List[Any]:
-    json_str = extract_from_pattern(response, pattern=pattern)
-    return [json.loads(json_str) for json_str in json_str]
+def extract_json(response: str) -> List[Any]:
+    json_str = extract_from_pattern(response, pattern=r"```json\n(.*?)```")
+    try:
+        return [json.loads(json_str) for json_str in json_str]
+    except Exception as e:
+        raise PatternMatchError(f"Error parsing JSON: {e}")
 
 
 def visualize_graph(G: nx.DiGraph, *, figsize=(12, 12), k=0.15, iterations=20):
@@ -62,12 +68,8 @@ def build_graph(architecture: List[ImplementedComponent]) -> nx.DiGraph:
     G = nx.DiGraph()
     for component in architecture:
         G.add_node(component.base.key)
-        if isinstance(component.base.root, SQLAlchemyModel):
-            for dependency in component.base.root.associations:
-                G.add_edge(component.base.key, dependency)
-        elif isinstance(component.base.root, Function):
-            for dependency in component.base.root.uses:
-                G.add_edge(component.base.key, dependency)
+        for dependency in component.base.root.dependencies:
+            G.add_edge(component.base.key, dependency)
     return G
 
 
@@ -82,8 +84,9 @@ def create_app(app_name: str, external_infrastructure: List[str]) -> Dict[str, A
     ) as f2:
         f2.write(f1.read())
     print_system("Initializing git and github...")
-    github_url = create_github_repository(app_name)
-    execute_git_commands(
+    github_url = ""
+    # github_url = create_github_repository(app_name)
+    """execute_git_commands(
         [
             ["git", "init"],
             ["git", "add", "."],
@@ -99,8 +102,8 @@ def create_app(app_name: str, external_infrastructure: List[str]) -> Dict[str, A
             ["git", "push", "-u", "origin", "main"],
         ],
         app=app_name,
-    )
-    protect_repository(app_name)
+    )"""
+    # protect_repository(app_name)
     print_system("Success")
     config = create_initial_config(app_name, external_infrastructure, github_url)
     return config
@@ -157,10 +160,7 @@ def group_nodes_by_dependencies(
     levels = []
     dependencies = {}
     for component in architecture:
-        if isinstance(component.base.root, SQLAlchemyModel):
-            dependencies[component.base.root.key] = component.base.root.associations
-        elif isinstance(component.base.root, Function):
-            dependencies[component.base.root.key] = component.base.root.uses
+        dependencies[component.base.root.key] = component.base.root.dependencies
 
     remaining_components = set(dependencies.keys())
     while remaining_components:

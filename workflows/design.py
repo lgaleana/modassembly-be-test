@@ -1,26 +1,27 @@
 import argparse
 import json
+import os
 from typing import Any, Dict, Tuple
 from dotenv import load_dotenv
 
 load_dotenv()
 
 from ai import llm
-from ai.function_calling import Function
 from utils.architecture import (
     Component,
     ImplementedComponent,
     load_config,
     save_config,
 )
-from utils.github import repository_exists
 from utils.io import print_system, user_input
 from utils.state import Conversation
-from workflows.helpers import REPOS, build_graph, create_app, visualize_graph
-
-
-class UpdateComponent(Function[Component]):
-    description = "Adds or updates one sqlalchemymodel or function of the architecture."
+from workflows.helpers import (
+    REPOS,
+    extract_json,
+    build_graph,
+    create_app,
+    visualize_graph,
+)
 
 
 def run(app_name: str, user_message: str) -> Tuple[Dict[str, Any], Conversation]:
@@ -47,7 +48,7 @@ The architecture that you're working with is a python module that will be hosted
                     "purpose": "What the field is used for, important attributes, etc."
                 }}
             ],
-            "associations": ["The other namespace.sqlalchemymodels that this model is associated with"],
+            "dependencies": ["The other namespace.sqlalchemymodels that this model is associated with"],
             "pypi_packages": ["The pypi packages that the sqlalchemymodel will need"]
         }},
         "file": Whether the sqlalchemymodel has been implemented in code, in a file
@@ -58,7 +59,7 @@ The architecture that you're working with is a python module that will be hosted
             "name": "The name of the function",
             "namespace": "The virtual location of the function. Use a dot notation.",
             "purpose": "What the function does, step by step. Ie: 1) ... 2) ...",
-            "uses": ["The other namespace.functions or namespace.sqlalchemymodels that this function uses internally"]
+            "dependencies": ["The other namespace.functions or namespace.sqlalchemymodels that this function uses internally"]
             "is_endpoint": true or false whether this is a FastAPI endpoint
             "pypi_packages": ["The pypi packages that the function will need"]
         }},
@@ -72,7 +73,16 @@ There are 2 types of "base" components: sqlalchemymodels and functions. A base c
 
 You will also be given the set of GCP infrastructure that you have access to.
 
-Follow the user's instructions to build the architecture by adding or updating base components. Use a modular and composable design pattern. Too many steps in a function's purpose probably means that you should break it apart. Prefer functions over classes. Always prefer the most simple design."""
+Follow the user's instructions to build the architecture by adding or updating base components. To add or update a component, use the following format:
+
+```json
+{{
+    "type": "sqlalchemymodel" or "function",
+    # Attributes of the sqlalchemymodel or function
+}}
+```
+
+Use a modular and composable design pattern. Too many steps in a function's purpose probably means that you should break it apart. Prefer functions over classes. Always prefer the most simple design."""
         )
 
         raw_architecture = json.dumps(
@@ -85,72 +95,39 @@ Follow the user's instructions to build the architecture by adding or updating b
         )
     conversation.add_user(user_message)
 
-    while True:
-        next = llm.stream_next(
-            conversation,
-            tools=[UpdateComponent.tool()],
-        )
+    response = llm.stream_text(conversation)
+    conversation.add_assistant(response)
+    jsons = extract_json(response)
 
-        if isinstance(next, llm.RawFunctionParams):
-            conversation.add_raw_tool(next)
-            components = UpdateComponent.parse_arguments(next)
+    for json_ in jsons:
+        component = Component.model_validate(json_)
 
-            valid_components = []
-            invalid_components = {}
-            for component in components:
-                if component.key in architecture and architecture[component.key].file:
-                    invalid_components[component.key] = (
-                        f"Unable to update component :: {component.key} "
-                        "because it already has a file associated with it. "
-                        "Please try again."
-                    )
-                elif "modassembly" in component.key:
-                    invalid_components[component.key] = (
-                        f"Unable to update component :: {component.key} "
-                        f"because `modassembly` is reserved for internal use. "
-                        "Use a different namespace. Please try again."
-                    )
-                elif component.root.type == "sqlalchemymodel":
-                    for association in component.root.associations:
-                        if association not in architecture:
-                            invalid_components[component.key] = (
-                                f"Unable to update component :: {component.key} "
-                                f"because the `association` :: {association} doesn't exist in the architecture. "
-                                "Make sure to reference models that exist in the architecture. "
-                                "Please try again."
-                            )
-                else:
-                    for use in component.root.uses:
-                        if use not in architecture:
-                            invalid_components[component.key] = (
-                                f"Unable to update component :: {component.key} "
-                                f"because the `use` :: {use} doesn't exist in the architecture. "
-                                "Make sure to reference functions that exist in the architecture. "
-                                "Please try again."
-                            )
-                if component.key not in invalid_components:
-                    valid_components.append(component)
-
-            for component in valid_components:
-                architecture[component.key] = ImplementedComponent(base=component)
-            config["architecture"] = list(architecture.values())
-            print_system(f"Invalid components: {invalid_components}")
-
-            raw_architecture = json.dumps(
-                [c.model_dump() for c in architecture.values()], indent=4
+        if component.key in architecture and architecture[component.key].file:
+            raise ValueError(
+                f"Unable to update component :: {component.key} "
+                "because it already has a file associated with it. "
+                "Please try again."
             )
-            if not invalid_components:
-                tool_response = f"Done. Architecture:\n\n{raw_architecture}"
-            else:
-                tool_response = f"Architecture:\n\n{raw_architecture}\n\n" + "\n".join(
-                    invalid_components.values()
+        elif "modassembly" in component.key:
+            raise ValueError(
+                f"Unable to update component :: {component.key} "
+                f"because `modassembly` is reserved for internal use. "
+                "Use a different namespace. Please try again."
+            )
+        for dependency in component.root.dependencies:
+            if dependency not in architecture:
+                raise ValueError(
+                    f"Unable to update component :: {component.key} "
+                    f"because the `dependency` :: {dependency} doesn't exist in the architecture. "
+                    "Make sure to reference models that exist in the architecture. "
+                    "Please try again."
                 )
-            conversation.add_tool_response(tool_response)
-        else:
-            conversation.add_assistant(next)
-            conversation.persist(app_name=app_name)
-            save_config(config)
-            return config, conversation
+        architecture[component.key] = ImplementedComponent(base=component)
+
+    config["architecture"] = list(architecture.values())
+    conversation.persist(app_name=app_name)
+    save_config(config)
+    return config, conversation
 
 
 if __name__ == "__main__":
@@ -159,7 +136,7 @@ if __name__ == "__main__":
     parser.add_argument("--infra", nargs="+", default=["http", "database"])
     args = parser.parse_args()
 
-    if not repository_exists(args.app):
+    if not os.path.exists(f"{REPOS}/{args.app}"):
         create_app(args.app, args.infra)
     config, _ = run(args.app, user_input("user: "))
 

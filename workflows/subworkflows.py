@@ -7,13 +7,11 @@ from pydantic import BaseModel, ConfigDict
 load_dotenv()
 
 from ai import llm
+from utils.architecture import Function, ImplementedComponent, SQLAlchemyModel
 from workflows.helpers import (
-    Function,
-    ImplementedComponent,
     ModelImplementationError,
     MypyError,
     REPOS,
-    SQLAlchemyModel,
     create_folders_if_not_exist,
     create_tables,
     extract_from_pattern,
@@ -93,7 +91,6 @@ def write_component(
 Speficications:
 - The code should work (no placeholders).
 - Use appropriate typing in function arguments and return types.
-- mypy will be run over the code, so implement it in a way that it passes mypy.
 - Pick the most simple implementation.
 - Don't catch exceptions unless specified. Let errors raise.\n"""
     if isinstance(component.base.root, Function):
@@ -106,8 +103,9 @@ Speficications:
             if "authentication" in external_infrastructure:
                 user_message += "- Authenticate it with app.modassembly.authentication.core.authenticate.\n"
         user_message += (
-            "When using SQLALchemy models, access the actual column values. "
-            "Example for a string attribute: `model.attribute.__str__()`."
+            "- mypy will be run over the code, so implement the function in a way that it passes mypy.\n"
+            "- When using SQLALchemy models, access the actual column values. "
+            "Example for a string attribute: `model.attribute.__str__()`.\n"
         )
     elif isinstance(component.base.root, SQLAlchemyModel):
         user_message += (
