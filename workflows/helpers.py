@@ -5,18 +5,25 @@ import re
 import subprocess
 import venv
 from mypy import api
-from typing import Any, List, Set
+from typing import Any, Dict, List, Set
 
 import matplotlib.pyplot as plt
 import networkx as nx
 
-from ai import llm
 from utils.architecture import (
     Function,
     ImplementedComponent,
     SQLAlchemyModel,
+    create_initial_config,
+)
+from utils.github import (
+    create_github_repository,
+    execute_git_commands,
+    protect_repository,
+    repository_exists,
 )
 from utils.io import print_system
+from utils.state import Conversation
 from utils.static_analysis import extract_router_name, extract_sqlalchemy_models
 
 
@@ -62,6 +69,41 @@ def build_graph(architecture: List[ImplementedComponent]) -> nx.DiGraph:
             for dependency in component.base.root.uses:
                 G.add_edge(component.base.key, dependency)
     return G
+
+
+def create_app(app_name: str, external_infrastructure: List[str]) -> Dict[str, Any]:
+    app_name = app_name.replace(" ", "-")
+    if repository_exists(app_name):
+        raise ValueError(f"Repository {app_name} already exists")
+    os.mkdir(f"{REPOS}/{app_name}")
+    Conversation().persist(app_name=app_name)
+    with open(f"db/_template/.gitignore", "r") as f1, open(
+        f"{REPOS}/{app_name}/.gitignore", "w"
+    ) as f2:
+        f2.write(f1.read())
+    print_system("Initializing git and github...")
+    github_url = create_github_repository(app_name)
+    execute_git_commands(
+        [
+            ["git", "init"],
+            ["git", "add", "."],
+            ["git", "commit", "-m", "first commit"],
+            ["git", "branch", "-M", "main"],
+            [
+                "git",
+                "remote",
+                "add",
+                "origin",
+                f"git@github.com:Modular-Asembly/{app_name}.git",
+            ],
+            ["git", "push", "-u", "origin", "main"],
+        ],
+        app=app_name,
+    )
+    protect_repository(app_name)
+    print_system("Success")
+    config = create_initial_config(app_name, external_infrastructure, github_url)
+    return config
 
 
 class InstallRequirementsError(Exception):

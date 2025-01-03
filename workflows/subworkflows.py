@@ -1,5 +1,5 @@
 import sys
-from typing import List, Optional, Set
+from typing import List, Optional
 
 from dotenv import load_dotenv
 from pydantic import BaseModel, ConfigDict
@@ -93,6 +93,7 @@ def write_component(
 Speficications:
 - The code should work (no placeholders).
 - Use appropriate typing in function arguments and return types.
+- mypy will be run over the code, so implement it in a way that it passes mypy.
 - Pick the most simple implementation.
 - Don't catch exceptions unless specified. Let errors raise.\n"""
     if isinstance(component.base.root, Function):
@@ -118,6 +119,7 @@ Speficications:
 
     assistant_message = llm.stream_text(conversation)
     patterns = extract_from_pattern(assistant_message, pattern=r"```python\n(.*?)```")
+    code = None
     try:
         if len(patterns) > 1:
             raise MultipleCodeBlocksError(
@@ -159,6 +161,8 @@ Speficications:
         ModelImplementationError,
     ) as e:
         print_system(f"!!! Error: {e} for :: {component.base.root.name}")
+        if code is not None:
+            component.file = File(path=file_path, content=code)
         return ImplementationContext(
             component=component,
             user_message=user_message,

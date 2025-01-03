@@ -1,6 +1,5 @@
 import argparse
 import json
-import os
 from typing import Any, Dict, Tuple
 from dotenv import load_dotenv
 
@@ -11,13 +10,13 @@ from ai.function_calling import Function
 from utils.architecture import (
     Component,
     ImplementedComponent,
-    create_initial_config,
     load_config,
     save_config,
 )
+from utils.github import repository_exists
 from utils.io import print_system, user_input
 from utils.state import Conversation
-from workflows.helpers import REPOS, build_graph, visualize_graph
+from workflows.helpers import REPOS, build_graph, create_app, visualize_graph
 
 
 class UpdateComponent(Function[Component]):
@@ -143,9 +142,8 @@ Follow the user's instructions to build the architecture by adding or updating b
             if not invalid_components:
                 tool_response = f"Done. Architecture:\n\n{raw_architecture}"
             else:
-                tool_response = (
-                    f"Architecture:\n\n{raw_architecture}\n\n"
-                    + "\n".join(invalid_components.values())
+                tool_response = f"Architecture:\n\n{raw_architecture}\n\n" + "\n".join(
+                    invalid_components.values()
                 )
             conversation.add_tool_response(tool_response)
         else:
@@ -158,14 +156,11 @@ Follow the user's instructions to build the architecture by adding or updating b
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("app")
-    parser.add_argument("--infra", nargs="+", default=["http", "database", "authentication"])
+    parser.add_argument("--infra", nargs="+", default=["http", "database"])
     args = parser.parse_args()
 
-    if not os.path.exists(f"{REPOS}/{args.app}"):
-        os.mkdir(f"{REPOS}/{args.app}")
-        create_initial_config(args.app, args.infra)
-        Conversation().persist(app_name=args.app)
-
+    if not repository_exists(args.app):
+        create_app(args.app, args.infra)
     config, _ = run(args.app, user_input("user: "))
 
     graph = build_graph(config["architecture"])

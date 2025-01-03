@@ -1,12 +1,13 @@
 import json
 import argparse
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, List
+from typing import List
 
 from dotenv import load_dotenv
 
 load_dotenv()
 
+from ai import llm
 from utils.architecture import (
     Function,
     ImplementedComponent,
@@ -15,9 +16,11 @@ from utils.architecture import (
     save_config,
     update_architecture_diff,
 )
+from utils.github import execute_git_commands, revert_changes
 from utils.io import print_system
 from utils.state import Conversation
 from workflows.helpers import (
+    MypyError,
     execute_deploy,
     group_nodes_by_dependencies,
     install_requirements,
@@ -116,9 +119,6 @@ def run(app_name: str, new_architecture: List[ImplementedComponent]) -> str:
         for output in wrong_implementations:
             error_conversation = conversation.copy()
             while True:
-                if output.tries == 3:
-                    assert output.error
-                    raise output.error
                 assert output.user_message and output.assistant_message
                 error_conversation.add_user(output.user_message)
                 error_conversation.add_assistant(output.assistant_message)
@@ -134,10 +134,31 @@ def run(app_name: str, new_architecture: List[ImplementedComponent]) -> str:
                 if not output.error:
                     _update(output)
                     break
+                if output.tries == 3:
+                    if not isinstance(output.error, MypyError):
+                        assert output.error
+                        revert_changes(app_name)
+                        raise output.error
+                    print_system(
+                        f"!!!!! WARNING: Letting mypy pass ::\n\n{output.error}"
+                    )
+                    _update(output)
+                    break
 
     update_architecture_diff(saved_architecture, list(architecture_to_update.values()))
     update_main(app_name, saved_architecture, config["external_infrastructure"])
 
+    conversation.add_user("Give me a one line commit message for the changes. Go: ...")
+    commit_message = llm.stream_text(conversation)
+    print_system("Pushing changes to GitHub...")
+    execute_git_commands(
+        [
+            ["git", "add", "."],
+            ["git", "commit", "-m", commit_message],
+            ["git", "push", "origin", "main"],
+        ],
+        app=app_name,
+    )
     print_system("Deploying application...")
     service_url = execute_deploy(app_name)
 

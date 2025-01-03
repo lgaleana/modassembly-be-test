@@ -93,6 +93,7 @@ def load_config(app_name: str) -> Dict[str, Any]:
         ],
         "pypi_packages": config["pypi_packages"],
         "external_infrastructure": config["external_infrastructure"],
+        "github": config["github"],
         "url": config["url"],
     }
 
@@ -105,6 +106,7 @@ def save_config(config: Dict[str, Any]) -> None:
         "architecture": raw_architecture,
         "pypi_packages": config["pypi_packages"],
         "external_infrastructure": config["external_infrastructure"],
+        "github": config["github"],
         "url": config["url"],
     }
     print_system(json.dumps(raw_config, indent=2))
@@ -256,6 +258,7 @@ auth_components = [
 def create_initial_config(
     app_name: str,
     external_infrastructure: List[str],
+    github_url: str,
 ) -> Dict[str, Any]:
     config = initial_config.copy()
     config["name"] = app_name
@@ -265,6 +268,6 @@ def create_initial_config(
         if "authentication" in external_infrastructure:
             config["architecture"].extend(auth_components)
     config["external_infrastructure"] = external_infrastructure
-
+    config["github"] = github_url
     save_config(config)
     return config
