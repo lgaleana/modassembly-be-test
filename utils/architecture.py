@@ -118,7 +118,13 @@ def save_config(config: Dict[str, Any]) -> None:
 
 def present_to_llm(architecture: List[ImplementedComponent]) -> str:
     return json.dumps(
-        [c.design.model_dump() for c in architecture],
+        [
+            {
+                "design": component.design.model_dump(),
+                "is_implemented": component.file is not None,
+            }
+            for component in architecture
+        ],
         indent=4,
     )
 

@@ -1,5 +1,4 @@
 import argparse
-import json
 import os
 from typing import Any, Dict, List, Tuple
 from dotenv import load_dotenv
@@ -48,32 +47,40 @@ The architecture that you're working with is a python module that will be hosted
 ```json
 [
     {{
-        "type": "dbmodel",
-        "name": "The name of the dbmodel",
-        "namespace": "The virtual location of the dbmodel. Use a dot notation.",
-        "fields": [
-            {{
-                    "name": "The name of the field",
-                    "purpose": "What the field is used for, important remarks, etc."
-            }}
-        ],
-        "dependencies": ["The other namespace.dbmodels that the model is associated with"],
-        "pypi_packages": ["The pypi packages that the dbmodel will need"]
+        {{
+            "type": "dbmodel",
+            "name": "The name of the dbmodel",
+            "namespace": "The virtual location of the dbmodel. Use a dot notation.",
+            "fields": [
+                {{
+                        "name": "The name of the field",
+                        "purpose": "What the field is used for, important remarks, etc."
+                }}
+            ],
+            "dependencies": ["The other namespace.dbmodels that the model is associated with"],
+            "pypi_packages": ["The pypi packages that the dbmodel will need"]
+        }},
+        "is_implemented": true or false whether the dbmodel has been implemented in actual code
     }},
     {{
-        "type": "function",
-        "name": "The name of the function",
-        "namespace": "The virtual location of the function. Use a dot notation.",
-        "purpose": "What the function does, step by step. Ie: 1) ... 2) ...",
-        "dependencies": ["The other namespace.functions or namespace.dbmodels that the actual code of this function depends on"]
-        "is_endpoint": true or false whether this is a FastAPI endpoint
-        "pypi_packages": ["The pypi packages that the function will need"]
+        {{
+            "type": "function",
+            "name": "The name of the function",
+            "namespace": "The virtual location of the function. Use a dot notation.",
+            "purpose": "What the function does, step by step. Ie: 1) ... 2) ...",
+            "dependencies": ["The other namespace.functions or namespace.dbmodels that the actual code of this function depends on"]
+            "is_endpoint": true or false whether this is a FastAPI endpoint
+            "pypi_packages": ["The pypi packages that the function will need"]
+        }},
+         "is_implemented": true or false whether the function has been implemented in actual code
     }},
     ...
 ]
 ```
 
-Follow the user's instructions to build the architecture by adding, updating or removing components. To add, update or remove a component, use the following format:
+Think of this architecture as lego blocks that you can compose together. Use a modular design pattern. Too many steps in a function's purpose probably means that you should break it apart. Always prefer the most simple design.
+
+Follow the user's instructions to build the architecture by adding, updating or removing components. Use the following format:
 
 ```json
 {{
@@ -83,19 +90,20 @@ Follow the user's instructions to build the architecture by adding, updating or 
 }}
 ```
 
-There are 2 types of "design" components: dbmodels and functions. dbmodels can only be added but not updated or removed. Functions can be added, updated or removed. Your job is to design an architecture that better describes what the user wants to do. At some point, the architecture will be implemented into actual code. The order of implementation will be guided by the `"dependencies"` attribute. It's VERY IMPORTANT that you keep this attribute up to date.
+At some point, the architecture will be implemented into actual code. The order of implementation will be guided by the `"dependencies"` attribute. It's VERY IMPORTANT that you keep this attribute up to date.
 
-Use a modular and composable design pattern. Too many steps in a function's purpose probably means that you should break it apart. Always prefer the most simple design."""
+There are two types of "design" components: dbmodels and functions. functions can be added, updated or removed at any time. However; dbmodels can only be added, updated or removed if they haven't been implemented yet. To update or remove a dbmodel, the user must do it manually
+
+IMPORTANT: The modassembly namespace is reserved. You can't add or update components in this namespace."""
         )
 
     conversation.add_user(
-        f"Current architecture:\n\n{present_to_llm(list(architecture.values()))}\n"
-        "IMPORTANT: The modassembly namespace is reserved. "
-        "You can't add or update components in this namespace."
+        f"Current architecture:\n\n{present_to_llm(list(architecture.values()))}"
     )
     conversation.add_user(user_message)
 
     attempts = 0
+    valid_components = {}
     while True:
         attempts += 1
         response = llm.stream_text(conversation)
@@ -116,19 +124,13 @@ Use a modular and composable design pattern. Too many steps in a function's purp
                 component = Component.model_validate(json_)
 
                 action = json_["action"]
-                if isinstance(component.root, DBModel) and (
-                    action == Action.UPDATE or action == Action.REMOVE
+                if (
+                    isinstance(component.root, DBModel)
+                    and component.key in architecture
                 ):
                     raise ValueError(
                         f"Unable to {action} dbmodel :: {component.key} "
-                        "because dbmodels can only be added. "
-                        "Please try again."
-                    )
-                elif action == Action.UPDATE and component.key not in architecture:
-                    raise ValueError(
-                        f"Unable to {action} component :: {component.key} "
-                        "because the component doesn't exist in the architecture. "
-                        "Please try again."
+                        "because dbmodel has already been implemented."
                     )
                 if "modassembly" in component.key:
                     raise ValueError(
@@ -144,16 +146,19 @@ Use a modular and composable design pattern. Too many steps in a function's purp
                             "Make sure to reference models that exist in the architecture. "
                             "Please try again."
                         )
-                if action == Action.ADD or action == Action.UPDATE:
-                    architecture[component.key] = ImplementedComponent(design=component)
-                elif action == Action.REMOVE:
-                    del architecture[component.key]
+                valid_components[component.key] = component
         except ValueError as e:
             if attempts == 3:
                 raise e
             print_system(e)
             conversation.add_system(str(e))
             continue
+
+        for component in valid_components.values():
+            if action == Action.ADD or action == Action.UPDATE:
+                architecture[component.key] = ImplementedComponent(design=component)
+            elif action == Action.REMOVE:
+                del architecture[component.key]
 
         config["architecture"] = list(architecture.values())
         conversation.persist(app_name=app_name)

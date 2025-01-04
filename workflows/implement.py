@@ -1,4 +1,3 @@
-import json
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 from typing import List
@@ -43,9 +42,8 @@ def run(app_name: str, new_architecture: List[ImplementedComponent]) -> str:
     update_architecture_diff(unimplemented_architecture, new_architecture)
 
     conversation = Conversation()
-    raw_architecture = [c.model_dump() for c in unimplemented_architecture]
     conversation.add_user(
-        f"Consider the following python architecture: {json.dumps(raw_architecture, indent=2)}"
+        f"Consider the following python architecture: {present_to_llm(unimplemented_architecture)}"
     )
 
     save_templates(app_name, saved_architecture, conversation)
