@@ -9,6 +9,7 @@ load_dotenv()
 from ai import llm
 from utils.architecture import (
     Component,
+    DBModel,
     ImplementedComponent,
     load_config,
     present_to_llm,
@@ -23,6 +24,12 @@ from workflows.helpers import (
     create_app,
     visualize_graph,
 )
+
+
+class Action:
+    ADD = "add"
+    UPDATE = "update"
+    REMOVE = "remove"
 
 
 def run(app_name: str, user_message: str) -> Tuple[Dict[str, Any], Conversation]:
@@ -65,28 +72,31 @@ The architecture that you're working with is a python module that will be hosted
 ]
 ```
 
-Follow the user's instructions to build the architecture by adding or updating design components. To add or update a component, use the following format:
+Follow the user's instructions to build the architecture by adding, updating or removing components. To add, update or remove a component, use the following format:
 
 ```json
 {{
+    "action": "add", "update" or "remove",
     "type": "dbmodel" or "function",
     # Attributes of the dbmodel or function
 }}
 ```
 
-There are 2 types of "design" components: dbmodels and functions. Your job is to design an architecture that better describes what the user wants to do. At some point, the architecture will be implemented into actual code. The order of implementation will be guided by the `"dependencies"` attribute. It's VERY IMPORTANT that you keep this attribute up to date.
+There are 2 types of "design" components: dbmodels and functions. dbmodels can only be added but not updated or removed. Functions can be added, updated or removed. Your job is to design an architecture that better describes what the user wants to do. At some point, the architecture will be implemented into actual code. The order of implementation will be guided by the `"dependencies"` attribute. It's VERY IMPORTANT that you keep this attribute up to date.
 
-Use a modular and composable design pattern. Too many steps in a function's purpose probably means that you should break it apart. Always prefer the most simple design. At every step, think whether the architecture that you're describing is the best one for what the user wants to do. If not, make the necessary changes."""
+Use a modular and composable design pattern. Too many steps in a function's purpose probably means that you should break it apart. Always prefer the most simple design."""
         )
 
-        conversation.add_user(
-            f"Initial architecture:\n\n{present_to_llm(list(architecture.values()))}\n"
-            "IMPORTANT: The modassembly namespace is reserved. "
-            "You can't add or update components in this namespace."
-        )
+    conversation.add_user(
+        f"Current architecture:\n\n{present_to_llm(list(architecture.values()))}\n"
+        "IMPORTANT: The modassembly namespace is reserved. "
+        "You can't add or update components in this namespace."
+    )
     conversation.add_user(user_message)
 
+    attempts = 0
     while True:
+        attempts += 1
         response = llm.stream_text(conversation)
         conversation.add_assistant(response)
         jsons = extract_json(response)
@@ -99,22 +109,42 @@ Use a modular and composable design pattern. Too many steps in a function's purp
                     continue
                 component = Component.model_validate(json_)
 
+                action = json_["action"]
+                if isinstance(component.root, DBModel) and (
+                    action == Action.UPDATE or action == Action.REMOVE
+                ):
+                    raise ValueError(
+                        f"Unable to {action} dbmodel :: {component.key} "
+                        "because dbmodels can only be added. "
+                        "Please try again."
+                    )
+                elif action == Action.UPDATE and component.key not in architecture:
+                    raise ValueError(
+                        f"Unable to {action} component :: {component.key} "
+                        "because the component doesn't exist in the architecture. "
+                        "Please try again."
+                    )
                 if "modassembly" in component.key:
                     raise ValueError(
-                        f"Unable to update component :: {component.key} "
+                        f"Unable to {action} component :: {component.key} "
                         f"because `modassembly` is reserved for internal use. "
                         "Use a different namespace. Please try again."
                     )
                 for dependency in component.root.dependencies:
                     if dependency not in architecture:
                         raise ValueError(
-                            f"Unable to update component :: {component.key} "
+                            f"Unable to {action} component :: {component.key} "
                             f"because the `dependency` :: {dependency} doesn't exist in the architecture. "
                             "Make sure to reference models that exist in the architecture. "
                             "Please try again."
                         )
-                architecture[component.key] = ImplementedComponent(design=component)
+                if action == Action.ADD or action == Action.UPDATE:
+                    architecture[component.key] = ImplementedComponent(design=component)
+                elif action == Action.REMOVE:
+                    del architecture[component.key]
         except ValueError as e:
+            if attempts == 3:
+                raise e
             print_system(e)
             conversation.add_system(str(e))
             continue
