@@ -13,6 +13,7 @@ from utils.architecture import (
     Function,
     ImplementedComponent,
     load_config,
+    present_to_llm,
     save_config,
     update_architecture_diff,
 )
@@ -38,42 +39,46 @@ def run(app_name: str, new_architecture: List[ImplementedComponent]) -> str:
     config = load_config(app_name)
     saved_architecture = config["architecture"]
 
-    whole_architecture = saved_architecture.copy()
-    update_architecture_diff(whole_architecture, new_architecture)
+    unimplemented_architecture = saved_architecture.copy()
+    update_architecture_diff(unimplemented_architecture, new_architecture)
 
     conversation = Conversation()
-    raw_architecture = [c.model_dump() for c in whole_architecture]
+    raw_architecture = [c.model_dump() for c in unimplemented_architecture]
     conversation.add_user(
         f"Consider the following python architecture: {json.dumps(raw_architecture, indent=2)}"
     )
 
     save_templates(app_name, saved_architecture, conversation)
-    install_requirements(app_name, whole_architecture)
+    install_requirements(app_name, unimplemented_architecture)
 
     architecture_to_update = {}
     for component in saved_architecture:
         if not component.file:
-            print_system(f"Will update :: {component.base.key}")
-            architecture_to_update[component.base.key] = component
+            print_system(f"Will update :: {component.design.key}")
+            architecture_to_update[component.design.key] = component
     for new_component in new_architecture:
         for old_component in saved_architecture:
             if (
-                new_component.base.key == old_component.base.key
-                and new_component.base.root != old_component.base.root
+                new_component.design.key == old_component.design.key
+                and new_component.design.root != old_component.design.root
             ):
-                print_system(f"Will update :: {new_component.base.key}")
-                architecture_to_update[new_component.base.key] = new_component
+                print_system(f"Will update :: {new_component.design.key}")
+                architecture_to_update[new_component.design.key] = new_component
                 break
     print_system()
 
     models_to_parallelize = group_nodes_by_dependencies(
-        [m for m in architecture_to_update.values() if isinstance(m.base.root, DBModel)]
+        [
+            m
+            for m in architecture_to_update.values()
+            if isinstance(m.design.root, DBModel)
+        ]
     )
     functions_to_parallelize = group_nodes_by_dependencies(
         [
             f
             for f in architecture_to_update.values()
-            if isinstance(f.base.root, Function)
+            if isinstance(f.design.root, Function)
         ]
     )
     for level in models_to_parallelize + functions_to_parallelize:
@@ -101,7 +106,7 @@ def run(app_name: str, new_architecture: List[ImplementedComponent]) -> str:
             conversation.add_user(context.user_message)
             conversation.add_assistant(context.assistant_message)
             conversation.add_user(f"I saved the code in {context.component.file.path}.")
-            architecture_to_update[context.component.base.key].file = (
+            architecture_to_update[context.component.design.key].file = (
                 context.component.file
             )
 
@@ -135,7 +140,8 @@ def run(app_name: str, new_architecture: List[ImplementedComponent]) -> str:
                         revert_changes(app_name)
                         raise output.error
                     print_system(
-                        f"!!!!! WARNING: Letting mypy pass ::\n\n{output.error}"
+                        "!!!!! WARNING: Letting mypy pass for :: "
+                        f"{output.component.design.key} ::\n\n{output.error}"
                     )
                     _update(output)
                     break
@@ -146,7 +152,6 @@ def run(app_name: str, new_architecture: List[ImplementedComponent]) -> str:
     conversation.add_user("Give me a one line commit message for the changes. Go: ...")
     commit_message = llm.stream_text(conversation)
     print_system("Pushing changes to GitHub...")
-    breakpoint()
     execute_git_commands(
         [
             ["git", "add", "."],
@@ -159,9 +164,13 @@ def run(app_name: str, new_architecture: List[ImplementedComponent]) -> str:
     service_url = execute_deploy(app_name)
 
     config["url"] = f"{service_url}/docs"
+    conversation = Conversation.load(app_name)
+    conversation.add_system("Implementing the architecture...")
+    conversation.add_system(f"Done.\n\n{present_to_llm(saved_architecture)}")
+    conversation.persist(app_name=app_name)
     save_config(config)
-    print_system(f"{service_url}/docs")
-    return f"{service_url}/docs"
+    print_system(config["url"])
+    return config["url"]
 
 
 if __name__ == "__main__":

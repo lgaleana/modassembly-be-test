@@ -67,9 +67,9 @@ def visualize_graph(G: nx.DiGraph, *, figsize=(12, 12), k=0.15, iterations=20):
 def build_graph(architecture: List[ImplementedComponent]) -> nx.DiGraph:
     G = nx.DiGraph()
     for component in architecture:
-        G.add_node(component.base.key)
-        for dependency in component.base.root.dependencies:
-            G.add_edge(component.base.key, dependency)
+        G.add_node(component.design.key)
+        for dependency in component.design.root.dependencies:
+            G.add_edge(component.design.key, dependency)
     return G
 
 
@@ -84,9 +84,8 @@ def create_app(app_name: str, external_infrastructure: List[str]) -> Dict[str, A
     ) as f2:
         f2.write(f1.read())
     print_system("Initializing git and github...")
-    github_url = ""
-    # github_url = create_github_repository(app_name)
-    """execute_git_commands(
+    github_url = create_github_repository(app_name)
+    execute_git_commands(
         [
             ["git", "init"],
             ["git", "add", "."],
@@ -102,8 +101,8 @@ def create_app(app_name: str, external_infrastructure: List[str]) -> Dict[str, A
             ["git", "push", "-u", "origin", "main"],
         ],
         app=app_name,
-    )"""
-    # protect_repository(app_name)
+    )
+    protect_repository(app_name)
     print_system("Success")
     config = create_initial_config(app_name, external_infrastructure, github_url)
     return config
@@ -119,7 +118,7 @@ def install_requirements(
 ) -> None:
     pypi_packages = set()
     for component in architecture:
-        pypi_packages.update(component.base.root.pypi_packages)
+        pypi_packages.update(component.design.root.pypi_packages)
     requirements_path = f"{REPOS}/{app_name}/requirements.txt"
     with open(requirements_path, "w") as f:
         f.write("\n".join(pypi_packages))
@@ -138,7 +137,7 @@ def install_requirements(
     print_system(output.stdout)
     print_system(output.stderr)
     if output.returncode != 0:
-        raise Exception(f"{output.stdout}\n{output.stderr}")
+        raise InstallRequirementsError(f"{output.stdout}\n{output.stderr}")
 
 
 def create_folders_if_not_exist(app_name: str, namespace: str) -> None:
@@ -160,7 +159,7 @@ def group_nodes_by_dependencies(
     levels = []
     dependencies = {}
     for component in architecture:
-        dependencies[component.base.root.key] = component.base.root.dependencies
+        dependencies[component.design.root.key] = component.design.root.dependencies
 
     remaining_components = set(dependencies.keys())
     while remaining_components:
@@ -194,8 +193,8 @@ def update_main(
         main_content += "app.include_router(router)\n"
     for component in architecture:
         if (
-            isinstance(component.base.root, Function)
-            and component.base.root.is_endpoint
+            isinstance(component.design.root, Function)
+            and component.design.root.is_endpoint
         ):
             assert component.file
             module = component.file.path.replace(".py", "").replace("/", ".")

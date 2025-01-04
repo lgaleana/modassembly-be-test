@@ -16,7 +16,7 @@ class BaseComponent(BaseModel):
     )
     dependencies: List[str] = Field(
         description="The other namespace.dbmodels or "
-        "namespace.functions that this component depends on"
+        "namespace.functions that the actual code of this component depends on"
     )
     pypi_packages: List[str] = Field(description="The pypi packages that it will need")
 
@@ -76,7 +76,7 @@ class Component(RootModel):
 
 
 class ImplementedComponent(BaseModel):
-    base: Component
+    design: Component
     file: Optional[File] = None
 
 
@@ -116,6 +116,13 @@ def save_config(config: Dict[str, Any]) -> None:
         )
 
 
+def present_to_llm(architecture: List[ImplementedComponent]) -> str:
+    return json.dumps(
+        [c.design.model_dump() for c in architecture],
+        indent=4,
+    )
+
+
 def update_architecture_diff(
     architecture: List[ImplementedComponent],
     architecture_diff: List[ImplementedComponent],
@@ -123,7 +130,7 @@ def update_architecture_diff(
     for component in architecture_diff:
         found = False
         for i, existing_component in enumerate(architecture):
-            if component.base.key == existing_component.base.key:
+            if component.design.key == existing_component.design.key:
                 architecture[i] = component
                 found = True
                 break
@@ -134,7 +141,7 @@ def update_architecture_diff(
 initial_config = {
     "architecture": [
         ImplementedComponent(
-            base=Component(
+            design=Component(
                 Function(
                     name="main",
                     namespace="",
@@ -160,7 +167,7 @@ initial_config = {
 
 sql_components = [
     ImplementedComponent(
-        base=Component(
+        design=Component(
             Function(
                 name="get_session",
                 namespace="modassembly.database.sql",
@@ -175,7 +182,7 @@ sql_components = [
 
 nosql_components = [
     ImplementedComponent(
-        base=Component(
+        design=Component(
             Function(
                 name="get_client",
                 namespace="modassembly.database.nosql",
@@ -191,7 +198,7 @@ nosql_components = [
 
 auth_components = [
     ImplementedComponent(
-        base=Component(
+        design=Component(
             DBModel(
                 name="User",
                 namespace="models",
@@ -216,7 +223,7 @@ auth_components = [
         )
     ),
     ImplementedComponent(
-        base=Component(
+        design=Component(
             Function(
                 name="create_access_token",
                 namespace="modassembly.authentication.core",
@@ -228,7 +235,7 @@ auth_components = [
         )
     ),
     ImplementedComponent(
-        base=Component(
+        design=Component(
             Function(
                 name="authenticate",
                 namespace="modassembly.authentication.core",
@@ -244,7 +251,7 @@ auth_components = [
         )
     ),
     ImplementedComponent(
-        base=Component(
+        design=Component(
             Function(
                 name="login_api",
                 namespace="modassembly.authentication.endpoints",

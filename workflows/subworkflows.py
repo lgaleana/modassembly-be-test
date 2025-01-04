@@ -37,15 +37,16 @@ def save_templates(
     modassembly_components = {
         "main": "app/main.py",
         "modassembly.database.sql.get_session": "app/modassembly/database/sql/get_session.py",
+        "modassembly.database.nosql.get_client": "app/modassembly/database/nosql/get_client.py",
         "models.User": "app/models/User.py",
         "modassembly.authentication.core.create_access_token": "app/modassembly/authentication/core/create_access_token.py",
         "modassembly.authentication.core.authenticate": "app/modassembly/authentication/core/authenticate.py",
         "modassembly.authentication.endpoints.login_api": "app/modassembly/authentication/endpoints/login_api.py",
     }
     for component in architecture:
-        if not component.base.key in modassembly_components:
+        if not component.design.key in modassembly_components:
             continue
-        module = component.base.key
+        module = component.design.key
         file_path = modassembly_components[module]
         package = ".".join(module.split(".")[:-1])
         create_folders_if_not_exist(app_name, f"app.{package}")
@@ -94,13 +95,13 @@ def write_component(
         if len(patterns) > 1:
             raise MultipleCodeBlocksError(
                 f"Found {len(patterns)} code blocks.\n"
-                f"Write only the code for :: {component.base.model_dump()}"
+                f"Write only the code for :: {component.design.model_dump()}"
             )
         code = patterns[0]
 
-        create_folders_if_not_exist(app_name, f"app.{component.base.root.namespace}")
-        folders = component.base.root.namespace.replace(".", "/")
-        file_path = f"app/{folders}/{component.base.root.name}.py"
+        create_folders_if_not_exist(app_name, f"app.{component.design.root.namespace}")
+        folders = component.design.root.namespace.replace(".", "/")
+        file_path = f"app/{folders}/{component.design.root.name}.py"
         with open(f"{REPOS}/{app_name}/{file_path}", "w") as f:
             f.write(code)
 
@@ -110,12 +111,12 @@ def write_component(
             raise CompilationError(f"Compilation error: {e}")
         run_mypy(f"{REPOS}/{app_name}/{file_path}")
         if (
-            isinstance(component.base.root, Function)
-            and component.base.root.is_endpoint
+            isinstance(component.design.root, Function)
+            and component.design.root.is_endpoint
         ):
             extract_router_name(code)
-        elif isinstance(component.base.root, DBModel):
-            create_tables(app_name, component.base.root.namespace, code)
+        elif isinstance(component.design.root, DBModel):
+            create_tables(app_name, component.design.root.namespace, code)
 
         component.file = File(path=file_path, content=code)
         return ImplementationContext(
@@ -130,7 +131,7 @@ def write_component(
         RouterNotFoundError,
         ModelImplementationError,
     ) as e:
-        print_system(f"!!! Error: {e} for :: {component.base.root.name}")
+        print_system(f"!!! Error: {e} for :: {component.design.root.name}")
         if code is not None:
             component.file = File(path=file_path, content=code)
         return ImplementationContext(
@@ -151,19 +152,20 @@ def first_write(
     conversation: Conversation,
 ) -> ImplementationContext:
     component = context.component
-    user_message = f"""Write the code for: {component.base.model_dump()}.
+    user_message = f"""Write the code for: {component.design.model_dump()}.
 
     Speficications:
     - The code should work (no placeholders).
     - Use appropriate typing in function arguments and return types.
     - Pick the most simple implementation.
     - Don't catch exceptions unless specified. Let errors raise.\n"""
-    if isinstance(component.base.root, Function):
-        if component.base.root.is_endpoint:
+    if isinstance(component.design.root, Function):
+        if component.design.root.is_endpoint:
             user_message += (
                 "- Since this function is meant to be an endpoint, "
                 "a) add enough documentation and b) add proper typing, "
                 "so that it's easy to use in Swagger.\n"
+                "- Define pydantic models for inputs and OUTPUTS where needed.\n"
             )
             if "authentication" in external_infrastructure:
                 user_message += "- Authenticate it with app.modassembly.authentication.core.authenticate.\n"
@@ -172,7 +174,7 @@ def first_write(
             "- When using SQLALchemy models, access the actual column values. "
             "Example for a string attribute: `model.attribute.__str__()`.\n"
         )
-    elif isinstance(component.base.root, DBModel):
+    elif isinstance(component.design.root, DBModel):
         user_message += (
             "- Import Base from app.modassembly.database.sql.get_session.\n"
             "- Only use `ForeignKey` if the other model exists in the architecture.\n"
