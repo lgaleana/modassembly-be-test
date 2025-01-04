@@ -1,5 +1,6 @@
 bcrypt==4.0.1
 fastapi==0.115.6
+google-cloud-firestore==2.19.0
 matplotlib==3.10.0
 mypy==1.14.0
 networkx==3.4.2

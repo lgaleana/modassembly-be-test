@@ -1,7 +1,7 @@
 import argparse
 import json
 import os
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Tuple
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -35,6 +35,7 @@ def run(app_name: str, user_message: str) -> Tuple[Dict[str, Any], Conversation]
             """You are helpful AI assistant that designs backend architectures.
 
 The architecture that you're working with is a python module that will be hosted on Cloud Run as a FastAPI. It's represented as a json in the following format:
+
 ```json
 [
     {{
@@ -45,7 +46,7 @@ The architecture that you're working with is a python module that will be hosted
             "fields": [
                 {{
                     "name": "The name of the field",
-                    "purpose": "What the field is used for, important attributes, etc."
+                    "purpose": "What the field is used for, important remarks, etc."
                 }}
             ],
             "dependencies": ["The other namespace.dbmodels that this model is associated with"],
@@ -69,10 +70,6 @@ The architecture that you're working with is a python module that will be hosted
 ]
 ```
 
-There are 2 types of "base" components: dbmodels and functions. A base component can be added if it doesn't already exist in the architecture. And it can only be updated if it hasn't been implemented in a file. To update a component with an implemented file, the user must update it manually.
-
-You will also be given the set of GCP infrastructure that you have access to.
-
 Follow the user's instructions to build the architecture by adding or updating base components. To add or update a component, use the following format:
 
 ```json
@@ -82,7 +79,11 @@ Follow the user's instructions to build the architecture by adding or updating b
 }}
 ```
 
-Use a modular and composable design pattern. Too many steps in a function's purpose probably means that you should break it apart. Prefer functions over classes. Always prefer the most simple design."""
+Use a modular and composable design pattern. Too many steps in a function's purpose probably means that you should break it apart. Always prefer the most simple design. Once the architecture is ready, it will be implemented by following the underlying graph.
+
+There are 2 types of "base" components: dbmodels and functions. A base component can be added if it doesn't already exist in the architecture. And it can only be updated if it hasn't been implemented in a file. To update a component with an implemented file, the user must update it manually.
+
+At every step, think whether the architecture that you're describing is the best one for what the user wants to do. If not, make the necessary changes. The `dependencies` attribute is VERY IMPORTANT because, for non-implemented components, it guides the implementation."""
         )
 
         raw_architecture = json.dumps(
@@ -90,44 +91,53 @@ Use a modular and composable design pattern. Too many steps in a function's purp
         )
         conversation.add_user(
             f"Initial architecture:\n\n{raw_architecture}\n"
-            "IMPORTANT: The modassembly namespace is reserved. Use a different one.\n\n"
-            f"Available GCP infrastructure: " + str(config["external_infrastructure"])
+            "IMPORTANT: The modassembly namespace is reserved. "
+            "You can't add or update components in this namespace."
         )
     conversation.add_user(user_message)
 
-    response = llm.stream_text(conversation)
-    conversation.add_assistant(response)
-    jsons = extract_json(response)
+    while True:
+        response = llm.stream_text(conversation)
+        conversation.add_assistant(response)
+        jsons = extract_json(response)
 
-    for json_ in jsons:
-        component = Component.model_validate(json_)
+        try:
+            for json_ in jsons:
+                if isinstance(json_, List):
+                    for j in json_:
+                        jsons.append(j)
+                    continue
+                component = Component.model_validate(json_)
 
-        if component.key in architecture and architecture[component.key].file:
-            raise ValueError(
-                f"Unable to update component :: {component.key} "
-                "because it already has a file associated with it. "
-                "Please try again."
-            )
-        elif "modassembly" in component.key:
-            raise ValueError(
-                f"Unable to update component :: {component.key} "
-                f"because `modassembly` is reserved for internal use. "
-                "Use a different namespace. Please try again."
-            )
-        for dependency in component.root.dependencies:
-            if dependency not in architecture:
-                raise ValueError(
-                    f"Unable to update component :: {component.key} "
-                    f"because the `dependency` :: {dependency} doesn't exist in the architecture. "
-                    "Make sure to reference models that exist in the architecture. "
-                    "Please try again."
-                )
-        architecture[component.key] = ImplementedComponent(base=component)
+                if component.key in architecture and architecture[component.key].file:
+                    raise ValueError(
+                        f"Unable to update component :: {component.key} "
+                        "because it already has a file associated with it. "
+                        "Please try again."
+                    )
+                if "modassembly" in component.key:
+                    raise ValueError(
+                        f"Unable to update component :: {component.key} "
+                        f"because `modassembly` is reserved for internal use. "
+                        "Use a different namespace. Please try again."
+                    )
+                for dependency in component.root.dependencies:
+                    if dependency not in architecture:
+                        raise ValueError(
+                            f"Unable to update component :: {component.key} "
+                            f"because the `dependency` :: {dependency} doesn't exist in the architecture. "
+                            "Make sure to reference models that exist in the architecture. "
+                            "Please try again."
+                        )
+                architecture[component.key] = ImplementedComponent(base=component)
+        except ValueError as e:
+            conversation.add_system(str(e))
+            continue
 
-    config["architecture"] = list(architecture.values())
-    conversation.persist(app_name=app_name)
-    save_config(config)
-    return config, conversation
+        config["architecture"] = list(architecture.values())
+        conversation.persist(app_name=app_name)
+        save_config(config)
+        return config, conversation
 
 
 if __name__ == "__main__":

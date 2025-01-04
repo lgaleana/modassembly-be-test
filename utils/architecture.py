@@ -158,16 +158,31 @@ initial_config = {
 }
 
 
-db_components = [
+sql_components = [
     ImplementedComponent(
         base=Component(
             Function(
                 name="get_session",
-                namespace="modassembly.database",
+                namespace="modassembly.database.sql",
                 purpose="1) Initializes the Postgres database. 2) Gets a session.",
                 dependencies=[],
                 is_endpoint=False,
                 pypi_packages=["psycopg2-binary==2.9.10", "sqlalchemy==2.0.36"],
+            )
+        )
+    ),
+]
+
+nosql_components = [
+    ImplementedComponent(
+        base=Component(
+            Function(
+                name="get_client",
+                namespace="modassembly.database.nosql",
+                purpose="1) Initializes the Firestore client. 2) Returns it.",
+                dependencies=[],
+                is_endpoint=False,
+                pypi_packages=["google-cloud-firestore==2.19.0"],
             )
         )
     ),
@@ -261,10 +276,12 @@ def create_initial_config(
     config = initial_config.copy()
     config["name"] = app_name
 
-    if "database" in external_infrastructure:
-        config["architecture"].extend(db_components)
+    if "sql" in external_infrastructure:
+        config["architecture"].extend(sql_components)
         if "authentication" in external_infrastructure:
             config["architecture"].extend(auth_components)
+    if "nosql" in external_infrastructure:
+        config["architecture"].extend(nosql_components)
     config["external_infrastructure"] = external_infrastructure
     config["github"] = github_url
     save_config(config)
