@@ -29,14 +29,14 @@ from utils.static_analysis import extract_router_name, extract_sqlalchemy_models
 REPOS = os.path.expanduser("~/repos")
 
 
-class PatternMatchError(Exception):
+class PatternNotFoundError(Exception):
     pass
 
 
 def extract_from_pattern(response: str, *, pattern: str) -> List[str]:
     matches = re.findall(pattern, response, re.DOTALL)
     if not matches:
-        raise PatternMatchError(f"No matches found for pattern :: {pattern}")
+        raise PatternNotFoundError(f"No matches found for pattern :: {pattern}")
     for match in matches:
         print_system(match)
     return matches
@@ -44,10 +44,7 @@ def extract_from_pattern(response: str, *, pattern: str) -> List[str]:
 
 def extract_json(response: str) -> List[Any]:
     json_str = extract_from_pattern(response, pattern=r"```json\n(.*?)```")
-    try:
-        return [json.loads(json_str) for json_str in json_str]
-    except Exception as e:
-        raise PatternMatchError(f"Error parsing JSON: {e}")
+    return [json.loads(json_str) for json_str in json_str]
 
 
 def visualize_graph(G: nx.DiGraph, *, figsize=(12, 12), k=0.15, iterations=20):

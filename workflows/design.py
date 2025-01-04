@@ -1,7 +1,9 @@
 import argparse
 import os
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Literal, Tuple, Union
+
 from dotenv import load_dotenv
+from pydantic import BaseModel
 
 load_dotenv()
 
@@ -17,7 +19,7 @@ from utils.architecture import (
 from utils.io import print_system, user_input
 from utils.state import Conversation
 from workflows.helpers import (
-    PatternMatchError,
+    PatternNotFoundError,
     REPOS,
     extract_json,
     build_graph,
@@ -30,6 +32,11 @@ class Action:
     ADD = "add"
     UPDATE = "update"
     REMOVE = "remove"
+
+
+class ComponentToUpdate(BaseModel):
+    action: Literal["add", "update", "remove"]
+    component: Union[Component, str]
 
 
 def run(app_name: str, user_message: str) -> Tuple[Dict[str, Any], Conversation]:
@@ -80,7 +87,9 @@ The architecture that you're working with is a python module that will be hosted
 
 Think of this architecture as lego blocks that you can compose together. Use a modular design pattern. Too many steps in a function's purpose probably means that you should break it apart. Always prefer the most simple design.
 
-Follow the user's instructions to build the architecture by adding, updating or removing components. Use the following format:
+At some point, the architecture will be implemented into actual code. The order of implementation will be guided by the `"dependencies"` attribute. It's VERY IMPORTANT that you keep this attribute up to date.
+
+Follow the user's instructions to build the architecture by adding, updating or removing components. To add or update a component, use the following format:
 
 ```json
 {{
@@ -90,7 +99,15 @@ Follow the user's instructions to build the architecture by adding, updating or 
 }}
 ```
 
-At some point, the architecture will be implemented into actual code. The order of implementation will be guided by the `"dependencies"` attribute. It's VERY IMPORTANT that you keep this attribute up to date.
+To remove a component, use the following format:
+
+```json
+{{
+    "action": "remove",
+    "name": "The name of the function to remove"
+    "namespace": "The namespace of the function to remove"
+}}
+```
 
 There are two types of "design" components: dbmodels and functions. functions can be added, updated or removed at any time. However; dbmodels can only be added, updated or removed if they haven't been implemented yet. To update or remove a dbmodel, the user must do it manually
 
@@ -103,16 +120,14 @@ IMPORTANT: The modassembly namespace is reserved. You can't add or update compon
     conversation.add_user(user_message)
 
     attempts = 0
-    valid_components = {}
+    components_to_update = {}
     while True:
         attempts += 1
         response = llm.stream_text(conversation)
         conversation.add_assistant(response)
         try:
             jsons = extract_json(response)
-        except PatternMatchError as e:
-            if "No matches found for pattern :: ```json\n(.*?)```" in str(e):
-                raise e
+        except PatternNotFoundError as e:
             jsons = []
 
         try:
@@ -121,45 +136,87 @@ IMPORTANT: The modassembly namespace is reserved. You can't add or update compon
                     for j in json_:
                         jsons.append(j)
                     continue
-                component = Component.model_validate(json_)
 
-                action = json_["action"]
-                if (
-                    isinstance(component.root, DBModel)
-                    and component.key in architecture
-                ):
-                    raise ValueError(
-                        f"Unable to {action} dbmodel :: {component.key} "
-                        "because dbmodel has already been implemented."
-                    )
-                if "modassembly" in component.key:
-                    raise ValueError(
-                        f"Unable to {action} component :: {component.key} "
-                        f"because `modassembly` is reserved for internal use. "
-                        "Use a different namespace. Please try again."
-                    )
-                for dependency in component.root.dependencies:
-                    if dependency not in architecture:
+                if "action" in json_:
+                    action = json_["action"]
+                    key = json_["namespace"] + "." + json_["name"]
+                    if key.startswith("modassembly") or key.startswith("main"):
                         raise ValueError(
-                            f"Unable to {action} component :: {component.key} "
-                            f"because the `dependency` :: {dependency} doesn't exist in the architecture. "
-                            "Make sure to reference models that exist in the architecture. "
+                            f"Unable to {action} component :: {key} "
+                            f"because it's reserved for internal use. "
                             "Please try again."
                         )
-                valid_components[component.key] = component
+                    if action in [Action.UPDATE, Action.REMOVE]:
+                        if key not in architecture:
+                            raise ValueError(
+                                f"Unable to {action} component :: {key} "
+                                "because the component doesn't exist in the architecture. "
+                                "Please try again."
+                            )
+                    if (
+                        key in architecture
+                        and isinstance(architecture[key].design, DBModel)
+                        and architecture[key].is_implemented
+                    ):
+                        raise ValueError(
+                            f"Unable to {action} dbmodel :: {key} "
+                            "because the dbmodel has already been implemented."
+                        )
+                    if action in [Action.ADD, Action.UPDATE]:
+                        component = Component.model_validate(json_)
+                        for dependency in component.root.dependencies:
+                            if (
+                                dependency not in architecture
+                                and dependency not in components_to_update
+                            ):
+                                raise ValueError(
+                                    f"Unable to {action} component :: {component.key} "
+                                    f"because the `dependency` :: {dependency} doesn't exist in the architecture. "
+                                    "Make sure to reference models that exist in the architecture. "
+                                    "Please try again."
+                                )
+                        components_to_update[component.key] = ComponentToUpdate(
+                            action=action, component=component
+                        )
+                    else:
+                        components_to_update[key] = ComponentToUpdate(
+                            action=action, component=key
+                        )
+                else:
+                    # When asking for a big change, the model might just
+                    # return the entire architecture. So handle that.
+                    implemented_component = ImplementedComponent.model_validate(json_)
+                    if not key.startswith("modassembly") and not key.startswith("main"):
+                        if implemented_component.design.key in architecture:
+                            jsons.append(
+                                {
+                                    "action": "remove",
+                                    **implemented_component.design.model_dump(),
+                                }
+                            )
+                        jsons.append(
+                            {
+                                "action": "add",
+                                **implemented_component.design.model_dump(),
+                            }
+                        )
+                    else:
+                        conversation.add_system(
+                            f"Component :: {implemented_component.design.key} "
+                            "is reserved for internal use. It won't be updated."
+                        )
         except ValueError as e:
             if attempts == 3:
+                components_to_update = {}
                 raise e
             print_system(e)
             conversation.add_system(str(e))
-            continue
 
-        for component in valid_components.values():
-            if action == Action.ADD or action == Action.UPDATE:
-                architecture[component.key] = ImplementedComponent(design=component)
-            elif action == Action.REMOVE:
+        for component in components_to_update.values():
+            if component.action == Action.REMOVE:
                 del architecture[component.key]
-
+            else:
+                architecture[component.key] = ImplementedComponent(design=component)
         config["architecture"] = list(architecture.values())
         conversation.persist(app_name=app_name)
         save_config(config)
