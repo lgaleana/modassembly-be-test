@@ -128,7 +128,7 @@ Use a modular and composable design pattern. Too many steps in a function's purp
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("app")
-    parser.add_argument("--infra", nargs="+", default=["http", "database"])
+    parser.add_argument("--infra", nargs="+", default=["http", "sql"])
     args = parser.parse_args()
 
     if not os.path.exists(f"{REPOS}/{args.app}"):

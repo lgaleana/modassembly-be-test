@@ -29,7 +29,7 @@ def save_templates(
     conversation: Conversation,
 ) -> None:
     for file in [".gitignore", "deploy.sh", "Dockerfile"]:
-        with open(f"db/_template/{file}", "r") as f1, open(
+        with open(f"{REPOS}/fastapi-template/{file}", "r") as f1, open(
             f"{REPOS}/{app_name}/{file}", "w"
         ) as f2:
             f2.write(f1.read())
@@ -50,7 +50,7 @@ def save_templates(
         file_path = modassembly_components[module]
         package = ".".join(module.split(".")[:-1])
         create_folders_if_not_exist(app_name, f"app.{package}")
-        with open(f"db/_template/{file_path}", "r") as f1, open(
+        with open(f"{REPOS}/fastapi-template/{file_path}", "r") as f1, open(
             f"{REPOS}/{app_name}/{file_path}", "w"
         ) as f2:
             content = f1.read()
