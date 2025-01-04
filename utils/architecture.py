@@ -160,7 +160,7 @@ initial_config = {
         ),
     ],
     "pypi_packages": None,
-    "external_infrastructure": ["http"],
+    "external_infrastructure": ["www"],
     "url": None,
 }
 
