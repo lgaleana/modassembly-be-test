@@ -18,6 +18,7 @@ from utils.architecture import (
 from utils.io import print_system, user_input
 from utils.state import Conversation
 from workflows.helpers import (
+    PatternMatchError,
     REPOS,
     extract_json,
     build_graph,
@@ -99,7 +100,12 @@ Use a modular and composable design pattern. Too many steps in a function's purp
         attempts += 1
         response = llm.stream_text(conversation)
         conversation.add_assistant(response)
-        jsons = extract_json(response)
+        try:
+            jsons = extract_json(response)
+        except PatternMatchError as e:
+            if "No matches found for pattern :: ```json\n(.*?)```" in str(e):
+                raise e
+            jsons = []
 
         try:
             for json_ in jsons:
