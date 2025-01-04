@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict
 load_dotenv()
 
 from ai import llm
-from utils.architecture import Function, ImplementedComponent, SQLAlchemyModel
+from utils.architecture import DBModel, Function, ImplementedComponent
 from workflows.helpers import (
     ModelImplementationError,
     MypyError,
@@ -36,7 +36,7 @@ def save_templates(
 
     modassembly_components = {
         "main": "app/main.py",
-        "modassembly.database.get_session": "app/modassembly/database/get_session.py",
+        "modassembly.database.sql.get_session": "app/modassembly/database/sql/get_session.py",
         "models.User": "app/models/User.py",
         "modassembly.authentication.core.create_access_token": "app/modassembly/authentication/core/create_access_token.py",
         "modassembly.authentication.core.authenticate": "app/modassembly/authentication/core/authenticate.py",
@@ -79,42 +79,14 @@ class CompilationError(Exception):
 
 def write_component(
     app_name: str,
+    user_message: str,
     context: ImplementationContext,
-    external_infrastructure: List[str],
     conversation: Conversation,
 ) -> ImplementationContext:
     sys.path.append(f"{REPOS}/{app_name}")
 
     component = context.component
-    user_message = f"""Write the code for: {component.base.model_dump()}.
-
-Speficications:
-- The code should work (no placeholders).
-- Use appropriate typing in function arguments and return types.
-- Pick the most simple implementation.
-- Don't catch exceptions unless specified. Let errors raise.\n"""
-    if isinstance(component.base.root, Function):
-        if component.base.root.is_endpoint:
-            user_message += (
-                "- Since this function is meant to be an endpoint, "
-                "a) add enough documentation and b) add proper typing, "
-                "so that it's easy to use in Swagger.\n"
-            )
-            if "authentication" in external_infrastructure:
-                user_message += "- Authenticate it with app.modassembly.authentication.core.authenticate.\n"
-        user_message += (
-            "- mypy will be run over the code, so implement the function in a way that it passes mypy.\n"
-            "- When using SQLALchemy models, access the actual column values. "
-            "Example for a string attribute: `model.attribute.__str__()`.\n"
-        )
-    elif isinstance(component.base.root, SQLAlchemyModel):
-        user_message += (
-            "- Import Base from app.modassembly.database.get_session.\n"
-            "- Only use `ForeignKey` if the other model exists in the architecture.\n"
-        )
-    user_message += "\n```python\n...\n```"
     conversation.add_user(user_message)
-
     assistant_message = llm.stream_text(conversation)
     patterns = extract_from_pattern(assistant_message, pattern=r"```python\n(.*?)```")
     code = None
@@ -142,7 +114,7 @@ Speficications:
             and component.base.root.is_endpoint
         ):
             extract_router_name(code)
-        elif isinstance(component.base.root, SQLAlchemyModel):
+        elif isinstance(component.base.root, DBModel):
             create_tables(app_name, component.base.root.namespace, code)
 
         component.file = File(path=file_path, content=code)
@@ -170,3 +142,40 @@ Speficications:
         )
     finally:
         sys.path.remove(f"{REPOS}/{app_name}")
+
+
+def first_write(
+    app_name: str,
+    context: ImplementationContext,
+    external_infrastructure: List[str],
+    conversation: Conversation,
+) -> ImplementationContext:
+    component = context.component
+    user_message = f"""Write the code for: {component.base.model_dump()}.
+
+    Speficications:
+    - The code should work (no placeholders).
+    - Use appropriate typing in function arguments and return types.
+    - Pick the most simple implementation.
+    - Don't catch exceptions unless specified. Let errors raise.\n"""
+    if isinstance(component.base.root, Function):
+        if component.base.root.is_endpoint:
+            user_message += (
+                "- Since this function is meant to be an endpoint, "
+                "a) add enough documentation and b) add proper typing, "
+                "so that it's easy to use in Swagger.\n"
+            )
+            if "authentication" in external_infrastructure:
+                user_message += "- Authenticate it with app.modassembly.authentication.core.authenticate.\n"
+        user_message += (
+            "- mypy will be run over the code, so implement the function in a way that it passes mypy.\n"
+            "- When using SQLALchemy models, access the actual column values. "
+            "Example for a string attribute: `model.attribute.__str__()`.\n"
+        )
+    elif isinstance(component.base.root, DBModel):
+        user_message += (
+            "- Import Base from app.modassembly.database.sql.get_session.\n"
+            "- Only use `ForeignKey` if the other model exists in the architecture.\n"
+        )
+    user_message += "\n```python\n...\n```"
+    return write_component(app_name, user_message, context, conversation)

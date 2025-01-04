@@ -9,9 +9,9 @@ load_dotenv()
 
 from ai import llm
 from utils.architecture import (
+    DBModel,
     Function,
     ImplementedComponent,
-    SQLAlchemyModel,
     load_config,
     save_config,
     update_architecture_diff,
@@ -28,6 +28,7 @@ from workflows.helpers import (
 )
 from workflows.subworkflows import (
     ImplementationContext,
+    first_write,
     save_templates,
     write_component,
 )
@@ -66,11 +67,7 @@ def run(app_name: str, new_architecture: List[ImplementedComponent]) -> str:
     print_system()
 
     models_to_parallelize = group_nodes_by_dependencies(
-        [
-            m
-            for m in architecture_to_update.values()
-            if isinstance(m.base.root, SQLAlchemyModel)
-        ]
+        [m for m in architecture_to_update.values() if isinstance(m.base.root, DBModel)]
     )
     functions_to_parallelize = group_nodes_by_dependencies(
         [
@@ -84,7 +81,7 @@ def run(app_name: str, new_architecture: List[ImplementedComponent]) -> str:
         with ThreadPoolExecutor(max_workers=10) as executor:
             outputs = list(
                 executor.map(
-                    write_component,
+                    first_write,
                     [app_name] * len(level),
                     [
                         ImplementationContext(component=architecture_to_update[l])
@@ -117,19 +114,17 @@ def run(app_name: str, new_architecture: List[ImplementedComponent]) -> str:
             continue
 
         for output in wrong_implementations:
-            error_conversation = conversation.copy()
+            conversation = conversation.copy()
             while True:
                 assert output.user_message and output.assistant_message
-                error_conversation.add_user(output.user_message)
-                error_conversation.add_assistant(output.assistant_message)
-                error_conversation.add_user(
-                    f"Found the following errors ::\n\n{output.error}"
-                )
+                conversation.add_user(output.user_message)
+                conversation.add_assistant(output.assistant_message)
                 output = write_component(
                     app_name,
+                    f"Found the following errors ::\n\n{output.error}. "
+                    "Please fix the code.",
                     output,
-                    config["external_infrastructure"],
-                    error_conversation.copy(),
+                    conversation.copy(),
                 )
                 if not output.error:
                     _update(output)
@@ -151,6 +146,7 @@ def run(app_name: str, new_architecture: List[ImplementedComponent]) -> str:
     conversation.add_user("Give me a one line commit message for the changes. Go: ...")
     commit_message = llm.stream_text(conversation)
     print_system("Pushing changes to GitHub...")
+    breakpoint()
     execute_git_commands(
         [
             ["git", "add", "."],

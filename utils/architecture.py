@@ -8,14 +8,14 @@ from utils.io import print_system
 
 
 class BaseComponent(BaseModel):
-    type: str = Field(description="sqlalchemymodel or function")
-    name: str = Field(description="The name of the sqlalchemymodel or function")
+    type: str = Field(description="dbmodel or function")
+    name: str = Field(description="The name of the dbmodel or function")
     namespace: str = Field(
         description="The virtual location of the component, ie, the file path. "
         "Use a dot notation."
     )
     dependencies: List[str] = Field(
-        description="The other namespace.sqlalchemymodels or "
+        description="The other namespace.dbmodels or "
         "namespace.functions that this component depends on"
     )
     pypi_packages: List[str] = Field(description="The pypi packages that it will need")
@@ -25,12 +25,12 @@ class BaseComponent(BaseModel):
         return f"{self.namespace}.{self.name}" if self.namespace else self.name
 
 
-class SQLAlchemyModel(BaseComponent):
+class DBModel(BaseComponent):
     class ModelField(BaseModel):
         name: str = Field(description="The name of the field")
         purpose: str = Field(description="The type of the field")
 
-    type: Literal["sqlalchemymodel"] = "sqlalchemymodel"
+    type: Literal["dbmodel"] = "dbmodel"
     fields: List[ModelField] = Field(description="The fields of the model")
 
 
@@ -41,7 +41,7 @@ class Function(BaseComponent):
 
 
 class Component(RootModel):
-    root: Annotated[Union[SQLAlchemyModel, Function], Field(discriminator="type")]
+    root: Annotated[Union[DBModel, Function], Field(discriminator="type")]
 
     @property
     def key(self) -> str:
@@ -55,7 +55,7 @@ class Component(RootModel):
         # Get type-specific fields from each subclass
         sqlalchemy_fields = {
             k: v
-            for k, v in SQLAlchemyModel.model_json_schema()["properties"].items()
+            for k, v in DBModel.model_json_schema()["properties"].items()
             if k not in base_schema["properties"]
         }
         function_fields = {
@@ -66,8 +66,8 @@ class Component(RootModel):
         # Update the type field to be an enum of possible values
         base_schema["properties"]["type"] = {
             "type": "string",
-            "enum": ["sqlalchemymodel", "function"],
-            "description": "The type of component (sqlalchemymodel or function)",
+            "enum": ["dbmodel", "function"],
+            "description": "The type of component (dbmodel or function)",
         }
         # Combine all properties
         base_schema["properties"].update(sqlalchemy_fields)
@@ -139,7 +139,7 @@ initial_config = {
                     name="main",
                     namespace="",
                     purpose="The main FastAPI script.",
-                    dependencies=["Other sqlalchemymodels or functions"],
+                    dependencies=["Other dbmodels or functions"],
                     is_endpoint=False,
                     pypi_packages=[
                         "fastapi==0.115.6",
@@ -177,21 +177,21 @@ db_components = [
 auth_components = [
     ImplementedComponent(
         base=Component(
-            SQLAlchemyModel(
+            DBModel(
                 name="User",
                 namespace="models",
                 fields=[
-                    SQLAlchemyModel.ModelField(
+                    DBModel.ModelField(
                         name="id", purpose="Primary key, autoincremental"
                     ),
-                    SQLAlchemyModel.ModelField(
+                    DBModel.ModelField(
                         name="email", purpose="The email of the user, can't be null"
                     ),
-                    SQLAlchemyModel.ModelField(
+                    DBModel.ModelField(
                         name="password",
                         purpose="The hashed password, can't be null",
                     ),
-                    SQLAlchemyModel.ModelField(
+                    DBModel.ModelField(
                         name="role", purpose='"user" or "admin", default to "user"'
                     ),
                 ],

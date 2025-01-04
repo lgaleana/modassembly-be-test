@@ -39,19 +39,19 @@ The architecture that you're working with is a python module that will be hosted
 [
     {{
         "base": {{
-            "type": "sqlalchemymodel",
-            "name": "The name of the sqlalchemymodel",
-            "namespace": "The virtual location of the sqlalchemymodel. Use a dot notation.",
+            "type": "dbmodel",
+            "name": "The name of the dbmodel",
+            "namespace": "The virtual location of the dbmodel. Use a dot notation.",
             "fields": [
                 {{
                     "name": "The name of the field",
                     "purpose": "What the field is used for, important attributes, etc."
                 }}
             ],
-            "dependencies": ["The other namespace.sqlalchemymodels that this model is associated with"],
-            "pypi_packages": ["The pypi packages that the sqlalchemymodel will need"]
+            "dependencies": ["The other namespace.dbmodels that this model is associated with"],
+            "pypi_packages": ["The pypi packages that the dbmodel will need"]
         }},
-        "file": Whether the sqlalchemymodel has been implemented in code, in a file
+        "file": Whether the dbmodel has been implemented in code, in a file
     }},
     {{
         "base": {{
@@ -59,7 +59,7 @@ The architecture that you're working with is a python module that will be hosted
             "name": "The name of the function",
             "namespace": "The virtual location of the function. Use a dot notation.",
             "purpose": "What the function does, step by step. Ie: 1) ... 2) ...",
-            "dependencies": ["The other namespace.functions or namespace.sqlalchemymodels that this function uses internally"]
+            "dependencies": ["The other namespace.functions or namespace.dbmodels that this function uses internally"]
             "is_endpoint": true or false whether this is a FastAPI endpoint
             "pypi_packages": ["The pypi packages that the function will need"]
         }},
@@ -69,7 +69,7 @@ The architecture that you're working with is a python module that will be hosted
 ]
 ```
 
-There are 2 types of "base" components: sqlalchemymodels and functions. A base component can be added if it doesn't already exist in the architecture. And it can only be updated if it hasn't been implemented in a file. To update a component with an implemented file, the user must update it manually.
+There are 2 types of "base" components: dbmodels and functions. A base component can be added if it doesn't already exist in the architecture. And it can only be updated if it hasn't been implemented in a file. To update a component with an implemented file, the user must update it manually.
 
 You will also be given the set of GCP infrastructure that you have access to.
 
@@ -77,8 +77,8 @@ Follow the user's instructions to build the architecture by adding or updating b
 
 ```json
 {{
-    "type": "sqlalchemymodel" or "function",
-    # Attributes of the sqlalchemymodel or function
+    "type": "dbmodel" or "function",
+    # Attributes of the dbmodel or function
 }}
 ```
 

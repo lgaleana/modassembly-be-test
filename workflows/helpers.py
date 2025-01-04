@@ -264,7 +264,6 @@ def run_mypy(file_path: str) -> None:
     stdout, stderr, exit_code = api.run(
         [
             file_path,
-            "--disable-error-code=import-untyped",
             "--disable-error-code=call-overload",
         ]
     )
