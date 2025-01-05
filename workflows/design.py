@@ -88,7 +88,7 @@ The architecture that you're working with is a python module that will be hosted
             "dependencies": ["The other namespace.dbmodels that the model is associated with"],
             "pypi_packages": ["The pypi packages that the dbmodel will need"]
         }},
-        "is_implemented": true or false whether the dbmodel has been implemented in actual code
+        "is_deployed": true or false whether the dbmodel has been implemented and deployed
     }},
     {{
         {{
@@ -100,7 +100,7 @@ The architecture that you're working with is a python module that will be hosted
             "is_endpoint": true or false whether this is a FastAPI endpoint
             "pypi_packages": ["The pypi packages that the function will need"]
         }},
-         "is_implemented": true or false whether the function has been implemented in actual code
+         "is_deployed": true or false whether the function has been implemented and deployed
     }},
     ...
 ]
@@ -112,7 +112,7 @@ Follow the user's instructions to build the architecture by adding, updating or 
 
 At some point, the architecture will be implemented into actual code. The order of implementation will be guided by the `"dependencies"` attribute. It's VERY IMPORTANT that you keep this attribute up to date.
 
-There are two types of "design" components: dbmodels and functions. functions can be added, updated or removed at any time. However; dbmodels can only be added, updated or removed if they haven't been implemented yet. To update or remove a dbmodel, the user must do it manually."""
+There are two types of "design" components: dbmodels and functions. functions can be added, updated or removed at any time. However; dbmodels can only be added, updated or removed if they haven't been deployed yet. Updating production database models is not straightforward. To update or remove a dbmodel, the user must do it manually."""
         )
 
     conversation.add_system(

@@ -78,6 +78,7 @@ class Component(RootModel):
 class ImplementedComponent(BaseModel):
     design: Component
     file: Optional[File] = None
+    is_deployed: bool = False
 
 
 def load_config(app_name: str) -> Dict[str, Any]:
@@ -119,7 +120,7 @@ def present_to_llm(architecture: List[ImplementedComponent]) -> str:
         [
             {
                 "design": component.design.model_dump(),
-                "is_implemented": component.file is not None,
+                "is_deployed": component.is_deployed,
             }
             for component in architecture
         ],
