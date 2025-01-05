@@ -4,7 +4,6 @@ from typing import Any, Dict, List, Optional, Union, Annotated, Literal
 from pydantic import BaseModel, Field, RootModel
 
 from utils.files import File, REPOS
-from utils.io import print_system
 
 
 class BaseComponent(BaseModel):
@@ -258,21 +257,36 @@ auth_components = [
     ImplementedComponent(
         design=Component(
             Function(
+                name="verify_user",
+                namespace="core.authentication",
+                purpose="1) Gets the user from an email. 2) Verifies the password.",
+                dependencies=[
+                    "modassembly.database.sql.get_sql_session",
+                    "models.User",
+                ],
+                is_endpoint=False,
+                pypi_packages=[
+                    "bcrypt==4.0.1",
+                    "passlib==1.7.4",
+                    "sqlalchemy==2.0.36",
+                ],
+            )
+        )
+    ),
+    ImplementedComponent(
+        design=Component(
+            Function(
                 name="login_api",
                 namespace="endpoints.authentication",
-                purpose="Logs in an user. 1) Gets the user. 2) Verifies the password. 3) Creates a new JWT token. 4) Returns the token.",
+                purpose="Logs in an user, given their credentials. 1) Verifies the user. 2) Creates a new JWT token. 4) Returns the token.",
                 dependencies=[
-                    "modassembly.database.get_session",
-                    "models.User",
+                    "core.authentication.verify_user",
                     "modassembly.authentication.core.create_access_token",
                 ],
                 is_endpoint=True,
                 pypi_packages=[
-                    "bcrypt==4.0.1",
                     "fastapi==0.115.6",
-                    "passlib==1.7.4",
                     "pydantic==2.10.4",
-                    "sqlalchemy==2.0.36",
                 ],
             )
         )
