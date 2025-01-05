@@ -36,7 +36,7 @@ class Action:
 
 class ComponentToUpdate(BaseModel):
     action: Literal["add", "update", "remove"]
-    component: Union[Component, str]
+    base: Union[Component, str]
 
 
 def run(app_name: str, user_message: str) -> Tuple[Dict[str, Any], Conversation]:
@@ -176,11 +176,11 @@ IMPORTANT: The modassembly namespace is reserved. You can't add or update compon
                                     "Please try again."
                                 )
                         components_to_update[component.key] = ComponentToUpdate(
-                            action=action, component=component
+                            action=action, base=component
                         )
                     else:
                         components_to_update[key] = ComponentToUpdate(
-                            action=action, component=key
+                            action=action, base=key
                         )
                 else:
                     # When asking for a big change, the model might just
@@ -214,9 +214,11 @@ IMPORTANT: The modassembly namespace is reserved. You can't add or update compon
 
         for component in components_to_update.values():
             if component.action == Action.REMOVE:
-                del architecture[component.key]
+                del architecture[component.base.key]
             else:
-                architecture[component.key] = ImplementedComponent(design=component)
+                architecture[component.base.key] = ImplementedComponent(
+                    design=component.base
+                )
         config["architecture"] = list(architecture.values())
         conversation.persist(app_name=app_name)
         save_config(config)
