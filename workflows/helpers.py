@@ -205,6 +205,10 @@ def update_main(
             "\nfrom app.modassembly.database.sql.get_sql_session import Base, engine\n"
         )
         main_content += "Base.metadata.create_all(engine)\n"
+    for component in architecture:
+        if component.design.key == "main":
+            assert component.file
+            component.file.content = main_content
     with open(f"{REPOS}/{app_name}/app/main.py", "w") as f:
         f.write(main_content)
 
