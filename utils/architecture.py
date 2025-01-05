@@ -231,7 +231,7 @@ auth_components = [
         design=Component(
             Function(
                 name="create_access_token",
-                namespace="modassembly.authentication.core",
+                namespace="modassembly.authentication",
                 purpose="1) Encodes a JWT token using the user's email and an expiration time.",
                 dependencies=[],
                 is_endpoint=False,
@@ -243,7 +243,7 @@ auth_components = [
         design=Component(
             Function(
                 name="authenticate",
-                namespace="modassembly.authentication.core",
+                namespace="modassembly.authentication",
                 purpose="1) Decodes the JWT token. 2) Retrieves an user. IMPORTANT: Used by the endpoints for authentication.",
                 dependencies=["models.User"],
                 is_endpoint=False,
@@ -259,8 +259,8 @@ auth_components = [
         design=Component(
             Function(
                 name="login_api",
-                namespace="modassembly.authentication.endpoints",
-                purpose="Logs in an user. 1) Gets the user. 2) Verifies the password. 3) Creates a new JWT token.",
+                namespace="endpoints.authentication",
+                purpose="Logs in an user. 1) Gets the user. 2) Verifies the password. 3) Creates a new JWT token. 4) Returns the token.",
                 dependencies=[
                     "modassembly.database.get_session",
                     "models.User",
