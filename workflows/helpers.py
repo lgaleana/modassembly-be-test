@@ -210,21 +210,6 @@ def update_main(
         f.write(main_content)
 
 
-def execute_deploy(app_name: str) -> str:
-    original_dir = os.getcwd()
-    try:
-        os.chdir(f"{REPOS}/{app_name}")
-        subprocess.run(["chmod", "+x", "deploy.sh"], check=True)
-        output = subprocess.run(
-            ["./deploy.sh", app_name], check=True, capture_output=True, text=True
-        )
-        print_system(output.stdout)
-        print_system(output.stderr)
-        return output.stdout.splitlines()[-1]
-    finally:
-        os.chdir(original_dir)
-
-
 class ModelImplementationError(Exception):
     pass
 

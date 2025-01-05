@@ -21,7 +21,6 @@ from utils.io import print_system
 from utils.state import Conversation
 from workflows.helpers import (
     MypyError,
-    execute_deploy,
     group_nodes_by_dependencies,
     install_requirements,
     update_main,
@@ -158,17 +157,14 @@ def run(app_name: str, new_architecture: List[ImplementedComponent]) -> str:
         ],
         app=app_name,
     )
-    print_system("Deploying application...")
-    service_url = execute_deploy(app_name)
 
-    config["url"] = f"{service_url}/docs"
     conversation = Conversation.load(app_name)
     conversation.add_system("Implementing the architecture...")
     conversation.add_system(f"Done.\n\n{present_to_llm(saved_architecture)}")
     conversation.persist(app_name=app_name)
     save_config(config)
-    print_system(config["url"])
-    return config["url"]
+    print_system(config["github"])
+    return config["github"]
 
 
 if __name__ == "__main__":

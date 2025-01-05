@@ -28,7 +28,7 @@ def save_templates(
     architecture: List[ImplementedComponent],
     conversation: Conversation,
 ) -> None:
-    for file in [".gitignore", "deploy.sh", "Dockerfile"]:
+    for file in [".gitignore"]:
         with open(f"{REPOS}/fastapi-template/{file}", "r") as f1, open(
             f"{REPOS}/{app_name}/{file}", "w"
         ) as f2:
