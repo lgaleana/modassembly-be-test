@@ -164,9 +164,10 @@ def run(app_name: str, new_architecture: List[ImplementedComponent]) -> Dict[str
     )
 
     conversation = Conversation.load(app_name)
-    conversation.add_system("Implementing the architecture...")
-    conversation.add_system("Done.")
-    conversation.persist(app_name=app_name)
+    if len(conversation) > 0:
+        conversation.add_system("Implementing the architecture...")
+        conversation.add_system("Done.")
+        conversation.persist(app_name=app_name)
     save_config(config)
     print_system(config["github"])
     return config
