@@ -13,7 +13,6 @@ from utils.architecture import (
     Function,
     ImplementedComponent,
     load_config,
-    present_to_llm,
     save_config,
     update_architecture_diff,
 )
@@ -57,15 +56,15 @@ def run(app_name: str, new_architecture: List[ImplementedComponent]) -> Dict[str
         if not component.file:
             print_system(f"Will update :: {component.design.key}")
             architecture_to_update[component.design.key] = component
-    for new_component in new_architecture:
+    for updated_component in new_architecture:
         for old_component in saved_architecture:
             if (
-                new_component.design.key not in MODASSEMBLY_COMPONENTS
-                and new_component.design.key == old_component.design.key
-                and new_component.design.root != old_component.design.root
+                updated_component.design.key not in MODASSEMBLY_COMPONENTS
+                and updated_component.design.key == old_component.design.key
+                and updated_component.design.root != old_component.design.root
             ):
-                print_system(f"Will update :: {new_component.design.key}")
-                architecture_to_update[new_component.design.key] = new_component
+                print_system(f"Will update :: {updated_component.design.key}")
+                architecture_to_update[updated_component.design.key] = updated_component
                 break
     print_system()
 
@@ -128,7 +127,8 @@ def run(app_name: str, new_architecture: List[ImplementedComponent]) -> Dict[str
                 conversation.add_assistant(output.assistant_message)
                 output = write_component(
                     app_name,
-                    f"Found the following errors ::\n\n{output.error}. "
+                    f"Found the following errors ::\n\n"
+                    f"{type(output.error).__name__}({output.error}). "
                     "Please fix the code.",
                     output,
                     conversation.copy(),
