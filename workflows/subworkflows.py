@@ -169,6 +169,7 @@ def first_write(
                 "a) add enough documentation and b) add proper typing, "
                 "so that it's easy to use in Swagger.\n"
                 "- Define pydantic models for inputs and OUTPUTS where needed.\n"
+                "- Use the most simple types for pydantic models.\n"
             )
             if "authentication" in external_infrastructure:
                 user_message += "- Authenticate it with app.modassembly.authentication.core.authenticate.\n"
