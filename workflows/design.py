@@ -114,7 +114,7 @@ There are two types of "design" components: dbmodels and functions. functions ca
 IMPORTANT: The modassembly namespace is reserved. You can't add or update components in this namespace."""
         )
 
-    conversation.add_user(
+    conversation.add_system(
         f"Current architecture:\n\n{present_to_llm(list(architecture.values()))}"
     )
     conversation.add_user(user_message)
@@ -183,28 +183,27 @@ IMPORTANT: The modassembly namespace is reserved. You can't add or update compon
                             action=action, base=key
                         )
                 else:
-                    # When asking for a big change, the model might just
-                    # return the entire architecture. So handle that.
-                    implemented_component = ImplementedComponent.model_validate(json_)
-                    if not key.startswith("modassembly") and not key.startswith("main"):
-                        if implemented_component.design.key in architecture:
-                            jsons.append(
-                                {
-                                    "action": "remove",
-                                    **implemented_component.design.model_dump(),
-                                }
-                            )
-                        jsons.append(
-                            {
-                                "action": "add",
-                                **implemented_component.design.model_dump(),
-                            }
-                        )
-                    else:
-                        conversation.add_system(
-                            f"Component :: {implemented_component.design.key} "
-                            "is reserved for internal use. It won't be updated."
-                        )
+                    raise ValueError(
+                        """To add or update a component, use the following format:
+
+```json
+{{
+    "action": "add", "update" or "remove",
+    "type": "dbmodel" or "function",
+    # Attributes of the dbmodel or function
+}}
+```
+
+To remove a component, use the following format:
+
+```json
+{{
+    "action": "remove",
+    "name": "The name of the function to remove"
+    "namespace": "The namespace of the function to remove"
+}}
+```"""
+                    )
         except ValueError as e:
             if attempts == 3:
                 components_to_update = {}
