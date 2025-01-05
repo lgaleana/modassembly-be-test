@@ -170,7 +170,7 @@ def first_write(
                 "- Use the most simple types for pydantic models.\n"
             )
             if "authentication" in external_infrastructure:
-                user_message += "- Authenticate it with app.modassembly.authentication.core.authenticate.\n"
+                user_message += "- Authenticate it with app.modassembly.authentication.authenticate.\n"
         user_message += (
             "- mypy will be run over the code, so implement the function in a way that it passes mypy.\n"
             "- When using SQLALchemy models, access the actual column values. "
@@ -178,7 +178,7 @@ def first_write(
         )
     elif isinstance(component.design.root, DBModel):
         user_message += (
-            "- Import Base from app.modassembly.database.sql.get_session.\n"
+            "- Import Base from app.modassembly.database.sql.get_sql_session.\n"
             "- Only use `ForeignKey` if the other model exists in the architecture.\n"
         )
     user_message += "\n```python\n...\n```"
