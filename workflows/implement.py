@@ -28,6 +28,7 @@ from workflows.helpers import (
 )
 from workflows.subworkflows import (
     ImplementationContext,
+    MODASSEMBLY_COMPONENTS,
     first_write,
     save_templates,
     write_component,
@@ -57,7 +58,8 @@ def run(app_name: str, new_architecture: List[ImplementedComponent]) -> Dict[str
     for new_component in new_architecture:
         for old_component in saved_architecture:
             if (
-                new_component.design.key == old_component.design.key
+                new_component.design.key not in MODASSEMBLY_COMPONENTS
+                and new_component.design.key == old_component.design.key
                 and new_component.design.root != old_component.design.root
             ):
                 print_system(f"Will update :: {new_component.design.key}")

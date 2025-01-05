@@ -23,6 +23,17 @@ from utils.state import Conversation
 from utils.static_analysis import RouterNotFoundError, extract_router_name
 
 
+MODASSEMBLY_COMPONENTS = {
+    "main": "app/main.py",
+    "modassembly.database.sql.get_sql_session": "app/modassembly/database/sql/get_sql_session.py",
+    "modassembly.database.nosql.get_firestore_client": "app/modassembly/database/nosql/get_firestore_client.py",
+    "models.User": "app/models/User.py",
+    "modassembly.authentication.core.create_access_token": "app/modassembly/authentication/core/create_access_token.py",
+    "modassembly.authentication.core.authenticate": "app/modassembly/authentication/core/authenticate.py",
+    "modassembly.authentication.endpoints.login_api": "app/modassembly/authentication/endpoints/login_api.py",
+}
+
+
 def save_templates(
     app_name: str,
     architecture: List[ImplementedComponent],
@@ -34,20 +45,11 @@ def save_templates(
         ) as f2:
             f2.write(f1.read())
 
-    modassembly_components = {
-        "main": "app/main.py",
-        "modassembly.database.sql.get_sql_session": "app/modassembly/database/sql/get_sql_session.py",
-        "modassembly.database.nosql.get_firestore_client": "app/modassembly/database/nosql/get_firestore_client.py",
-        "models.User": "app/models/User.py",
-        "modassembly.authentication.core.create_access_token": "app/modassembly/authentication/core/create_access_token.py",
-        "modassembly.authentication.core.authenticate": "app/modassembly/authentication/core/authenticate.py",
-        "modassembly.authentication.endpoints.login_api": "app/modassembly/authentication/endpoints/login_api.py",
-    }
     for component in architecture:
-        if not component.design.key in modassembly_components:
+        if not component.design.key in MODASSEMBLY_COMPONENTS:
             continue
         module = component.design.key
-        file_path = modassembly_components[module]
+        file_path = MODASSEMBLY_COMPONENTS[module]
         package = ".".join(module.split(".")[:-1])
         create_folders_if_not_exist(app_name, f"app.{package}")
         with open(f"{REPOS}/fastapi-template/{file_path}", "r") as f1, open(
