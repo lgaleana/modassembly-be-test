@@ -264,6 +264,7 @@ def run_mypy(file_path: str) -> None:
         [
             file_path,
             "--disable-error-code=call-overload",
+            "--disable-error-code=import-untyped",
         ]
     )
     print_system(stdout)
