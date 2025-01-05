@@ -175,7 +175,7 @@ sql_components = [
     ImplementedComponent(
         design=Component(
             Function(
-                name="get_session",
+                name="get_sql_session",
                 namespace="modassembly.database.sql",
                 purpose="1) Initializes the Postgres database. 2) Gets a session.",
                 dependencies=[],
@@ -190,7 +190,7 @@ nosql_components = [
     ImplementedComponent(
         design=Component(
             Function(
-                name="get_client",
+                name="get_firestore_client",
                 namespace="modassembly.database.nosql",
                 purpose="1) Initializes the Firestore client. 2) Returns it.",
                 dependencies=[],
