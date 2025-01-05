@@ -214,11 +214,8 @@ auth_components = [
                         name="email", purpose="The email of the user, can't be null"
                     ),
                     DBModel.ModelField(
-                        name="password",
+                        name="hashed_password",
                         purpose="The hashed password, can't be null",
-                    ),
-                    DBModel.ModelField(
-                        name="role", purpose='"user" or "admin", default to "user"'
                     ),
                 ],
                 dependencies=[],
@@ -278,7 +275,7 @@ auth_components = [
             Function(
                 name="login_api",
                 namespace="endpoints.authentication",
-                purpose="Logs in an user, given their credentials. 1) Verifies the user. 2) Creates a new JWT token. 4) Returns the token.",
+                purpose="Logs in an user, given their credentials. 1) Verifies the user. 2) Creates a new JWT token. 3) Returns the token. Use OAuth2PasswordRequestForm.",
                 dependencies=[
                     "core.authentication.verify_user",
                     "modassembly.authentication.core.create_access_token",
@@ -286,7 +283,7 @@ auth_components = [
                 is_endpoint=True,
                 pypi_packages=[
                     "fastapi==0.115.6",
-                    "pydantic==2.10.4",
+                    "pydantic[email]==2.10.4",
                 ],
             )
         )
