@@ -185,11 +185,6 @@ def update_main(
     with open(f"{REPOS}/{app_name}/app/main.py", "r") as f:
         main_content = f.read()
     main_content += "\n"
-    if "authentication" in external_infrastructure:
-        main_content += (
-            "from app.modassembly.authentication.endpoints.login_api import router\n"
-        )
-        main_content += "app.include_router(router)\n"
     for component in architecture:
         if (
             isinstance(component.design.root, Function)
