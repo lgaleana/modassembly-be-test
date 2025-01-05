@@ -1,9 +1,9 @@
-from typing import List
+from typing import Any, Dict, List
 
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from utils.architecture import ImplementedComponent, load_config
+from utils.architecture import ImplementedComponent
 from workflows import implement
 
 router = APIRouter()
@@ -14,6 +14,6 @@ class Request(BaseModel):
     architecture: List[ImplementedComponent] = []
 
 
-@router.post("", response_model=str)
-async def implement_architecture(request: Request) -> str:
+@router.post("", response_model=Dict[str, Any])
+async def implement_architecture(request: Request) -> Dict[str, Any]:
     return implement.run(request.app_name, request.architecture)

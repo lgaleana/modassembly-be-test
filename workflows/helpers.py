@@ -23,7 +23,11 @@ from utils.github import (
 )
 from utils.io import print_system
 from utils.state import Conversation
-from utils.static_analysis import extract_router_name, extract_sqlalchemy_models
+from utils.static_analysis import (
+    extract_imports,
+    extract_router_name,
+    extract_sqlalchemy_models,
+)
 
 
 REPOS = os.path.expanduser("~/repos")
@@ -203,6 +207,19 @@ def update_main(
         main_content += "Base.metadata.create_all(engine)\n"
     with open(f"{REPOS}/{app_name}/app/main.py", "w") as f:
         f.write(main_content)
+
+
+def update_architecture_dependencies(architecture: List[ImplementedComponent]) -> None:
+    for component in architecture:
+        assert component.file
+        imports = extract_imports(component.file.content)
+        dependencies = set()
+        for import_ in imports:
+            if not import_.startswith("app."):
+                continue
+            key = ".".join(import_.split(".")[1:-1])
+            dependencies.add(key)
+        component.design.root.dependencies = list(dependencies)
 
 
 class ModelImplementationError(Exception):

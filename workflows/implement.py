@@ -1,6 +1,6 @@
 import argparse
 from concurrent.futures import ThreadPoolExecutor
-from typing import List
+from typing import Any, Dict, List
 
 from dotenv import load_dotenv
 
@@ -23,6 +23,7 @@ from workflows.helpers import (
     MypyError,
     group_nodes_by_dependencies,
     install_requirements,
+    update_architecture_dependencies,
     update_main,
 )
 from workflows.subworkflows import (
@@ -33,7 +34,7 @@ from workflows.subworkflows import (
 )
 
 
-def run(app_name: str, new_architecture: List[ImplementedComponent]) -> str:
+def run(app_name: str, new_architecture: List[ImplementedComponent]) -> Dict[str, Any]:
     config = load_config(app_name)
     saved_architecture = config["architecture"]
 
@@ -145,9 +146,11 @@ def run(app_name: str, new_architecture: List[ImplementedComponent]) -> str:
 
     update_architecture_diff(saved_architecture, list(architecture_to_update.values()))
     update_main(app_name, saved_architecture, config["external_infrastructure"])
+    update_architecture_dependencies(saved_architecture)
 
-    conversation.add_user("Give me a one line commit message for the changes. Go: ...")
-    commit_message = llm.stream_text(conversation)
+    git_convo = conversation.copy()
+    git_convo.add_user("Give me a one line commit message for the changes. Go: ...")
+    commit_message = llm.stream_text(git_convo)
     print_system("Pushing changes to GitHub...")
     execute_git_commands(
         [
@@ -160,11 +163,11 @@ def run(app_name: str, new_architecture: List[ImplementedComponent]) -> str:
 
     conversation = Conversation.load(app_name)
     conversation.add_system("Implementing the architecture...")
-    conversation.add_system(f"Done.\n\n{present_to_llm(saved_architecture)}")
+    conversation.add_system("Done.")
     conversation.persist(app_name=app_name)
     save_config(config)
     print_system(config["github"])
-    return config["github"]
+    return config
 
 
 if __name__ == "__main__":
