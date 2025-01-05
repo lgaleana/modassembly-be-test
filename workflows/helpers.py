@@ -195,10 +195,10 @@ def update_main(
             router_name = extract_router_name(component.file.content)
             main_content += f"from {module} import {router_name}\n"
             main_content += f"app.include_router({router_name})\n"
-    if "database" in external_infrastructure:
+    if "sql" in external_infrastructure:
         main_content += "\n# Database\n"
         main_content += (
-            "\nfrom app.modassembly.database.get_session import Base, engine\n"
+            "\nfrom app.modassembly.database.sql.get_sql_session import Base, engine\n"
         )
         main_content += "Base.metadata.create_all(engine)\n"
     with open(f"{REPOS}/{app_name}/app/main.py", "w") as f:
