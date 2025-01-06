@@ -1,5 +1,6 @@
 import argparse
 import json
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List
 
@@ -21,6 +22,7 @@ from utils.io import print_system
 from utils.state import Conversation
 from workflows.helpers import (
     MypyError,
+    REPOS,
     group_nodes_by_dependencies,
     install_requirements,
     update_architecture_dependencies,
@@ -82,6 +84,7 @@ def run(app_name: str, new_architecture: List[ImplementedComponent]) -> Dict[str
             if isinstance(f.design.root, Function)
         ]
     )
+    sys.path.append(f"{REPOS}/{app_name}")
     for level in models_to_parallelize + functions_to_parallelize:
         print_system(f"Implementing :: {level}\n")
         with ThreadPoolExecutor(max_workers=10) as executor:
@@ -147,6 +150,7 @@ def run(app_name: str, new_architecture: List[ImplementedComponent]) -> Dict[str
                     )
                     _update(output)
                     break
+    sys.path.remove(f"{REPOS}/{app_name}")
 
     update_architecture_diff(saved_architecture, list(architecture_to_update.values()))
     update_main(app_name, saved_architecture, config["external_infrastructure"])

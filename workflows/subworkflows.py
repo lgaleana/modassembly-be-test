@@ -1,4 +1,3 @@
-import sys
 from typing import List, Optional
 
 from dotenv import load_dotenv
@@ -86,8 +85,6 @@ def write_component(
     context: ImplementationContext,
     conversation: Conversation,
 ) -> ImplementationContext:
-    sys.path.append(f"{REPOS}/{app_name}")
-
     component = context.component
     conversation.add_user(user_message)
     assistant_message = llm.stream_text(conversation)
@@ -143,8 +140,6 @@ def write_component(
             error=e,
             tries=context.tries + 1,
         )
-    finally:
-        sys.path.remove(f"{REPOS}/{app_name}")
 
 
 def first_write(

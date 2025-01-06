@@ -3,6 +3,7 @@ import importlib
 import os
 import re
 import subprocess
+import sys
 import venv
 from mypy import api
 from typing import Any, Dict, List, Set
@@ -243,6 +244,8 @@ def create_tables(app_name: str, namespace: str, code: str) -> None:
     )
     for model in models:
         module_path = f"app.{namespace}.{model}"
+        if module_path in sys.modules:
+            del sys.modules[module_path]
         models_module = importlib.import_module(module_path)
         model_class = getattr(models_module, model)
         if hasattr(model_class, "__table__"):
