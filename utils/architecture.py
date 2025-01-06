@@ -255,10 +255,9 @@ auth_components = [
         design=Component(
             Function(
                 name="verify_user",
-                namespace="core.authentication",
-                purpose="1) Gets the user from an email. 2) Verifies the password.",
+                namespace="modassembly.authentication",
+                purpose="1) Gets the user from the username. 2) Verifies the password.",
                 dependencies=[
-                    "modassembly.database.sql.get_sql_session",
                     "models.User",
                 ],
                 is_endpoint=False,
@@ -274,16 +273,18 @@ auth_components = [
         design=Component(
             Function(
                 name="login_api",
-                namespace="endpoints.authentication",
+                namespace="modassembly.authentication",
                 purpose="Logs in an user, given their credentials. 1) Verifies the user. 2) Creates a new JWT token. 3) Returns the token. Use OAuth2PasswordRequestForm.",
                 dependencies=[
-                    "core.authentication.verify_user",
-                    "modassembly.authentication.core.create_access_token",
+                    "modassembly.database.sql.get_sql_session",
+                    "modassembly.authentication.verify_user",
+                    "modassembly.authentication.create_access_token",
                 ],
                 is_endpoint=True,
                 pypi_packages=[
                     "fastapi==0.115.6",
                     "pydantic[email]==2.10.4",
+                    "sqlalchemy==2.0.36",
                 ],
             )
         )
