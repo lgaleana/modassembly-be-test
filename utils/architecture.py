@@ -207,15 +207,18 @@ auth_components = [
                 name="User",
                 namespace="models",
                 fields=[
+                    DBModel.ModelField(name="id", purpose="Primary key, autoincrement"),
                     DBModel.ModelField(
-                        name="id", purpose="Primary key, autoincremental"
-                    ),
-                    DBModel.ModelField(
-                        name="email", purpose="The email of the user, can't be null"
+                        name="email",
+                        purpose="The email of the user, indexed, can't be null",
                     ),
                     DBModel.ModelField(
                         name="hashed_password",
                         purpose="The hashed password, can't be null",
+                    ),
+                    DBModel.ModelField(
+                        name="username",
+                        purpose="The username, indexed, can't be null",
                     ),
                 ],
                 dependencies=[],
