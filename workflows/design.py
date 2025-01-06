@@ -110,17 +110,17 @@ Think of this architecture as lego blocks that you can compose together. Follow 
 
 Use a modular design pattern. Too many steps in a function's purpose probably means that you should break it apart. Always prefer the most simple design.
 
+There are two types of "design" components: dbmodels and functions. functions can be added, updated or removed at any time. However, dbmodels can only be added, updated or removed if they haven't been deployed yet. Updating production database models is not straightforward. To update or remove a dbmodel, the user must do it manually.
+
 At some point, the architecture will be implemented into actual code. The order of implementation will be guided by the `"dependencies"` attribute. It's VERY IMPORTANT that you keep this attribute up to date.
 
-At every step, think whether the architecture that you're describing aligns with what the user wants to do.
-
-There are two types of "design" components: dbmodels and functions. functions can be added, updated or removed at any time. However; dbmodels can only be added, updated or removed if they haven't been deployed yet. Updating production database models is not straightforward. To update or remove a dbmodel, the user must do it manually."""
+IMPORTANT: The modassembly namespace is reserved. You can't add or update components in this namespace."""
         )
 
     conversation.add_system(
         f"{COMMANDS_LINE}\n\nCurrent architecture:\n\n"
-        f"{present_to_llm(list(architecture.values()))}\n"
-        "IMPORTANT: The modassembly namespace is reserved. You can't add or update components in this namespace."
+        f"{present_to_llm(list(architecture.values()))}\n\n"
+        "Think whether the architecture that you're describing is the best for what the user wants to do."
     )
     conversation.add_user(user_message)
 
