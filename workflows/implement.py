@@ -54,18 +54,18 @@ def run(app_name: str, new_architecture: List[ImplementedComponent]) -> Dict[str
     architecture_to_update = {}
     for component in saved_architecture:
         if not component.file:
-            print_system(f"Will update :: {component.design.key}")
             architecture_to_update[component.design.key] = component
     for updated_component in new_architecture:
         for old_component in saved_architecture:
             if (
-                not updated_component.design.key.startswith("modassembly.")
+                updated_component.design.key not in MODASSEMBLY_COMPONENTS
                 and updated_component.design.key == old_component.design.key
                 and updated_component.design.root != old_component.design.root
             ):
-                print_system(f"Will update :: {updated_component.design.key}")
                 architecture_to_update[updated_component.design.key] = updated_component
                 break
+    for component_key in architecture_to_update:
+        print_system(f"Will update :: {component_key}")
     print_system()
 
     models_to_parallelize = group_nodes_by_dependencies(

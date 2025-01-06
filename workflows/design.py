@@ -114,9 +114,11 @@ To remove a component, use the following format:
 }}
 ```
 
+To refactor a component, it might be necessary to first remove it and then add it again.
+
 There are two types of "design" components: dbmodels and functions. functions can be added, updated or removed at any time. However, dbmodels can only be added, updated or removed if they haven't been deployed yet. Updating production database models is not straightforward. To update or remove a dbmodel, the user must do it manually.
 
-At some point, the architecture will be implemented into actual code. The order of implementation will be guided by the `"dependencies"` attribute. It's VERY IMPORTANT that you keep this attribute up to date.
+At some point, the architecture will be implemented into actual code (you don't have access to that code). The order of implementation will be guided by the `"dependencies"` attribute. It's VERY IMPORTANT that you keep this attribute up to date.
 
 IMPORTANT: The modassembly namespace is reserved. You can't add or update components in this namespace."""
         )
