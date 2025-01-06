@@ -59,7 +59,7 @@ def run(app_name: str, new_architecture: List[ImplementedComponent]) -> Dict[str
     for updated_component in new_architecture:
         for old_component in saved_architecture:
             if (
-                updated_component.design.key not in MODASSEMBLY_COMPONENTS
+                not updated_component.design.key.startswith("modassembly.")
                 and updated_component.design.key == old_component.design.key
                 and updated_component.design.root != old_component.design.root
             ):

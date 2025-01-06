@@ -27,6 +27,7 @@ MODASSEMBLY_COMPONENTS = {
     "main": "app/main.py",
     "modassembly.database.sql.get_sql_session": "app/modassembly/database/sql/get_sql_session.py",
     "modassembly.database.nosql.get_firestore_client": "app/modassembly/database/nosql/get_firestore_client.py",
+    "models.User": "app/models/User.py",
     "modassembly.authentication.create_access_token": "app/modassembly/authentication/create_access_token.py",
     "modassembly.authentication.authenticate": "app/modassembly/authentication/authenticate.py",
     "modassembly.authentication.verify_user": "app/modassembly/authentication/verify_user.py",
