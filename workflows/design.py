@@ -15,6 +15,7 @@ from utils.architecture import (
     load_config,
     present_to_llm,
     save_config,
+    update_architecture_diff,
 )
 from utils.io import print_system, user_input
 from utils.state import Conversation
@@ -39,10 +40,16 @@ class ComponentToUpdate(BaseModel):
     base: Union[Component, str]
 
 
-def run(app_name: str, user_message: str) -> Tuple[Dict[str, Any], Conversation]:
+def run(
+    app_name: str, user_message: str, new_architecture: List[ImplementedComponent]
+) -> Tuple[Dict[str, Any], Conversation]:
     config = load_config(app_name)
     conversation = Conversation.load(app_name)
-    architecture = {c.design.root.key: c for c in config["architecture"]}
+
+    saved_architecture = config["architecture"]
+    update_architecture_diff(saved_architecture, new_architecture)
+    architecture = {c.design.root.key: c for c in saved_architecture}
+    save_config(config)
 
     if len(conversation) == 0:
         conversation = Conversation()
@@ -242,7 +249,7 @@ if __name__ == "__main__":
 
     if not os.path.exists(f"{REPOS}/{args.app}"):
         create_app(args.app, args.infra)
-    config, _ = run(args.app, user_input("user: "))
+    config, _ = run(args.app, user_input("user: "), [])
 
     graph = build_graph(config["architecture"])
     visualize_graph(graph)

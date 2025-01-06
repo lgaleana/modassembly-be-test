@@ -1,8 +1,9 @@
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict
 
+from utils.architecture import ImplementedComponent
 from utils.state import Conversation
 from workflows import design
 
@@ -13,6 +14,7 @@ router = APIRouter()
 class Request(BaseModel):
     app_name: str
     user_message: str
+    architecture: List[ImplementedComponent] = []
 
 
 class Response(BaseModel):
@@ -24,5 +26,7 @@ class Response(BaseModel):
 
 @router.post("/chat", response_model=Response)
 async def chat(request: Request) -> Response:
-    config, conversation = design.run(request.app_name, request.user_message)
+    config, conversation = design.run(
+        request.app_name, request.user_message, request.architecture
+    )
     return Response(config=config, conversation=conversation)
