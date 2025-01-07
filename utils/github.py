@@ -16,6 +16,7 @@ ORG = "Modular-Asembly"
 
 
 def create_github_repository(repo: str) -> str:
+    repo = repo.replace(" ", "-")
     response = requests.post(
         f"https://api.github.com/orgs/{ORG}/repos",
         headers=HEADERS,
@@ -67,21 +68,21 @@ def repository_exists(repo: str) -> bool:
         return False
 
 
-def execute_git_commands(commands: List[List[str]], *, app: str) -> None:
+def execute_git_commands(commands: List[List[str]], *, repo: str) -> None:
     for command in commands:
         try:
-            subprocess.run(command, check=True, cwd=f"{REPOS}/{app}")
+            subprocess.run(command, check=True, cwd=f"{REPOS}/{repo}")
         except subprocess.CalledProcessError as e:
-            revert_changes(app)
+            revert_changes(repo)
             raise e
 
 
-def revert_changes(app: str) -> None:
+def revert_changes(repo: str) -> None:
     execute_git_commands(
         [
             ["git", "reset", "HEAD", "."],
             ["git", "clean", "-fd"],
             ["git", "checkout", "."],
         ],
-        app=app,
+        repo=repo,
     )

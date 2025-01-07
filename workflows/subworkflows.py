@@ -12,12 +12,11 @@ from workflows.helpers import (
     ModelImplementationError,
     MypyError,
     REPOS,
-    create_folders_if_not_exist,
     create_tables,
     extract_from_pattern,
     run_mypy,
 )
-from utils.files import File
+from utils.files import File, create_folders_if_not_exist
 from utils.io import print_system
 from utils.state import Conversation
 from utils.static_analysis import RouterNotFoundError, extract_router_name
@@ -27,10 +26,11 @@ def save_templates(
     app_name: str,
     architecture: List[ImplementedComponent],
     conversation: Conversation,
+    user: str,
 ) -> None:
     for file in [".gitignore"]:
         with open(f"{REPOS}/fastapi-template/{file}", "r") as f1, open(
-            f"{REPOS}/{app_name}/{file}", "w"
+            f"{REPOS}/{user}/{app_name}/{file}", "w"
         ) as f2:
             f2.write(f1.read())
 
@@ -40,9 +40,9 @@ def save_templates(
         module = component.design.key
         file_path = MODASSEMBLY_COMPONENTS[module]
         package = ".".join(module.split(".")[:-1])
-        create_folders_if_not_exist(app_name, f"app.{package}")
+        create_folders_if_not_exist(app_name, f"app.{package}", user)
         with open(f"{REPOS}/fastapi-template/{file_path}", "r") as f1, open(
-            f"{REPOS}/{app_name}/{file_path}", "w"
+            f"{REPOS}/{user}/{app_name}/{file_path}", "w"
         ) as f2:
             content = f1.read()
             f2.write(content)
@@ -69,6 +69,7 @@ class CompilationError(Exception):
 
 def write_component(
     app_name: str,
+    user: str,
     user_message: str,
     component: ImplementedComponent,
     conversation: Conversation,
@@ -89,10 +90,12 @@ def write_component(
             )
         code = patterns[0]
 
-        create_folders_if_not_exist(app_name, f"app.{component.design.root.namespace}")
+        create_folders_if_not_exist(
+            app_name, f"app.{component.design.root.namespace}", user
+        )
         folders = component.design.root.namespace.replace(".", "/")
         file_path = f"app/{folders}/{component.design.root.name}.py"
-        with open(f"{REPOS}/{app_name}/{file_path}", "w") as f:
+        with open(f"{REPOS}/{user}/{app_name}/{file_path}", "w") as f:
             f.write(code)
 
         run_mypy(app_name, file_path)
@@ -138,7 +141,7 @@ def write_component(
             f"{type(e).__name__}({e})\n\nPlease fix the code."
         )
         return write_component(
-            app_name, user_message, component, conversation, attempts
+            app_name, user, user_message, component, conversation, attempts
         )
 
 
@@ -147,6 +150,7 @@ def first_write(
     component: ImplementedComponent,
     external_infrastructure: List[str],
     conversation: Conversation,
+    user: str,
 ) -> ImplementationContext:
     instructions = f"""Write the code for: {component.design.model_dump()}.
 
@@ -171,6 +175,7 @@ def first_write(
             "- mypy will be run over the code, so implement the function in a way that it passes mypy.\n"
             "- When using SQLALchemy models, access the actual column values. "
             "Example for a string attribute: `model.attribute.__str__()`.\n"
+            f" - {component.design.root.purpose}\n"
         )
     elif isinstance(component.design.root, DBModel):
         instructions += (
@@ -178,4 +183,4 @@ def first_write(
             "- Only use `ForeignKey` if the other model exists in the architecture.\n"
         )
     instructions += "\n```python\n...\n```"
-    return write_component(app_name, instructions, component, conversation)
+    return write_component(app_name, user, instructions, component, conversation)

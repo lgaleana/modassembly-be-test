@@ -1,10 +1,12 @@
 from typing import Any, Dict, List
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict
 
 from utils.architecture import ImplementedComponent
 from utils.state import Conversation
+from web.modassembly_web.app.modassembly.authentication.authenticate import authenticate
+from web.modassembly_web.app.models.User import User
 from workflows import design
 
 
@@ -25,8 +27,8 @@ class Response(BaseModel):
 
 
 @router.post("/chat", response_model=Response)
-def chat(request: Request) -> Response:
+def chat(request: Request, user: User = Depends(authenticate)) -> Response:
     config, conversation = design.run(
-        request.app_name, request.user_message, request.architecture
+        request.app_name, request.user_message, request.architecture, str(user.username)
     )
     return Response(config=config, conversation=conversation)

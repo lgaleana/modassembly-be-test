@@ -82,20 +82,24 @@ def build_graph(architecture: List[ImplementedComponent]) -> nx.DiGraph:
     return G
 
 
-def create_app(app_name: str, external_infrastructure: List[str]) -> Dict[str, Any]:
-    app_name = app_name.replace(" ", "-")
-    if repository_exists(app_name):
-        raise ValueError(f"Repository {app_name} already exists")
-    os.mkdir(f"{REPOS}/{app_name}")
-    Conversation().persist(app_name=app_name)
+def create_app(
+    app_name: str, external_infrastructure: List[str], user: str
+) -> Dict[str, Any]:
+    app_name = app_name.replace("_", "-")
+    if repository_exists(f"{user}/{app_name}"):
+        raise ValueError(f"Repository {user}/{app_name} already exists")
+
+    os.makedirs(f"{REPOS}/{user}/{app_name}", exist_ok=True)
+    Conversation().persist(app_name, user)
     with open(f"{REPOS}/fastapi-template/.gitignore", "r") as f1, open(
-        f"{REPOS}/{app_name}/.gitignore", "w"
+        f"{REPOS}/{user}/{app_name}/.gitignore", "w"
     ) as f2:
         content = f1.read()
         content = f"{content}\nDockerfile\ndeploy.sh\n"
         f2.write(content)
+
     print_system("Initializing git and github...")
-    github_url = create_github_repository(app_name)
+    github_url = create_github_repository(f"{user}/{app_name}")
     execute_git_commands(
         [
             ["git", "init"],
@@ -107,15 +111,16 @@ def create_app(app_name: str, external_infrastructure: List[str]) -> Dict[str, A
                 "remote",
                 "add",
                 "origin",
-                f"git@github.com:Modular-Asembly/{app_name}.git",
+                f"git@github.com:Modular-Asembly/{user}/{app_name}.git",
             ],
             ["git", "push", "-u", "origin", "main"],
         ],
-        app=app_name,
+        repo=f"{user}/{app_name}",
     )
-    protect_repository(app_name)
+    protect_repository(f"{user}/{app_name}")
     print_system("Success")
-    config = create_initial_config(app_name, external_infrastructure, github_url)
+
+    config = create_initial_config(app_name, external_infrastructure, github_url, user)
     return config
 
 
@@ -149,19 +154,6 @@ def install_requirements(
     print_system(output.stderr)
     if output.returncode != 0:
         raise InstallRequirementsError(f"{output.stdout}\n{output.stderr}")
-
-
-def create_folders_if_not_exist(app_name: str, namespace: str) -> None:
-    packages = namespace.split(".")
-    current_path = f"{REPOS}/{app_name}"
-    for package in packages:
-        current_path = os.path.join(current_path, package)
-        if not os.path.exists(current_path):
-            os.mkdir(current_path)
-        init_file = os.path.join(current_path, "__init__.py")
-        if not os.path.exists(init_file):
-            with open(init_file, "w") as f:
-                f.write("")
 
 
 def get_architecture_to_update(

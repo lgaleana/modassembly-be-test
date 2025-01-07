@@ -80,15 +80,15 @@ class ImplementedComponent(BaseModel):
     is_deployed: bool = False
 
 
-def load_config(app_name: str) -> Dict[str, Any]:
-    with open(f"{REPOS}/{app_name}/config.json", "r") as f:
+def load_config(app_name: str, user: str) -> Dict[str, Any]:
+    with open(f"{REPOS}/{user}/{app_name}/config.json", "r") as f:
         config = json.load(f)
     return {
         "name": config["name"],
+        "user": config["user"],
         "architecture": [
             ImplementedComponent.model_validate(a) for a in config["architecture"]
         ],
-        "pypi_packages": config["pypi_packages"],
         "external_infrastructure": config["external_infrastructure"],
         "github": config["github"],
         "url": config["url"],
@@ -100,13 +100,13 @@ def save_config(config: Dict[str, Any]) -> None:
     raw_architecture = [c.model_dump() for c in config["architecture"]]
     raw_config = {
         "name": config["name"],
+        "user": config["user"],
         "architecture": raw_architecture,
-        "pypi_packages": config["pypi_packages"],
         "external_infrastructure": config["external_infrastructure"],
         "github": config["github"],
         "url": config["url"],
     }
-    with open(f"{REPOS}/{config['name']}/config.json", "w") as f:
+    with open(f"{REPOS}/{config['user']}/˝{config['name']}/config.json", "w") as f:
         json.dump(
             raw_config,
             f,
@@ -164,7 +164,6 @@ initial_config = {
             )
         ),
     ],
-    "pypi_packages": None,
     "external_infrastructure": ["www"],
     "url": None,
 }
@@ -300,9 +299,11 @@ def create_initial_config(
     app_name: str,
     external_infrastructure: List[str],
     github_url: str,
+    user: str,
 ) -> Dict[str, Any]:
     config = initial_config.copy()
     config["name"] = app_name
+    config["user"] = user
 
     if "sql" in external_infrastructure:
         config["architecture"].extend(sql_components)

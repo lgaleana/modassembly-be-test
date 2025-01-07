@@ -41,10 +41,13 @@ class ComponentToUpdate(BaseModel):
 
 
 def run(
-    app_name: str, user_message: str, new_architecture: List[ImplementedComponent]
+    app_name: str,
+    user_message: str,
+    new_architecture: List[ImplementedComponent],
+    user: str,
 ) -> Tuple[Dict[str, Any], Conversation]:
-    config = load_config(app_name)
-    conversation = Conversation.load(app_name)
+    config = load_config(app_name, user)
+    conversation = Conversation.load(app_name, user)
 
     saved_architecture = config["architecture"]
     update_architecture_diff(saved_architecture, new_architecture)
@@ -238,7 +241,7 @@ IMPORTANT: The modassembly namespace is reserved. You can't add or update compon
                     design=component.base
                 )
         config["architecture"] = list(architecture.values())
-        conversation.persist(app_name=app_name)
+        conversation.persist(app_name, user)
         save_config(config)
         return config, conversation
 
@@ -250,8 +253,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if not os.path.exists(f"{REPOS}/{args.app}"):
-        create_app(args.app, args.infra)
-    config, _ = run(args.app, user_input("user: "), [])
+        create_app(args.app, args.infra, "lgaleana")
+    config, _ = run(args.app, user_input("user: "), [], "lgaleana")
 
     graph = build_graph(config["architecture"])
     visualize_graph(graph)

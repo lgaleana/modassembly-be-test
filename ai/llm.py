@@ -8,6 +8,7 @@ from openai.types.chat.chat_completion_tool_param import ChatCompletionToolParam
 from openai.types.completion_usage import CompletionUsage
 
 from utils.io import print_assistant, print_system
+from web.modassembly_web.app.logging.log_user_activity import log_user_activity
 
 
 client = OpenAI()

@@ -1,13 +1,25 @@
+import os
+import sys
+
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
+subrepo_path = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "modassembly_web")
+)
+sys.path.append(subrepo_path)
+
 from web.endpoints.app import router as app_router
 from web.endpoints.design import router as design_router
 from web.endpoints.implement import router as implement_router
 from web.endpoints.get_config import router as get_config_router
+from web.modassembly_web.app.modassembly.database.sql.get_sql_session import (
+    Base,
+    engine,
+)
 
 app = FastAPI()
 
@@ -23,3 +35,5 @@ app.include_router(app_router, prefix="/app")
 app.include_router(design_router, prefix="/design")
 app.include_router(implement_router, prefix="/implement")
 app.include_router(get_config_router, prefix="/config")
+
+Base.metadata.create_all(bind=engine)

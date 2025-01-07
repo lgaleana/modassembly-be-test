@@ -1,10 +1,12 @@
 import shutil
 from typing import Any, Dict, List
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from utils.github import delete_github_repository
+from web.modassembly_web.app.modassembly.authentication.authenticate import authenticate
+from web.modassembly_web.app.models.User import User
 from workflows.helpers import REPOS, create_app
 
 router = APIRouter()
@@ -16,11 +18,14 @@ class Request(BaseModel):
 
 
 @router.post("", response_model=Dict[str, Any])
-def create(request: Request) -> Dict[str, Any]:
-    return create_app(request.app_name, request.external_infrastructure)
+def create(request: Request, user: User = Depends(authenticate)) -> Dict[str, Any]:
+    return create_app(
+        request.app_name, request.external_infrastructure, str(user.username)
+    )
 
 
 @router.delete("", response_model=None)
-def delete(app_name: str) -> None:
-    delete_github_repository(app_name)
-    shutil.rmtree(f"{REPOS}/{app_name}")
+def delete(app_name: str, user: User = Depends(authenticate)) -> None:
+    repo_name = f"{user.username}/{app_name}".replace(" ", "-")
+    delete_github_repository(repo_name)
+    shutil.rmtree(f"{REPOS}/{repo_name}")

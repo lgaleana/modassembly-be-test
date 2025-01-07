@@ -26,15 +26,13 @@ from workflows.helpers import (
     update_architecture_dependencies,
     update_main,
 )
-from workflows.subworkflows import (
-    MODASSEMBLY_COMPONENTS,
-    first_write,
-    save_templates,
-)
+from workflows.subworkflows import first_write, save_templates
 
 
-def run(app_name: str, new_architecture: List[ImplementedComponent]) -> Dict[str, Any]:
-    config = load_config(app_name)
+def run(
+    app_name: str, new_architecture: List[ImplementedComponent], user: str
+) -> Dict[str, Any]:
+    config = load_config(app_name, user)
     saved_architecture = config["architecture"]
 
     unimplemented_architecture = saved_architecture.copy()
@@ -46,7 +44,7 @@ def run(app_name: str, new_architecture: List[ImplementedComponent]) -> Dict[str
         f"Consider the following python architecture: {raw_architecture}"
     )
 
-    save_templates(app_name, saved_architecture, conversation)
+    save_templates(app_name, saved_architecture, conversation, user)
     install_requirements(app_name, unimplemented_architecture)
 
     architecture_to_update = get_architecture_to_update(
@@ -80,7 +78,7 @@ def run(app_name: str, new_architecture: List[ImplementedComponent]) -> Dict[str
                     )
                 )
         except Exception as e:
-            revert_changes(app_name)
+            revert_changes(f"{user}/{app_name}")
             raise e
         for output in outputs:
             assert output.component.file
@@ -105,14 +103,14 @@ def run(app_name: str, new_architecture: List[ImplementedComponent]) -> Dict[str
             ["git", "commit", "-m", commit_message],
             ["git", "push", "origin", "main"],
         ],
-        app=app_name,
+        repo=f"{user}/{app_name}",
     )
 
-    conversation = Conversation.load(app_name)
+    conversation = Conversation.load(app_name, user)
     if len(conversation) > 0:
         conversation.add_system("Implementing the architecture...")
         conversation.add_system("Done.")
-        conversation.persist(app_name=app_name)
+        conversation.persist(app_name, user)
     save_config(config)
     print_system(config["github"])
     return config
@@ -123,4 +121,4 @@ if __name__ == "__main__":
     parser.add_argument("app")
     args = parser.parse_args()
 
-    run(args.app, [])
+    run(args.app, [], "lgaleana")
