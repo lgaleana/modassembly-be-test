@@ -292,6 +292,8 @@ def run_mypy(app_name: str, file_path: str) -> None:
             "-m",
             "mypy",
             f"{REPOS}/{app_name}/{file_path}",
+            "--follow-imports=skip",  # Don't check imported modules
+            "--no-incremental",  # Skip cache handling for one-off checks
             "--disable-error-code=call-overload",
             "--disable-error-code=import-untyped",
         ],
