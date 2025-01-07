@@ -24,11 +24,21 @@ from utils.state import Conversation
 from utils.static_analysis import (
     extract_imports,
     extract_router_name,
-    extract_sqlalchemy_models,
 )
 
 
 REPOS = os.path.expanduser("~/repos")
+
+
+MODASSEMBLY_COMPONENTS = {
+    "main": "app/main.py",
+    "modassembly.database.sql.get_sql_session": "app/modassembly/database/sql/get_sql_session.py",
+    "modassembly.database.nosql.get_firestore_client": "app/modassembly/database/nosql/get_firestore_client.py",
+    "modassembly.authentication.create_access_token": "app/modassembly/authentication/create_access_token.py",
+    "modassembly.authentication.authenticate": "app/modassembly/authentication/authenticate.py",
+    "modassembly.authentication.verify_user": "app/modassembly/authentication/verify_user.py",
+    "modassembly.authentication.login_api": "app/modassembly/authentication/login_api.py",
+}
 
 
 class PatternNotFoundError(Exception):
@@ -152,6 +162,29 @@ def create_folders_if_not_exist(app_name: str, namespace: str) -> None:
         if not os.path.exists(init_file):
             with open(init_file, "w") as f:
                 f.write("")
+
+
+def get_architecture_to_update(
+    saved_architecture: List[ImplementedComponent],
+    new_architecture: List[ImplementedComponent],
+) -> Dict[str, ImplementedComponent]:
+    architecture_to_update = {}
+    for component in saved_architecture:
+        if not component.file:
+            architecture_to_update[component.design.key] = component
+    for updated_component in new_architecture:
+        for old_component in saved_architecture:
+            if (
+                updated_component.design.key not in MODASSEMBLY_COMPONENTS
+                and updated_component.design.key == old_component.design.key
+                and updated_component.design.root != old_component.design.root
+            ):
+                architecture_to_update[updated_component.design.key] = updated_component
+                break
+    for component_key in architecture_to_update:
+        print_system(f"Will update :: {component_key}")
+    print_system()
+    return architecture_to_update
 
 
 def group_nodes_by_dependencies(

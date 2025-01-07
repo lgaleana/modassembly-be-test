@@ -8,6 +8,7 @@ load_dotenv()
 from ai import llm
 from utils.architecture import DBModel, Function, ImplementedComponent
 from workflows.helpers import (
+    MODASSEMBLY_COMPONENTS,
     ModelImplementationError,
     MypyError,
     REPOS,
@@ -20,17 +21,6 @@ from utils.files import File
 from utils.io import print_system
 from utils.state import Conversation
 from utils.static_analysis import RouterNotFoundError, extract_router_name
-
-
-MODASSEMBLY_COMPONENTS = {
-    "main": "app/main.py",
-    "modassembly.database.sql.get_sql_session": "app/modassembly/database/sql/get_sql_session.py",
-    "modassembly.database.nosql.get_firestore_client": "app/modassembly/database/nosql/get_firestore_client.py",
-    "modassembly.authentication.create_access_token": "app/modassembly/authentication/create_access_token.py",
-    "modassembly.authentication.authenticate": "app/modassembly/authentication/authenticate.py",
-    "modassembly.authentication.verify_user": "app/modassembly/authentication/verify_user.py",
-    "modassembly.authentication.login_api": "app/modassembly/authentication/login_api.py",
-}
 
 
 def save_templates(
@@ -86,8 +76,7 @@ def write_component(
 ) -> ImplementationContext:
     attempts += 1
 
-    if attempts == 1:
-        conversation.add_user(user_message)
+    conversation.add_user(user_message)
     assistant_message = llm.stream_text(conversation)
     patterns = extract_from_pattern(assistant_message, pattern=r"```python\n(.*?)```")
 

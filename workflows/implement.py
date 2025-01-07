@@ -20,19 +20,16 @@ from utils.github import execute_git_commands, revert_changes
 from utils.io import print_system
 from utils.state import Conversation
 from workflows.helpers import (
-    MypyError,
-    REPOS,
+    get_architecture_to_update,
     group_nodes_by_dependencies,
     install_requirements,
     update_architecture_dependencies,
     update_main,
 )
 from workflows.subworkflows import (
-    ImplementationContext,
     MODASSEMBLY_COMPONENTS,
     first_write,
     save_templates,
-    write_component,
 )
 
 
@@ -52,23 +49,9 @@ def run(app_name: str, new_architecture: List[ImplementedComponent]) -> Dict[str
     save_templates(app_name, saved_architecture, conversation)
     install_requirements(app_name, unimplemented_architecture)
 
-    architecture_to_update = {}
-    for component in saved_architecture:
-        if not component.file:
-            architecture_to_update[component.design.key] = component
-    for updated_component in new_architecture:
-        for old_component in saved_architecture:
-            if (
-                updated_component.design.key not in MODASSEMBLY_COMPONENTS
-                and updated_component.design.key == old_component.design.key
-                and updated_component.design.root != old_component.design.root
-            ):
-                architecture_to_update[updated_component.design.key] = updated_component
-                break
-    for component_key in architecture_to_update:
-        print_system(f"Will update :: {component_key}")
-    print_system()
-
+    architecture_to_update = get_architecture_to_update(
+        saved_architecture, new_architecture
+    )
     models_to_parallelize = group_nodes_by_dependencies(
         [
             m
