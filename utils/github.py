@@ -25,6 +25,14 @@ def create_github_repository(repo: str) -> str:
     return f"https://github.com/{ORG}/{repo}"
 
 
+def delete_github_repository(repo: str) -> None:
+    response = requests.delete(
+        f"https://api.github.com/repos/{ORG}/{repo}",
+        headers=HEADERS,
+    )
+    response.raise_for_status()
+
+
 def protect_repository(repo: str) -> Dict[str, Any]:
     response = requests.put(
         f"https://api.github.com/repos/{ORG}/{repo}/branches/main/protection",

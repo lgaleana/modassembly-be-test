@@ -7,7 +7,6 @@ from typing import Any, Dict, List, Set
 
 import matplotlib.pyplot as plt
 import networkx as nx
-from sqlalchemy.exc import SQLAlchemyError
 
 from utils.architecture import (
     Function,
