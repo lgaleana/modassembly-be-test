@@ -154,6 +154,7 @@ initial_config = {
                     is_endpoint=False,
                     pypi_packages=[
                         "fastapi==0.115.6",
+                        "mypy==1.14.0",
                         "pydantic==2.10.4",
                         "python-dotenv==1.0.1",
                         "python-multipart==0.0.20",

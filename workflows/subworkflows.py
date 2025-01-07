@@ -108,14 +108,14 @@ def write_component(
             compile(code, "<string>", "exec")
         except Exception as e:
             raise CompilationError(f"Compilation error: {e}")
-        run_mypy(f"{REPOS}/{app_name}/{file_path}")
+        run_mypy(app_name, file_path)
         if (
             isinstance(component.design.root, Function)
             and component.design.root.is_endpoint
         ):
             extract_router_name(code)
         elif isinstance(component.design.root, DBModel):
-            create_tables(app_name, component.design.root.namespace, code)
+            create_tables(app_name, code)
 
         component.file = File(path=file_path, content=code)
         return ImplementationContext(

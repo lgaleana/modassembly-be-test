@@ -1,11 +1,8 @@
 import json
-import importlib
 import os
 import re
 import subprocess
-import sys
 import venv
-from mypy import api
 from typing import Any, Dict, List, Set
 
 import matplotlib.pyplot as plt
@@ -232,48 +229,44 @@ class ModelImplementationError(Exception):
     pass
 
 
-def create_tables(app_name: str, namespace: str, code: str) -> None:
-    from sqlalchemy import create_engine
-    from sqlalchemy.schema import MetaData
-    from sqlalchemy.ext.declarative import declarative_base
-
-    metadata = MetaData()
-    Base = declarative_base(metadata=metadata)
-    models = extract_sqlalchemy_models(code)
-    test_engine = create_engine(
-        f"sqlite:///file:{app_name}?mode=memory&cache=shared&uri=true"
+def create_tables(app_name: str, code: str) -> None:
+    test_code = f"""
+import sys
+sys.path.insert(0, "{REPOS}/{app_name}")
+from sqlalchemy import create_engine
+test_engine = create_engine(
+    f"sqlite:///file:{app_name}?mode=memory&cache=shared&uri=true"
+)
+{code}
+Base.metadata.create_all(bind=test_engine)
+"""
+    venv_python = os.path.join(REPOS, app_name, "venv", "bin", "python3")
+    process = subprocess.run(
+        [venv_python, "-c", test_code], capture_output=True, text=True
     )
-    try:
-        for model in models:
-            module_path = f"app.{namespace}.{model}"
-            print_system(sys.path)
-            models_module = importlib.import_module(module_path)
-            model_class = getattr(models_module, model)
-            if hasattr(model_class, "__table__"):
-                model_class.__table__ = None
-            model_class.metadata.clear()
-            model_class.__bases__ = (Base,)
-        metadata.create_all(bind=test_engine)
-    except SQLAlchemyError as e:
-        raise ModelImplementationError(f"Error creating tables: {e}")
-    finally:
-        test_engine.dispose()
-        metadata.clear()
+    if process.returncode != 0:
+        raise ModelImplementationError(f"{process.stdout}\n{process.stderr}")
 
 
 class MypyError(Exception):
     pass
 
 
-def run_mypy(file_path: str) -> None:
-    stdout, stderr, exit_code = api.run(
+def run_mypy(app_name: str, file_path: str) -> None:
+    venv_python = os.path.join(REPOS, app_name, "venv", "bin", "python3")
+    process = subprocess.run(
         [
-            file_path,
+            venv_python,
+            "-m",
+            "mypy",
+            f"{REPOS}/{app_name}/{file_path}",
             "--disable-error-code=call-overload",
             "--disable-error-code=import-untyped",
-        ]
+        ],
+        capture_output=True,
+        text=True,
     )
-    print_system(stdout)
-    print_system(stderr)
-    if exit_code != 0:
-        raise MypyError(f"{stdout}\n{stderr}")
+    print(process.stdout)
+    print(process.stderr)
+    if process.returncode != 0:
+        raise MypyError(f"{process.stdout}\n{process.stderr}")
