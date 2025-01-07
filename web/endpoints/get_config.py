@@ -18,6 +18,6 @@ class Response(BaseModel):
 
 
 @router.get("", response_model=Response)
-async def get_config(app_name: str) -> Response:
+def get_config(app_name: str) -> Response:
     conversation = Conversation.load(app_name)
     return Response(config=load_config(app_name), conversation=conversation)

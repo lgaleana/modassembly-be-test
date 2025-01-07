@@ -15,5 +15,5 @@ class Request(BaseModel):
 
 
 @router.post("", response_model=Dict[str, Any])
-async def implement_architecture(request: Request) -> Dict[str, Any]:
+def implement_architecture(request: Request) -> Dict[str, Any]:
     return implement.run(request.app_name, request.architecture)

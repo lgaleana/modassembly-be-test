@@ -25,7 +25,7 @@ class Response(BaseModel):
 
 
 @router.post("/chat", response_model=Response)
-async def chat(request: Request) -> Response:
+def chat(request: Request) -> Response:
     config, conversation = design.run(
         request.app_name, request.user_message, request.architecture
     )
