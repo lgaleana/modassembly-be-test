@@ -1,0 +1,3 @@
+[submodule "web/modassembly-web"]
+	path = web/modassembly-web
+	url = git@github.com:Modular-Asembly/modassembly-web.git
