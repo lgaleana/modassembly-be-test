@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List
 
 from dotenv import load_dotenv
 from pydantic import BaseModel, ConfigDict
@@ -64,10 +64,8 @@ def save_templates(
 
 class ImplementationContext(BaseModel):
     component: ImplementedComponent
-    user_message: Optional[str] = None
-    assistant_message: Optional[str] = None
-    error: Optional[Exception] = None
-    tries: int = 0
+    user_message: str
+    assistant_message: str
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
@@ -82,13 +80,17 @@ class CompilationError(Exception):
 def write_component(
     app_name: str,
     user_message: str,
-    context: ImplementationContext,
+    component: ImplementedComponent,
     conversation: Conversation,
+    attempts: int = 0,
 ) -> ImplementationContext:
-    component = context.component
-    conversation.add_user(user_message)
+    attempts += 1
+
+    if attempts == 1:
+        conversation.add_user(user_message)
     assistant_message = llm.stream_text(conversation)
     patterns = extract_from_pattern(assistant_message, pattern=r"```python\n(.*?)```")
+
     code = None
     try:
         if len(patterns) > 1:
@@ -104,10 +106,6 @@ def write_component(
         with open(f"{REPOS}/{app_name}/{file_path}", "w") as f:
             f.write(code)
 
-        try:
-            compile(code, "<string>", "exec")
-        except Exception as e:
-            raise CompilationError(f"Compilation error: {e}")
         run_mypy(app_name, file_path)
         if (
             isinstance(component.design.root, Function)
@@ -130,26 +128,38 @@ def write_component(
         RouterNotFoundError,
         ModelImplementationError,
     ) as e:
-        print_system(f"!!! Error: {e} for :: {component.design.root.name}")
-        if code is not None:
-            component.file = File(path=file_path, content=code)
-        return ImplementationContext(
-            component=component,
-            user_message=user_message,
-            assistant_message=assistant_message,
-            error=e,
-            tries=context.tries + 1,
+        print_system(
+            f"!!! Error for :: {component.design.root.name}\n\n"
+            f"{type(e).__name__}({e})"
+        )
+        if attempts == 3:
+            if isinstance(e, MypyError):
+                assert code is not None
+                print_system(f"!!!!! WARNING: Letting mypy pass.")
+                component.file = File(path=file_path, content=code)
+                return ImplementationContext(
+                    component=component,
+                    user_message=user_message,
+                    assistant_message=assistant_message,
+                )
+            raise e
+        conversation.add_assistant(assistant_message)
+        conversation.add_user(
+            f"Found the following errors ::\n\n"
+            f"{type(e).__name__}({e})\n\nPlease fix the code."
+        )
+        return write_component(
+            app_name, user_message, component, conversation, attempts
         )
 
 
 def first_write(
     app_name: str,
-    context: ImplementationContext,
+    component: ImplementedComponent,
     external_infrastructure: List[str],
     conversation: Conversation,
 ) -> ImplementationContext:
-    component = context.component
-    user_message = f"""Write the code for: {component.design.model_dump()}.
+    instructions = f"""Write the code for: {component.design.model_dump()}.
 
     Speficications:
     - The code should work (no placeholders).
@@ -159,7 +169,7 @@ def first_write(
     - Don't catch exceptions unless specified. Let errors raise.\n"""
     if isinstance(component.design.root, Function):
         if component.design.root.is_endpoint:
-            user_message += (
+            instructions += (
                 "- Since this function is meant to be an endpoint, "
                 "a) add enough documentation and b) add proper typing, "
                 "so that it's easy to use in Swagger.\n"
@@ -167,16 +177,16 @@ def first_write(
                 "- Use the most simple types for pydantic models.\n"
             )
             if "authentication" in external_infrastructure:
-                user_message += "- Authenticate it with app.modassembly.authentication.authenticate.\n"
-        user_message += (
+                instructions += "- Authenticate it with app.modassembly.authentication.authenticate.\n"
+        instructions += (
             "- mypy will be run over the code, so implement the function in a way that it passes mypy.\n"
             "- When using SQLALchemy models, access the actual column values. "
             "Example for a string attribute: `model.attribute.__str__()`.\n"
         )
     elif isinstance(component.design.root, DBModel):
-        user_message += (
+        instructions += (
             "- Import Base from app.modassembly.database.sql.get_sql_session.\n"
             "- Only use `ForeignKey` if the other model exists in the architecture.\n"
         )
-    user_message += "\n```python\n...\n```"
-    return write_component(app_name, user_message, context, conversation)
+    instructions += "\n```python\n...\n```"
+    return write_component(app_name, instructions, component, conversation)
