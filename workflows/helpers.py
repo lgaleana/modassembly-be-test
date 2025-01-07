@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Set
 
 import matplotlib.pyplot as plt
 import networkx as nx
+from sqlalchemy.exc import SQLAlchemyError
 
 from utils.architecture import (
     Function,
@@ -242,19 +243,22 @@ def create_tables(app_name: str, namespace: str, code: str) -> None:
     test_engine = create_engine(
         f"sqlite:///file:{app_name}?mode=memory&cache=shared&uri=true"
     )
-    for model in models:
-        module_path = f"app.{namespace}.{model}"
-        print_system(sys.path)
-        models_module = importlib.import_module(module_path)
-        model_class = getattr(models_module, model)
-        if hasattr(model_class, "__table__"):
-            model_class.__table__ = None
-        model_class.metadata.clear()
-        model_class.__bases__ = (Base,)
     try:
+        for model in models:
+            module_path = f"app.{namespace}.{model}"
+            print_system(sys.path)
+            models_module = importlib.import_module(module_path)
+            model_class = getattr(models_module, model)
+            if hasattr(model_class, "__table__"):
+                model_class.__table__ = None
+            model_class.metadata.clear()
+            model_class.__bases__ = (Base,)
         metadata.create_all(bind=test_engine)
-    except Exception as e:
+    except SQLAlchemyError as e:
         raise ModelImplementationError(f"Error creating tables: {e}")
+    finally:
+        test_engine.dispose()
+        metadata.clear()
 
 
 class MypyError(Exception):

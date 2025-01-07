@@ -84,77 +84,74 @@ def run(app_name: str, new_architecture: List[ImplementedComponent]) -> Dict[str
             if isinstance(f.design.root, Function)
         ]
     )
-    try:
-        sys.path.insert(0, f"{REPOS}/{app_name}")
-        for level in models_to_parallelize + functions_to_parallelize:
-            print_system(f"Implementing :: {level}\n")
-            with ThreadPoolExecutor(max_workers=10) as executor:
-                outputs = list(
-                    executor.map(
-                        first_write,
-                        [app_name] * len(level),
-                        [
-                            ImplementationContext(component=architecture_to_update[l])
-                            for l in level
-                        ],
-                        [config["external_infrastructure"]] * len(level),
-                        [conversation.copy() for _ in level],
-                    )
-                )
-
-            def _update(context: ImplementationContext) -> None:
-                assert (
-                    context.user_message
-                    and context.assistant_message
-                    and context.component.file
-                )
-                conversation.add_user(context.user_message)
-                conversation.add_assistant(context.assistant_message)
-                conversation.add_user(
-                    f"I saved the code in {context.component.file.path}."
-                )
-                architecture_to_update[context.component.design.key].file = (
-                    context.component.file
-                )
-
-            correct_implementations = [o for o in outputs if not o.error]
-            wrong_implementations = [o for o in outputs if o.error]
-            for output in correct_implementations:
-                _update(output)
-
-            if not wrong_implementations:
-                continue
-
-            for output in wrong_implementations:
-                conversation = conversation.copy()
-                while True:
-                    assert output.user_message and output.assistant_message
-                    conversation.add_user(output.user_message)
-                    conversation.add_assistant(output.assistant_message)
-                    output = write_component(
-                        app_name,
-                        f"Found the following errors ::\n\n"
-                        f"{type(output.error).__name__}({output.error}). "
-                        "Please fix the code.",
-                        output,
-                        conversation.copy(),
-                    )
-                    if not output.error:
-                        _update(output)
-                        break
-                    if output.tries == 3:
-                        if not isinstance(output.error, MypyError):
-                            assert output.error
-                            revert_changes(app_name)
-                            raise output.error
-                        print_system(
-                            "!!!!! WARNING: Letting mypy pass for :: "
-                            f"{output.component.design.key} ::\n\n{output.error}"
-                        )
-                        _update(output)
-                        break
-    finally:
+    if f"{REPOS}/{app_name}" in sys.path:
         sys.path.remove(f"{REPOS}/{app_name}")
+    sys.path.insert(0, f"{REPOS}/{app_name}")
+    for level in models_to_parallelize + functions_to_parallelize:
+        print_system(f"Implementing :: {level}\n")
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            outputs = list(
+                executor.map(
+                    first_write,
+                    [app_name] * len(level),
+                    [
+                        ImplementationContext(component=architecture_to_update[l])
+                        for l in level
+                    ],
+                    [config["external_infrastructure"]] * len(level),
+                    [conversation.copy() for _ in level],
+                )
+            )
+
+        def _update(context: ImplementationContext) -> None:
+            assert (
+                context.user_message
+                and context.assistant_message
+                and context.component.file
+            )
+            conversation.add_user(context.user_message)
+            conversation.add_assistant(context.assistant_message)
+            conversation.add_user(f"I saved the code in {context.component.file.path}.")
+            architecture_to_update[context.component.design.key].file = (
+                context.component.file
+            )
+
+        correct_implementations = [o for o in outputs if not o.error]
+        wrong_implementations = [o for o in outputs if o.error]
+        for output in correct_implementations:
+            _update(output)
+
+        if not wrong_implementations:
+            continue
+
+        for output in wrong_implementations:
+            conversation = conversation.copy()
+            while True:
+                assert output.user_message and output.assistant_message
+                conversation.add_user(output.user_message)
+                conversation.add_assistant(output.assistant_message)
+                output = write_component(
+                    app_name,
+                    f"Found the following errors ::\n\n"
+                    f"{type(output.error).__name__}({output.error}). "
+                    "Please fix the code.",
+                    output,
+                    conversation.copy(),
+                )
+                if not output.error:
+                    _update(output)
+                    break
+                if output.tries == 3:
+                    if not isinstance(output.error, MypyError):
+                        assert output.error
+                        revert_changes(app_name)
+                        raise output.error
+                    print_system(
+                        "!!!!! WARNING: Letting mypy pass for :: "
+                        f"{output.component.design.key} ::\n\n{output.error}"
+                    )
+                    _update(output)
+                    break
 
     update_architecture_diff(saved_architecture, list(architecture_to_update.values()))
     update_main(app_name, saved_architecture, config["external_infrastructure"])
