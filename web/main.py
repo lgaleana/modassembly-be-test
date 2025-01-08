@@ -23,8 +23,6 @@ from web.endpoints.design import router as design_router
 from web.endpoints.implement import router as implement_router
 from web.endpoints.get_config import router as get_config_router
 
-print("After router imports registered tables:", Base.metadata.tables.keys())
-
 app = FastAPI()
 
 app.add_middleware(
