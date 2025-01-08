@@ -32,6 +32,7 @@ from workflows.subworkflows import first_write, save_templates
 def run(
     app_name: str, new_architecture: List[ImplementedComponent], user: str
 ) -> Dict[str, Any]:
+    repo_name = f"{user}_{app_name}"
     config = load_config(app_name, user)
     saved_architecture = config["architecture"]
 
@@ -44,8 +45,8 @@ def run(
         f"Consider the following python architecture: {raw_architecture}"
     )
 
-    save_templates(app_name, saved_architecture, conversation, user)
-    install_requirements(app_name, unimplemented_architecture)
+    save_templates(repo_name, saved_architecture, conversation)
+    install_requirements(repo_name, unimplemented_architecture)
 
     architecture_to_update = get_architecture_to_update(
         saved_architecture, new_architecture
@@ -71,14 +72,14 @@ def run(
                 outputs = list(
                     executor.map(
                         first_write,
-                        [app_name] * len(level),
+                        [repo_name] * len(level),
                         [architecture_to_update[l] for l in level],
                         [config["external_infrastructure"]] * len(level),
                         [conversation.copy() for _ in level],
                     )
                 )
         except Exception as e:
-            revert_changes(f"{user}/{app_name}")
+            revert_changes(repo_name)
             raise e
         for output in outputs:
             assert output.component.file
@@ -90,7 +91,7 @@ def run(
             )
 
     update_architecture_diff(saved_architecture, list(architecture_to_update.values()))
-    update_main(app_name, saved_architecture, config["external_infrastructure"])
+    update_main(repo_name, saved_architecture, config["external_infrastructure"])
     update_architecture_dependencies(saved_architecture)
 
     git_convo = conversation.copy()
@@ -103,7 +104,7 @@ def run(
             ["git", "commit", "-m", commit_message],
             ["git", "push", "origin", "main"],
         ],
-        repo=f"{user}/{app_name}",
+        repo=repo_name,
     )
 
     conversation = Conversation.load(app_name, user)
@@ -121,4 +122,4 @@ if __name__ == "__main__":
     parser.add_argument("app")
     args = parser.parse_args()
 
-    run(args.app, [], "lgaleana")
+    run(args.app, [], "")

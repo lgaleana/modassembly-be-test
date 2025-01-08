@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict
@@ -12,7 +12,7 @@ router = APIRouter()
 
 class Response(BaseModel):
     config: Dict[str, Any]
-    conversation: Conversation
+    conversation: List[Dict[str, Dict[str, Any]]]
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 

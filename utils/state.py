@@ -81,7 +81,7 @@ class Conversation(List[Dict[str, Any]]):
         return len(self) == 0
 
     def persist(self, app_name: str, user: str) -> None:
-        with open(f"{REPOS}/{user}/{app_name}/conversation.json", "w") as file:
+        with open(f"{REPOS}/{user}_{app_name}/conversation.json", "w") as file:
             json.dump(self, file, indent=4)
 
     def count_tokens(self) -> int:
@@ -89,7 +89,7 @@ class Conversation(List[Dict[str, Any]]):
 
     @staticmethod
     def load(app_name: str, user: str) -> "Conversation":
-        with open(f"{REPOS}/{user}/{app_name}/conversation.json", "r") as file:
+        with open(f"{REPOS}/{user}_{app_name}/conversation.json", "r") as file:
             payload = json.load(file)
         return Conversation(payload)
 

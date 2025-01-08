@@ -4,9 +4,9 @@ from typing import Any, Dict, List
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from app.models.User import User
 from utils.github import delete_github_repository
 from web.modassembly_web.app.modassembly.authentication.authenticate import authenticate
-from web.modassembly_web.app.models.User import User
 from workflows.helpers import REPOS, create_app
 
 router = APIRouter()
@@ -26,6 +26,6 @@ def create(request: Request, user: User = Depends(authenticate)) -> Dict[str, An
 
 @router.delete("", response_model=None)
 def delete(app_name: str, user: User = Depends(authenticate)) -> None:
-    repo_name = f"{user.username}/{app_name}".replace(" ", "-")
+    repo_name = f"{user.username}_{app_name}".replace(" ", "-")
     delete_github_repository(repo_name)
     shutil.rmtree(f"{REPOS}/{repo_name}")

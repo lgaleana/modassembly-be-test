@@ -12,14 +12,18 @@ subrepo_path = os.path.abspath(
 )
 sys.path.append(subrepo_path)
 
+
+from app.modassembly.authentication.login_api import router as login_router
+from app.modassembly.database.sql.get_sql_session import (
+    Base,
+    engine,
+)
 from web.endpoints.app import router as app_router
 from web.endpoints.design import router as design_router
 from web.endpoints.implement import router as implement_router
 from web.endpoints.get_config import router as get_config_router
-from web.modassembly_web.app.modassembly.database.sql.get_sql_session import (
-    Base,
-    engine,
-)
+
+print("After router imports registered tables:", Base.metadata.tables.keys())
 
 app = FastAPI()
 
@@ -35,5 +39,6 @@ app.include_router(app_router, prefix="/app")
 app.include_router(design_router, prefix="/design")
 app.include_router(implement_router, prefix="/implement")
 app.include_router(get_config_router, prefix="/config")
+app.include_router(login_router, prefix="")
 
 Base.metadata.create_all(bind=engine)

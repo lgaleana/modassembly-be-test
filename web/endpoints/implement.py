@@ -3,9 +3,9 @@ from typing import Any, Dict, List
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from app.models.User import User
 from utils.architecture import ImplementedComponent
 from web.modassembly_web.app.modassembly.authentication.authenticate import authenticate
-from web.modassembly_web.app.models.User import User
 from workflows import implement
 
 router = APIRouter()

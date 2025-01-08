@@ -81,7 +81,7 @@ class ImplementedComponent(BaseModel):
 
 
 def load_config(app_name: str, user: str) -> Dict[str, Any]:
-    with open(f"{REPOS}/{user}/{app_name}/config.json", "r") as f:
+    with open(f"{REPOS}/{user}_{app_name}/config.json", "r") as f:
         config = json.load(f)
     return {
         "name": config["name"],
@@ -106,7 +106,7 @@ def save_config(config: Dict[str, Any]) -> None:
         "github": config["github"],
         "url": config["url"],
     }
-    with open(f"{REPOS}/{config['user']}/˝{config['name']}/config.json", "w") as f:
+    with open(f"{REPOS}/{config['user']}_{config['name']}/config.json", "w") as f:
         json.dump(
             raw_config,
             f,

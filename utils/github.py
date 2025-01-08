@@ -16,7 +16,6 @@ ORG = "Modular-Asembly"
 
 
 def create_github_repository(repo: str) -> str:
-    repo = repo.replace(" ", "-")
     response = requests.post(
         f"https://api.github.com/orgs/{ORG}/repos",
         headers=HEADERS,

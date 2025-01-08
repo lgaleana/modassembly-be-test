@@ -26,11 +26,10 @@ def save_templates(
     app_name: str,
     architecture: List[ImplementedComponent],
     conversation: Conversation,
-    user: str,
 ) -> None:
     for file in [".gitignore"]:
         with open(f"{REPOS}/fastapi-template/{file}", "r") as f1, open(
-            f"{REPOS}/{user}/{app_name}/{file}", "w"
+            f"{REPOS}/{app_name}/{file}", "w"
         ) as f2:
             f2.write(f1.read())
 
@@ -40,9 +39,9 @@ def save_templates(
         module = component.design.key
         file_path = MODASSEMBLY_COMPONENTS[module]
         package = ".".join(module.split(".")[:-1])
-        create_folders_if_not_exist(app_name, f"app.{package}", user)
+        create_folders_if_not_exist(app_name, f"app.{package}")
         with open(f"{REPOS}/fastapi-template/{file_path}", "r") as f1, open(
-            f"{REPOS}/{user}/{app_name}/{file_path}", "w"
+            f"{REPOS}/{app_name}/{file_path}", "w"
         ) as f2:
             content = f1.read()
             f2.write(content)
@@ -69,7 +68,6 @@ class CompilationError(Exception):
 
 def write_component(
     app_name: str,
-    user: str,
     user_message: str,
     component: ImplementedComponent,
     conversation: Conversation,
@@ -90,12 +88,10 @@ def write_component(
             )
         code = patterns[0]
 
-        create_folders_if_not_exist(
-            app_name, f"app.{component.design.root.namespace}", user
-        )
+        create_folders_if_not_exist(app_name, f"app.{component.design.root.namespace}")
         folders = component.design.root.namespace.replace(".", "/")
         file_path = f"app/{folders}/{component.design.root.name}.py"
-        with open(f"{REPOS}/{user}/{app_name}/{file_path}", "w") as f:
+        with open(f"{REPOS}/{app_name}/{file_path}", "w") as f:
             f.write(code)
 
         run_mypy(app_name, file_path)
@@ -141,7 +137,7 @@ def write_component(
             f"{type(e).__name__}({e})\n\nPlease fix the code."
         )
         return write_component(
-            app_name, user, user_message, component, conversation, attempts
+            app_name, user_message, component, conversation, attempts
         )
 
 
@@ -150,7 +146,6 @@ def first_write(
     component: ImplementedComponent,
     external_infrastructure: List[str],
     conversation: Conversation,
-    user: str,
 ) -> ImplementationContext:
     instructions = f"""Write the code for: {component.design.model_dump()}.
 
@@ -183,4 +178,4 @@ def first_write(
             "- Only use `ForeignKey` if the other model exists in the architecture.\n"
         )
     instructions += "\n```python\n...\n```"
-    return write_component(app_name, user, instructions, component, conversation)
+    return write_component(app_name, instructions, component, conversation)

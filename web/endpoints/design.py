@@ -3,10 +3,9 @@ from typing import Any, Dict, List
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict
 
+from app.models.User import User
 from utils.architecture import ImplementedComponent
-from utils.state import Conversation
 from web.modassembly_web.app.modassembly.authentication.authenticate import authenticate
-from web.modassembly_web.app.models.User import User
 from workflows import design
 
 
@@ -21,7 +20,7 @@ class Request(BaseModel):
 
 class Response(BaseModel):
     config: Dict[str, Any]
-    conversation: Conversation
+    conversation: List[Dict[str, Any]]
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 

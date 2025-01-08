@@ -83,23 +83,25 @@ def build_graph(architecture: List[ImplementedComponent]) -> nx.DiGraph:
 
 
 def create_app(
-    app_name: str, external_infrastructure: List[str], user: str
+    app_name: str,
+    external_infrastructure: List[str],
+    user: str,
 ) -> Dict[str, Any]:
-    app_name = app_name.replace("_", "-")
-    if repository_exists(f"{user}/{app_name}"):
-        raise ValueError(f"Repository {user}/{app_name} already exists")
+    repo_name = f"{user}_{app_name}".replace(" ", "-")
+    if repository_exists(repo_name):
+        raise ValueError(f"Repository {repo_name} already exists")
 
-    os.makedirs(f"{REPOS}/{user}/{app_name}", exist_ok=True)
+    os.mkdir(f"{REPOS}/{repo_name}")
     Conversation().persist(app_name, user)
     with open(f"{REPOS}/fastapi-template/.gitignore", "r") as f1, open(
-        f"{REPOS}/{user}/{app_name}/.gitignore", "w"
+        f"{REPOS}/{repo_name}/.gitignore", "w"
     ) as f2:
         content = f1.read()
         content = f"{content}\nDockerfile\ndeploy.sh\n"
         f2.write(content)
 
     print_system("Initializing git and github...")
-    github_url = create_github_repository(f"{user}/{app_name}")
+    github_url = create_github_repository(repo_name)
     execute_git_commands(
         [
             ["git", "init"],
@@ -111,13 +113,13 @@ def create_app(
                 "remote",
                 "add",
                 "origin",
-                f"git@github.com:Modular-Asembly/{user}/{app_name}.git",
+                f"git@github.com:Modular-Asembly/{repo_name}.git",
             ],
             ["git", "push", "-u", "origin", "main"],
         ],
-        repo=f"{user}/{app_name}",
+        repo=repo_name,
     )
-    protect_repository(f"{user}/{app_name}")
+    protect_repository(repo_name)
     print_system("Success")
 
     config = create_initial_config(app_name, external_infrastructure, github_url, user)

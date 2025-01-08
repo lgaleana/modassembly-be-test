@@ -253,8 +253,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if not os.path.exists(f"{REPOS}/{args.app}"):
-        create_app(args.app, args.infra, "lgaleana")
-    config, _ = run(args.app, user_input("user: "), [], "lgaleana")
+        create_app(args.app, args.infra, "")
+    config, _ = run(args.app, user_input("user: "), [], "")
 
     graph = build_graph(config["architecture"])
     visualize_graph(graph)
