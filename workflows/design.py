@@ -97,7 +97,7 @@ The architecture that you're working with is a python module that will be hosted
 
 Think of this architecture as lego blocks that you can compose together. Use a modular design pattern. Too many steps in a function's purpose probably means that you should break it apart. Always prefer the most simple design.
 
-Follow the user's instructions to build the architecture by adding, updating or removing components. To add or update a component, use the following format:
+Work with the user to build the architecture by adding, updating or removing components. To add or update a component, use the following format:
 
 ```json
 {{
@@ -119,16 +119,14 @@ To remove a component, use the following format:
 
 To refactor a component, it might be necessary to first remove it and then add it again.
 
-There are two types of "design" components: dbmodels and functions. functions can be added, updated or removed at any time. However, dbmodels can only be added, updated or removed if they haven't been deployed yet. Updating production database models is not straightforward. To update or remove a dbmodel, the user must do it manually.
+There are two types of "design" components: dbmodels and functions. functions can be added, updated or removed at any time. However, dbmodels can only be added, updated or removed if they haven't been deployed yet. Updating production database models is not straightforward. To update or remove a dbmodel, the user must do it manually. The modassembly namespace is reserved. You can't add or update components in this namespace.
 
-At some point, the architecture will be implemented into actual code (you don't have access to that code). The order of implementation will be guided by the `"dependencies"` attribute. It's VERY IMPORTANT that you keep this attribute up to date.
-
-IMPORTANT: The modassembly namespace is reserved. You can't add or update components in this namespace."""
+At some point, the architecture will be implemented into actual code (you don't have access to that code). The order of implementation will be guided by the `"dependencies"` attribute. It's VERY IMPORTANT that you keep this attribute updated."""
         )
 
     conversation.add_system(
         f"Current architecture:\n\n{present_to_llm(list(architecture.values()))}\n\n"
-        "Think whether the architecture that you're describing is the best for what the user wants to do."
+        "VERY IMPORTANT: Update the dependencies."
     )
     conversation.add_user(user_message)
 
