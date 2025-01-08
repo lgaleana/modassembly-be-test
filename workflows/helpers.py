@@ -151,6 +151,7 @@ def install_requirements(
         check=False,
         capture_output=True,
         text=True,
+        cwd=f"{REPOS}/{app_name}"
     )
     print_system(output.stdout)
     print_system(output.stderr)
