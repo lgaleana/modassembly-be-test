@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 from typing import Any, Dict, List, Literal, Tuple, Union
 
@@ -8,6 +9,7 @@ from pydantic import BaseModel
 load_dotenv()
 
 from ai import llm
+from app.logging.log_user_activity import log_user_activity
 from utils.architecture import (
     Component,
     DBModel,
@@ -247,6 +249,23 @@ At some point, the architecture will be implemented into actual code (you don't 
         config["architecture"] = list(architecture.values())
         conversation.persist(app_name, user)
         save_config(config)
+
+        log_user_activity(
+            user,
+            "design",
+            {
+                "config": {
+                    "name": config["name"],
+                    "user": config["user"],
+                    "architecture": [c.model_dump() for c in config["architecture"]],
+                    "external_infrastructure": config["external_infrastructure"],
+                    "github": config["github"],
+                    "url": config["url"],
+                },
+                "conversation": conversation,
+            },
+        )
+
         return config, conversation
 
 

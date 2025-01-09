@@ -8,9 +8,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from ai import llm
+from app.logging.log_user_activity import log_user_activity
 from utils.architecture import (
     DBModel,
     Function,
+    ImplementedComponent,
     load_config,
     save_config,
 )
@@ -103,6 +105,24 @@ def run(app_name: str, user: str) -> Dict[str, Any]:
         conversation.persist(app_name, user)
     save_config(config)
     print_system(config["github"])
+
+    for _ in architecture:
+        log_user_activity(
+            user,
+            "implement-component",
+            {
+                "config": {
+                    "name": config["name"],
+                    "user": config["user"],
+                    "architecture": [c.model_dump() for c in config["architecture"]],
+                    "external_infrastructure": config["external_infrastructure"],
+                    "github": config["github"],
+                    "url": config["url"],
+                },
+                "conversation": conversation,
+            },
+        )
+
     return config
 
 
