@@ -1,7 +1,7 @@
 import argparse
 import json
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from dotenv import load_dotenv
 
@@ -11,16 +11,13 @@ from ai import llm
 from utils.architecture import (
     DBModel,
     Function,
-    ImplementedComponent,
     load_config,
     save_config,
-    update_architecture_diff,
 )
 from utils.github import execute_git_commands, revert_changes
 from utils.io import print_system
 from utils.state import Conversation
 from workflows.helpers import (
-    get_architecture_to_update,
     group_nodes_by_dependencies,
     install_requirements,
     update_architecture_dependencies,
@@ -29,28 +26,21 @@ from workflows.helpers import (
 from workflows.subworkflows import first_write, save_templates
 
 
-def run(
-    app_name: str, new_architecture: List[ImplementedComponent], user: str
-) -> Dict[str, Any]:
+def run(app_name: str, user: str) -> Dict[str, Any]:
     repo_name = f"{user}_{app_name}"
     config = load_config(app_name, user)
-    saved_architecture = config["architecture"]
-
-    unimplemented_architecture = saved_architecture.copy()
-    update_architecture_diff(unimplemented_architecture, new_architecture)
+    architecture = config["architecture"]
 
     conversation = Conversation()
-    raw_architecture = json.dumps([c.model_dump() for c in unimplemented_architecture])
+    raw_architecture = json.dumps([c.model_dump() for c in architecture])
     conversation.add_user(
         f"Consider the following python architecture: {raw_architecture}"
     )
 
-    save_templates(repo_name, saved_architecture, conversation)
-    install_requirements(repo_name, unimplemented_architecture)
+    save_templates(repo_name, architecture, conversation)
+    install_requirements(repo_name, architecture)
 
-    architecture_to_update = get_architecture_to_update(
-        saved_architecture, new_architecture
-    )
+    architecture_to_update = {c.design.key: c for c in architecture if c.file is None}
     models_to_parallelize = group_nodes_by_dependencies(
         [
             m
@@ -66,7 +56,7 @@ def run(
         ]
     )
     for level in models_to_parallelize + functions_to_parallelize:
-        print_system(f"Implementing :: {level}\n")
+        print_system(f"Implementing :: " + "\n".join(level) + "\n")
         try:
             with ThreadPoolExecutor(max_workers=10) as executor:
                 outputs = list(
@@ -90,9 +80,8 @@ def run(
                 output.component.file
             )
 
-    update_architecture_diff(saved_architecture, list(architecture_to_update.values()))
-    update_main(repo_name, saved_architecture, config["external_infrastructure"])
-    update_architecture_dependencies(saved_architecture)
+    update_main(repo_name, architecture, config["external_infrastructure"])
+    update_architecture_dependencies(architecture)
 
     git_convo = conversation.copy()
     git_convo.add_user("Give me a one line commit message for the changes. Go: ...")
@@ -122,4 +111,4 @@ if __name__ == "__main__":
     parser.add_argument("app")
     args = parser.parse_args()
 
-    run(args.app, [], "")
+    run(args.app, "")

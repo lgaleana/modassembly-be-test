@@ -20,4 +20,4 @@ class Request(BaseModel):
 def implement_architecture(
     request: Request, user: User = Depends(authenticate)
 ) -> Dict[str, Any]:
-    return implement.run(request.app_name, request.architecture, str(user.username))
+    return implement.run(request.app_name, str(user.username))

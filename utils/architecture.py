@@ -1,4 +1,5 @@
 import json
+from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union, Annotated, Literal
 
 from pydantic import BaseModel, Field, RootModel
@@ -301,7 +302,7 @@ def create_initial_config(
     github_url: str,
     user: str,
 ) -> Dict[str, Any]:
-    config = initial_config.copy()
+    config = deepcopy(initial_config)
     config["name"] = app_name
     config["user"] = user
 

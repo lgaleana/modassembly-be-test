@@ -12,6 +12,7 @@ import networkx as nx
 from pydantic import BaseModel
 from utils.architecture import (
     Function,
+    DBModel,
     ImplementedComponent,
     create_initial_config,
 )
@@ -218,14 +219,18 @@ def update_main(
         main_content = f.read()
     main_content += "\n"
     for component in architecture:
-        if (
+        if isinstance(component.design.root, DBModel):
+            imports = get_model_modules(app_name, [component.design.root.name])
+            for import_ in imports:
+                main_content += f"from {import_.module} import {import_.name}\n"
+        elif (
             isinstance(component.design.root, Function)
             and component.design.root.is_endpoint
         ):
             assert component.file
-            module = component.file.path.replace(".py", "").replace("/", ".")
+            import_ = component.file.path.replace(".py", "").replace("/", ".")
             router_name = extract_router_name(component.file.content)
-            main_content += f"from {module} import {router_name}\n"
+            main_content += f"from {import_} import {router_name}\n"
             main_content += f"app.include_router({router_name})\n"
     if "sql" in external_infrastructure:
         main_content += "\n# Database\n"

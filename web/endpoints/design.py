@@ -28,6 +28,6 @@ class Response(BaseModel):
 @router.post("/chat", response_model=Response)
 def chat(request: Request, user: User = Depends(authenticate)) -> Response:
     config, conversation = design.run(
-        request.app_name, request.user_message, request.architecture, str(user.username)
+        request.app_name, request.user_message, str(user.username)
     )
     return Response(config=config, conversation=conversation)

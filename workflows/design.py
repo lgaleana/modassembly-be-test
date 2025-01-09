@@ -15,7 +15,6 @@ from utils.architecture import (
     load_config,
     present_to_llm,
     save_config,
-    update_architecture_diff,
 )
 from utils.io import print_system, user_input
 from utils.state import Conversation
@@ -40,18 +39,22 @@ class ComponentToUpdate(BaseModel):
     base: Union[Component, str]
 
 
+def delete_file_for_key(key: str, user: str, app_name: str) -> None:
+    file_path = key.replace(".", "/") + ".py"
+    file_path = f"{REPOS}/{user}_{app_name}/{file_path}"
+    if os.path.exists(file_path):
+        os.remove(file_path)
+
+
 def run(
     app_name: str,
     user_message: str,
-    new_architecture: List[ImplementedComponent],
     user: str,
 ) -> Tuple[Dict[str, Any], Conversation]:
     config = load_config(app_name, user)
     conversation = Conversation.load(app_name, user)
 
-    saved_architecture = config["architecture"]
-    update_architecture_diff(saved_architecture, new_architecture)
-    architecture = {c.design.root.key: c for c in saved_architecture}
+    architecture = {c.design.root.key: c for c in config["architecture"]}
     save_config(config)
 
     if len(conversation) == 0:
@@ -171,7 +174,7 @@ At some point, the architecture will be implemented into actual code (you don't 
                     if (
                         key in architecture
                         and isinstance(architecture[key].design, DBModel)
-                        and architecture[key].is_implemented
+                        and architecture[key].is_deployed
                     ):
                         raise ValueError(
                             f"Unable to {action} dbmodel :: {key} "
@@ -204,6 +207,7 @@ At some point, the architecture will be implemented into actual code (you don't 
                     ) and not implemented_component.design.key.startswith("main"):
                         conversation.add_system(
                             f"Will remove and add :: {implemented_component.design.key}."
+                            "\n\nRemember to user add/update/remove operations."
                         )
                         jsons.append(
                             {
@@ -234,10 +238,12 @@ At some point, the architecture will be implemented into actual code (you don't 
         for component in components_to_update.values():
             if component.action == Action.REMOVE:
                 del architecture[component.base]
+                delete_file_for_key(component.base, user, app_name)
             else:
                 architecture[component.base.key] = ImplementedComponent(
                     design=component.base
                 )
+                delete_file_for_key(component.base.key, user, app_name)
         config["architecture"] = list(architecture.values())
         conversation.persist(app_name, user)
         save_config(config)
@@ -252,7 +258,7 @@ if __name__ == "__main__":
 
     if not os.path.exists(f"{REPOS}/{args.app}"):
         create_app(args.app, args.infra, "")
-    config, _ = run(args.app, user_input("user: "), [], "")
+    config, _ = run(args.app, user_input("user: "), "")
 
     graph = build_graph(config["architecture"])
     visualize_graph(graph)
