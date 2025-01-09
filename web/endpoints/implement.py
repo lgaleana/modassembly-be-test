@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from app.models.User import User
 from app.logging.get_user_activity_logs import get_user_activity_logs
-from utils.architecture import ImplementedComponent
+from utils.config.architecture import ImplementedComponent
 from web.modassembly_web.app.modassembly.authentication.authenticate import authenticate
 from workflows import implement
 

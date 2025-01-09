@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict
 load_dotenv()
 
 from ai import llm
-from utils.architecture import DBModel, Function, ImplementedComponent
+from utils.config.architecture import DBModel, Function, ImplementedComponent
 from workflows.helpers import (
     MODASSEMBLY_COMPONENTS,
     ModelImplementationError,
@@ -173,8 +173,11 @@ def first_write(
             f" - {component.design.root.purpose}\n"
         )
     elif isinstance(component.design.root, DBModel):
+        if "sql" in external_infrastructure:
+            instructions += (
+                "- Import Base from app.modassembly.database.sql.get_sql_session.\n"
+            )
         instructions += (
-            "- Import Base from app.modassembly.database.sql.get_sql_session.\n"
             "- Only use `ForeignKey` if the other model exists in the architecture.\n"
         )
     instructions += "\n```python\n...\n```"

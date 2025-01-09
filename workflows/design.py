@@ -10,7 +10,7 @@ load_dotenv()
 
 from ai import llm
 from app.logging.log_user_activity import log_user_activity
-from utils.architecture import (
+from utils.config.architecture import (
     Component,
     DBModel,
     ImplementedComponent,
