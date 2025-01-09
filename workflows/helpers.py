@@ -1,5 +1,7 @@
+import importlib
 import json
 import os
+import pathlib
 import re
 import subprocess
 import venv
@@ -7,7 +9,7 @@ from typing import Any, Dict, List, Set
 
 import matplotlib.pyplot as plt
 import networkx as nx
-
+from pydantic import BaseModel
 from utils.architecture import (
     Function,
     ImplementedComponent,
@@ -252,18 +254,44 @@ def update_architecture_dependencies(architecture: List[ImplementedComponent]) -
         component.design.root.dependencies = list(dependencies)
 
 
+class Model(BaseModel):
+    name: str
+    module: str
+
+
+def get_model_modules(app_name: str, ignore: List[str]) -> List[Model]:
+    modules = []
+    app_path = pathlib.Path(f"{REPOS}/{app_name}/app")
+    for file_path in app_path.rglob("*.py"):
+        if file_path.is_file():
+            with open(file_path, "r") as f:
+                code = f.read()
+            models = extract_sqlalchemy_models(code)
+            for model in models:
+                if model in ignore:
+                    continue
+                module = file_path.relative_to(f"{REPOS}/{app_name}")
+                module = str(module).replace("/", ".").replace(".py", "")
+                modules.append(Model(name=model, module=module))
+    return modules
+
+
 class ModelImplementationError(Exception):
     pass
 
 
 def create_tables(app_name: str, code: str) -> None:
     models = extract_sqlalchemy_models(code)
+    model_modules = get_model_modules(app_name, models)
+    imports = "\n".join([f"from {m.module} import {m.name}" for m in model_modules])
     test_code = f"""
 import sys
 sys.path.insert(0, "{REPOS}/{app_name}")
 from sqlalchemy import create_engine
+{imports}
 test_engine = create_engine(
-    f"sqlite:///{REPOS}/{app_name}/test.db"
+    f"sqlite:///{REPOS}/{app_name}/test.db",
+    connect_args={{"check_same_thread": False}}
 )
 {code}
 model_classes = [{', '.join(models)}]
@@ -293,6 +321,9 @@ def run_mypy(app_name: str, file_path: str) -> None:
             f"{REPOS}/{app_name}/{file_path}",
             "--follow-imports=skip",  # Don't check imported modules
             "--no-incremental",  # Skip cache handling for one-off checks
+            "--cache-dir=/dev/null",  # Disable cache writing
+            "--sqlite-cache",  # Use faster SQLite-based caching
+            "--python-version=3.9",  # Specify Python version explicitly
             "--disable-error-code=call-overload",
             "--disable-error-code=import-untyped",
         ],
