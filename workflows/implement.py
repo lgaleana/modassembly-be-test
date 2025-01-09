@@ -106,22 +106,25 @@ def run(app_name: str, user: str) -> Dict[str, Any]:
     save_config(config)
     print_system(config["github"])
 
-    for _ in architecture:
-        log_user_activity(
-            user,
-            "implement-component",
-            {
-                "config": {
-                    "name": config["name"],
-                    "user": config["user"],
-                    "architecture": [c.model_dump() for c in config["architecture"]],
-                    "external_infrastructure": config["external_infrastructure"],
-                    "github": config["github"],
-                    "url": config["url"],
+    if user != "lgaleana":
+        for _ in architecture:
+            log_user_activity(
+                user,
+                "implement-component",
+                {
+                    "config": {
+                        "name": config["name"],
+                        "user": config["user"],
+                        "architecture": [
+                            c.model_dump() for c in config["architecture"]
+                        ],
+                        "external_infrastructure": config["external_infrastructure"],
+                        "github": config["github"],
+                        "url": config["url"],
+                    },
+                    "conversation": conversation,
                 },
-                "conversation": conversation,
-            },
-        )
+            )
 
     return config
 

@@ -250,21 +250,24 @@ At some point, the architecture will be implemented into actual code (you don't 
         conversation.persist(app_name, user)
         save_config(config)
 
-        log_user_activity(
-            user,
-            "design",
-            {
-                "config": {
-                    "name": config["name"],
-                    "user": config["user"],
-                    "architecture": [c.model_dump() for c in config["architecture"]],
-                    "external_infrastructure": config["external_infrastructure"],
-                    "github": config["github"],
-                    "url": config["url"],
+        if user != "lgaleana":
+            log_user_activity(
+                user,
+                "design",
+                {
+                    "config": {
+                        "name": config["name"],
+                        "user": config["user"],
+                        "architecture": [
+                            c.model_dump() for c in config["architecture"]
+                        ],
+                        "external_infrastructure": config["external_infrastructure"],
+                        "github": config["github"],
+                        "url": config["url"],
+                    },
+                    "conversation": conversation,
                 },
-                "conversation": conversation,
-            },
-        )
+            )
 
         return config, conversation
 
