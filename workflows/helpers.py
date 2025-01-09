@@ -24,6 +24,7 @@ from utils.state import Conversation
 from utils.static_analysis import (
     extract_imports,
     extract_router_name,
+    extract_sqlalchemy_models,
 )
 
 
@@ -256,15 +257,19 @@ class ModelImplementationError(Exception):
 
 
 def create_tables(app_name: str, code: str) -> None:
+    models = extract_sqlalchemy_models(code)
     test_code = f"""
 import sys
 sys.path.insert(0, "{REPOS}/{app_name}")
 from sqlalchemy import create_engine
 test_engine = create_engine(
-    f"sqlite:///file:{app_name}?mode=memory&cache=shared&uri=true"
+    f"sqlite:///{REPOS}/{app_name}/test.db"
 )
 {code}
-Base.metadata.create_all(bind=test_engine)
+model_classes = [{', '.join(models)}]
+for model_class in model_classes:
+    model_class.__table__.drop(bind=test_engine, checkfirst=True)
+    model_class.__table__.create(bind=test_engine)
 """
     venv_python = os.path.join(REPOS, app_name, "venv", "bin", "python3")
     process = subprocess.run(
