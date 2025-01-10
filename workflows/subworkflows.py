@@ -36,16 +36,14 @@ def save_templates(
     for component in architecture:
         if not component.design.key in MODASSEMBLY_COMPONENTS:
             continue
-        module = component.design.key
-        file_path = MODASSEMBLY_COMPONENTS[module]
-        package = ".".join(module.split(".")[:-1])
-        create_folders_if_not_exist(app_name, f"app.{package}")
+        file_path = MODASSEMBLY_COMPONENTS[component.design.key]
+        create_folders_if_not_exist(app_name, component.design.root.namespace)
         with open(f"{REPOS}/fastapi-template/{file_path}", "r") as f1, open(
             f"{REPOS}/{app_name}/{file_path}", "w"
         ) as f2:
             content = f1.read()
             f2.write(content)
-            print_system(f"Saving :: {module}")
+            print_system(f"Saving :: {component.design.key}")
             conversation.add_user(f"I wrote the code for:\n\n```python\n{content}\n```")
             conversation.add_user(f"I saved the code in {file_path}.")
             component.file = File(path=file_path, content=content)
@@ -88,9 +86,9 @@ def write_component(
             )
         code = patterns[0]
 
-        create_folders_if_not_exist(app_name, f"app.{component.design.root.namespace}")
+        create_folders_if_not_exist(app_name, component.design.root.namespace)
         folders = component.design.root.namespace.replace(".", "/")
-        file_path = f"app/{folders}/{component.design.root.name}.py"
+        file_path = f"{folders}/{component.design.root.name}.py"
         with open(f"{REPOS}/{app_name}/{file_path}", "w") as f:
             f.write(code)
 

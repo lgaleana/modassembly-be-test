@@ -35,14 +35,14 @@ REPOS = os.path.expanduser("~/repos")
 
 
 MODASSEMBLY_COMPONENTS = {
-    "main": "app/main.py",
-    "modassembly.database.sql.get_sql_session": "app/modassembly/database/sql/get_sql_session.py",
-    "modassembly.database.nosql.get_firestore_client": "app/modassembly/database/nosql/get_firestore_client.py",
-    "modassembly.storage.get_gcs_bucket": "app/modassembly/storage/get_gcs_bucket.py",
-    "modassembly.authentication.create_access_token": "app/modassembly/authentication/create_access_token.py",
-    "modassembly.authentication.authenticate": "app/modassembly/authentication/authenticate.py",
-    "modassembly.authentication.verify_user": "app/modassembly/authentication/verify_user.py",
-    "modassembly.authentication.login_api": "app/modassembly/authentication/login_api.py",
+    "app.main": "app/main.py",
+    "app.modassembly.database.sql.get_sql_session": "app/modassembly/database/sql/get_sql_session.py",
+    "app.modassembly.database.nosql.get_firestore_client": "app/modassembly/database/nosql/get_firestore_client.py",
+    "app.modassembly.storage.get_gcs_bucket": "app/modassembly/storage/get_gcs_bucket.py",
+    "app.modassembly.authentication.create_access_token": "app/modassembly/authentication/create_access_token.py",
+    "app.modassembly.authentication.authenticate": "app/modassembly/authentication/authenticate.py",
+    "app.modassembly.authentication.verify_user": "app/modassembly/authentication/verify_user.py",
+    "app.modassembly.authentication.login_api": "app/modassembly/authentication/login_api.py",
 }
 
 

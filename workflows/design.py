@@ -155,8 +155,6 @@ At some point, the architecture will be implemented into actual code (you don't 
 
                 if "action" in json_:
                     action = json_["action"]
-                    if json_["namespace"].startswith("app."):
-                        json_["namespace"] = json_["namespace"].replace("app.", "")
                     key = (
                         json_["namespace"] + "." + json_["name"]
                         if json_["namespace"]

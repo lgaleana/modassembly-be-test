@@ -16,7 +16,7 @@ initial_config = {
             design=Component(
                 Function(
                     name="main",
-                    namespace="",
+                    namespace="app",
                     purpose="The main FastAPI script.",
                     dependencies=["Other dbmodels or functions"],
                     is_endpoint=False,
@@ -42,7 +42,7 @@ sql_components = [
         design=Component(
             Function(
                 name="get_sql_session",
-                namespace="modassembly.database.sql",
+                namespace="app.modassembly.database.sql",
                 purpose="1) Initializes the Postgres database. 2) Gets a session.",
                 dependencies=[],
                 is_endpoint=False,
@@ -57,7 +57,7 @@ nosql_components = [
         design=Component(
             Function(
                 name="get_firestore_client",
-                namespace="modassembly.database.nosql",
+                namespace="app.modassembly.database.nosql",
                 purpose="1) Initializes the Firestore client. 2) Returns it.",
                 dependencies=[],
                 is_endpoint=False,
@@ -72,7 +72,7 @@ storage_components = [
         design=Component(
             Function(
                 name="get_gcs_bucket",
-                namespace="modassembly.storage",
+                namespace="app.modassembly.storage",
                 purpose="1) Initializes the GCS client. 2) Creates a bucket if it doesn't exist. 3) Returns it.",
                 dependencies=[],
                 is_endpoint=False,
@@ -88,7 +88,7 @@ auth_components = [
         design=Component(
             DBModel(
                 name="User",
-                namespace="models",
+                namespace="app.models",
                 fields=[
                     DBModel.ModelField(name="id", purpose="Primary key, autoincrement"),
                     DBModel.ModelField(
@@ -113,7 +113,7 @@ auth_components = [
         design=Component(
             Function(
                 name="create_access_token",
-                namespace="modassembly.authentication",
+                namespace="app.modassembly.authentication",
                 purpose="1) Encodes a JWT token using the user's email and an expiration time.",
                 dependencies=[],
                 is_endpoint=False,
@@ -125,9 +125,9 @@ auth_components = [
         design=Component(
             Function(
                 name="authenticate",
-                namespace="modassembly.authentication",
+                namespace="app.modassembly.authentication",
                 purpose="1) Decodes the JWT token. 2) Retrieves an user. IMPORTANT: Used by the endpoints for authentication.",
-                dependencies=["models.User"],
+                dependencies=["app.models.User"],
                 is_endpoint=False,
                 pypi_packages=[
                     "pyjwt==2.10.1",
@@ -141,10 +141,10 @@ auth_components = [
         design=Component(
             Function(
                 name="verify_user",
-                namespace="modassembly.authentication",
+                namespace="app.modassembly.authentication",
                 purpose="1) Gets the user from the username. 2) Verifies the password.",
                 dependencies=[
-                    "models.User",
+                    "app.models.User",
                 ],
                 is_endpoint=False,
                 pypi_packages=[
@@ -159,12 +159,12 @@ auth_components = [
         design=Component(
             Function(
                 name="login_api",
-                namespace="modassembly.authentication",
+                namespace="app.modassembly.authentication",
                 purpose="Logs in an user, given their credentials. 1) Verifies the user. 2) Creates a new JWT token. 3) Returns the token. Use OAuth2PasswordRequestForm.",
                 dependencies=[
-                    "modassembly.database.sql.get_sql_session",
-                    "modassembly.authentication.verify_user",
-                    "modassembly.authentication.create_access_token",
+                    "app.modassembly.database.sql.get_sql_session",
+                    "app.modassembly.authentication.verify_user",
+                    "app.modassembly.authentication.create_access_token",
                 ],
                 is_endpoint=True,
                 pypi_packages=[
