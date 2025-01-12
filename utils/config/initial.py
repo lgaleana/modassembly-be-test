@@ -56,9 +56,9 @@ nosql_components = [
     ImplementedComponent(
         design=Component(
             Function(
-                name="get_firestore_client",
+                name="get_firestore_database",
                 namespace="app.modassembly.database.nosql",
-                purpose="1) Initializes the Firestore client. 2) Returns it.",
+                purpose="1) Initializes the Firestore database client. 2) Returns it.",
                 dependencies=[],
                 is_endpoint=False,
                 pypi_packages=["google-cloud-firestore==2.19.0"],

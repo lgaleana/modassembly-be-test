@@ -37,7 +37,7 @@ REPOS = os.path.expanduser("~/repos")
 MODASSEMBLY_COMPONENTS = {
     "app.main": "app/main.py",
     "app.modassembly.database.sql.get_sql_session": "app/modassembly/database/sql/get_sql_session.py",
-    "app.modassembly.database.nosql.get_firestore_client": "app/modassembly/database/nosql/get_firestore_client.py",
+    "app.modassembly.database.nosql.get_firestore_database": "app/modassembly/database/nosql/get_firestore_database.py",
     "app.modassembly.storage.get_gcs_bucket": "app/modassembly/storage/get_gcs_bucket.py",
     "app.modassembly.authentication.create_access_token": "app/modassembly/authentication/create_access_token.py",
     "app.modassembly.authentication.authenticate": "app/modassembly/authentication/authenticate.py",
