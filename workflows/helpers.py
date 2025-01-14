@@ -219,12 +219,11 @@ def update_main(
     with open(f"{REPOS}/{app_name}/app/main.py", "r") as f:
         main_content = f.read()
     main_content += "\n"
+    imports = get_model_modules(app_name, [])
+    for import_ in imports:
+        main_content += f"from {import_.module} import {import_.name}\n"
     for component in architecture:
-        if isinstance(component.design.root, DBModel):
-            imports = get_model_modules(app_name, [component.design.root.name])
-            for import_ in imports:
-                main_content += f"from {import_.module} import {import_.name}\n"
-        elif (
+        if (
             isinstance(component.design.root, Function)
             and component.design.root.is_endpoint
         ):
