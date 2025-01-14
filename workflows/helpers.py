@@ -294,13 +294,11 @@ import sys
 sys.path.insert(0, "{REPOS}/{app_name}")
 from sqlalchemy import create_engine
 {imports}
-test_engine = create_engine(
-    f"sqlite:///{REPOS}/{app_name}/test.db",
-    connect_args={{"check_same_thread": False}}
-)
+test_engine = create_engine(f"sqlite:///{REPOS}/{app_name}/test.db")
 {code}
 model_classes = [{', '.join(models)}]
 for model_class in model_classes:
+    model_class.__table_args__ = {{'extend_existing': True}}
     model_class.__table__.drop(bind=test_engine, checkfirst=True)
     model_class.__table__.create(bind=test_engine)
 """
