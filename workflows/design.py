@@ -131,7 +131,9 @@ At some point, the architecture will be implemented into actual code (you don't 
 
     conversation.add_system(
         f"Current architecture:\n\n{present_to_llm(list(architecture.values()))}\n\n"
-        "VERY IMPORTANT: Update the dependencies."
+        f"Remember:\n"
+        "- To refactor a component, it might be necessary to first remove it and then add it again.\n"
+        "- VERY IMPORTANT: Update the dependencies."
     )
     conversation.add_user(user_message)
 
