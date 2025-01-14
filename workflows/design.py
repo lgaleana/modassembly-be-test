@@ -160,7 +160,7 @@ At some point, the architecture will be implemented into actual code (you don't 
                         if json_["namespace"]
                         else json_["name"]
                     )
-                    if key.startswith("modassembly") or key.startswith("main"):
+                    if key.startswith("app.modassembly") or key.startswith("app.main"):
                         raise ValueError(
                             f"Unable to {action} component :: {key} "
                             f"because it's reserved for internal use. "
@@ -205,8 +205,8 @@ At some point, the architecture will be implemented into actual code (you don't 
                 else:
                     implemented_component = ImplementedComponent.model_validate(json_)
                     if not implemented_component.design.key.startswith(
-                        "modassembly"
-                    ) and not implemented_component.design.key.startswith("main"):
+                        "app.modassembly"
+                    ) and not implemented_component.design.key.startswith("app.main"):
                         conversation.add_system(
                             f"Will remove and add :: {implemented_component.design.key}."
                             "\n\nRemember to user add/update/remove operations."
