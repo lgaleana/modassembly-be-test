@@ -1,5 +1,4 @@
 import argparse
-import json
 import os
 from typing import Any, Dict, List, Literal, Tuple, Union
 
@@ -48,21 +47,7 @@ def delete_file_for_key(key: str, user: str, app_name: str) -> None:
         os.remove(file_path)
 
 
-def run(
-    app_name: str,
-    user_message: str,
-    user: str,
-) -> Tuple[Dict[str, Any], Conversation]:
-    config = load_config(app_name, user)
-    conversation = Conversation.load(app_name, user)
-
-    architecture = {c.design.root.key: c for c in config["architecture"]}
-    save_config(config)
-
-    if len(conversation) == 0:
-        conversation = Conversation()
-        conversation.add_system(
-            """You are helpful AI assistant that designs backend architectures.
+PROMPT = """You are helpful AI assistant that designs backend architectures.
 
 The architecture that you're working with is a python module that will be hosted on Cloud Run as a FastAPI. It's represented as a json in the following format:
 
@@ -122,18 +107,35 @@ To remove a component, use the following format:
 }}
 ```
 
-To refactor a component, it might be necessary to first remove it and then add it again.
+To move a component, first remove it and add it again.
 
-There are two types of "design" components: dbmodels and functions. functions can be added, updated or removed at any time. However, dbmodels can only be added, updated or removed if they haven't been deployed yet. Updating production database models is not straightforward. To update or remove a dbmodel, the user must do it manually. The modassembly namespace is reserved. You can't add or update components in this namespace.
+There are two types of "design" components: dbmodels and functions. functions can be added, updated or removed at any time. However, dbmodels can only be added, updated or removed if they haven't been deployed yet. Updating production database models is not straightforward. To update or remove a dbmodel, the user must do it manually.
+
+`app.main` and the `app.modassembly` namespace are reserved for internal use. You can't update them.
 
 At some point, the architecture will be implemented into actual code (you don't have access to that code). The order of implementation will be guided by the `"dependencies"` attribute. It's VERY IMPORTANT that you keep this attribute updated."""
-        )
+
+
+def run(
+    app_name: str,
+    user_message: str,
+    user: str,
+) -> Tuple[Dict[str, Any], Conversation]:
+    config = load_config(app_name, user)
+    conversation = Conversation.load(app_name, user)
+
+    architecture = {c.design.root.key: c for c in config["architecture"]}
+    save_config(config)
+
+    if len(conversation) == 0:
+        conversation = Conversation()
+        conversation.add_system(PROMPT)
 
     conversation.add_system(
         f"Current architecture:\n\n{present_to_llm(list(architecture.values()))}\n\n"
-        f"Remember:\n"
-        "- To refactor a component, it might be necessary to first remove it and then add it again.\n"
-        "- VERY IMPORTANT: Update the dependencies."
+        "To move a component, first remove it and add it again.\n"
+        "When updating a component, update all of its occurrence accross the architecture.",
+        type_="architecture",
     )
     conversation.add_user(user_message)
 
@@ -166,7 +168,8 @@ At some point, the architecture will be implemented into actual code (you don't 
                         raise ValueError(
                             f"Unable to {action} component :: {key} "
                             f"because it's reserved for internal use. "
-                            "Please try again."
+                            "`app.main` and the `app.modassembly` namespace are reserved for internal use. "
+                            "You can't update them. Please try again."
                         )
                     if action in [Action.UPDATE, Action.REMOVE]:
                         if key not in architecture:
@@ -182,7 +185,7 @@ At some point, the architecture will be implemented into actual code (you don't 
                     ):
                         raise ValueError(
                             f"Unable to {action} dbmodel :: {key} "
-                            "because the dbmodel has already been implemented."
+                            "because the dbmodel has already been deployed."
                         )
                     if action in [Action.ADD, Action.UPDATE]:
                         component = Component.model_validate(json_)
@@ -194,7 +197,7 @@ At some point, the architecture will be implemented into actual code (you don't 
                                 raise ValueError(
                                     f"Unable to {action} component :: {component.key} "
                                     f"because the `dependency` :: {dependency} doesn't exist in the architecture. "
-                                    "Make sure to reference models that exist in the architecture. "
+                                    "Add components in the order of their dependencies. "
                                     "Please try again."
                                 )
                         components_to_update[component.key] = ComponentToUpdate(
@@ -247,6 +250,7 @@ At some point, the architecture will be implemented into actual code (you don't 
                 architecture[component.base.key] = ImplementedComponent(
                     design=component.base
                 )
+                architecture[component.base.key].file = None
                 delete_file_for_key(component.base.key, user, app_name)
         config["architecture"] = list(architecture.values())
         conversation.persist(app_name, user)

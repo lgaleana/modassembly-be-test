@@ -239,7 +239,7 @@ def update_main(
         )
         main_content += "Base.metadata.create_all(engine)\n"
     for component in architecture:
-        if component.design.key == "main":
+        if component.design.key == "app.main":
             assert component.file
             component.file.content = main_content
     with open(f"{REPOS}/{app_name}/app/main.py", "w") as f:
@@ -254,7 +254,7 @@ def update_architecture_dependencies(architecture: List[ImplementedComponent]) -
         for import_ in imports:
             if not import_.startswith("app."):
                 continue
-            key = ".".join(import_.split(".")[1:-1])
+            key = ".".join(import_.split(".")[:-1])
             dependencies.add(key)
         component.design.root.dependencies = list(dependencies)
 
