@@ -107,11 +107,9 @@ To remove a component, use the following format:
 }}
 ```
 
-To move a component, first remove it and add it again.
+As soon as you generate the json, the architecture will be updated.
 
 There are two types of "design" components: dbmodels and functions. functions can be added, updated or removed at any time. However, dbmodels can only be added, updated or removed if they haven't been deployed yet. Updating production database models is not straightforward. To update or remove a dbmodel, the user must do it manually.
-
-`app.main` and the `app.modassembly` namespace are reserved for internal use. You can't update them.
 
 At some point, the architecture will be implemented into actual code (you don't have access to that code). The order of implementation will be guided by the `"dependencies"` attribute. It's VERY IMPORTANT that you keep this attribute updated."""
 
@@ -130,11 +128,16 @@ def run(
     if len(conversation) == 0:
         conversation = Conversation()
         conversation.add_system(PROMPT)
+        conversation.add_system(
+            f"Initial architecture:\n\n{present_to_llm(list(architecture.values()))}"
+        )
 
+    conversation.remove_last_message_type("architecture")
     conversation.add_system(
         f"Current architecture:\n\n{present_to_llm(list(architecture.values()))}\n\n"
-        "To move a component, first remove it and add it again.\n"
-        "When updating a component, update all of its occurrence accross the architecture.",
+        "`app.main` and the `app.modassembly` namespace are reserved for internal use. You can't update them.\n"
+        "To rename or move a component, first remove it and add it again.\n"
+        "VERY IMPORTANT:When updating a component, update all of its occurrence accross the architecture.",
         type_="architecture",
     )
     conversation.add_user(user_message)
@@ -159,6 +162,9 @@ def run(
 
                 if "action" in json_:
                     action = json_["action"]
+                    if not json_["namespace"].startswith("app."):
+                        json_["namespace"] = "app." + json_["namespace"]
+                        conversation.add_system("Prefixing namespace with `app.`")
                     key = (
                         json_["namespace"] + "." + json_["name"]
                         if json_["namespace"]
@@ -189,6 +195,14 @@ def run(
                         )
                     if action in [Action.ADD, Action.UPDATE]:
                         component = Component.model_validate(json_)
+                        component.root.dependencies = [
+                            (
+                                "app." + dependency
+                                if not dependency.startswith("app.")
+                                else dependency
+                            )
+                            for dependency in component.root.dependencies
+                        ]
                         for dependency in component.root.dependencies:
                             if (
                                 dependency not in architecture

@@ -98,8 +98,8 @@ def write_component(
             and component.design.root.is_endpoint
         ):
             extract_router_name(code)
-        elif isinstance(component.design.root, DBModel):
-            create_tables(app_name, code)
+        # elif isinstance(component.design.root, DBModel):
+        #     create_tables(app_name, code)
 
         component.file = File(path=file_path, content=code)
         return ImplementationContext(
@@ -109,10 +109,9 @@ def write_component(
         )
     except (
         MultipleCodeBlocksError,
-        CompilationError,
         MypyError,
         RouterNotFoundError,
-        ModelImplementationError,
+        # ModelImplementationError,
     ) as e:
         print_system(
             f"!!! Error for :: {component.design.root.name}\n\n"

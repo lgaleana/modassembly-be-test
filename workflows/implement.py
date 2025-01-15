@@ -103,6 +103,7 @@ def run(app_name: str, user: str) -> Dict[str, Any]:
 
     conversation = Conversation.load(app_name, user)
     if len(conversation) > 0:
+        conversation.remove_last_message_type("implementation")
         conversation.add_system(
             "Implementing the architecture... Done.", type_="implementation"
         )

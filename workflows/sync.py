@@ -66,7 +66,7 @@ def sync_configs(app_name: str, user: str) -> None:
                                     f"The code for :: {key} has changed. "
                                     f"New code ::\n\n{code}\n\n"
                                     "Update the component design. "
-                                    "Extract the exact hardcoded values."
+                                    "VERY IMPORTANT: Extract the exact hardcoded values."
                                 )
                                 response = llm.stream_text(conversation)
                                 conversation.add_assistant(response)
@@ -85,7 +85,7 @@ def sync_configs(app_name: str, user: str) -> None:
                                 f"\n\n{code}\n\n"
                                 f"Add a component design for namespace :: "
                                 f"{namespace} and name :: {name}. "
-                                "Extract the exact hardcoded values."
+                                "VERY IMPORTANT: Extract the exact hardcoded values."
                             )
                             response = llm.stream_text(conversation)
                             conversation.add_assistant(response)
