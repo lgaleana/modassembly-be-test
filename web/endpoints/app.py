@@ -14,7 +14,7 @@ router = APIRouter()
 
 class Request(BaseModel):
     app_name: str
-    external_infrastructure: List[str] = ["www", "sql"]
+    external_infrastructure: List[str] = []
 
 
 @router.post("", response_model=Dict[str, Any])

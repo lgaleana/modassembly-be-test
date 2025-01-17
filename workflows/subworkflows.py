@@ -6,20 +6,17 @@ from pydantic import BaseModel, ConfigDict
 load_dotenv()
 
 from ai import llm
-from utils.config.architecture import DBModel, Function, ImplementedComponent
+from utils.config.architecture import DataModel, Function, ImplementedComponent
 from workflows.helpers import (
     MODASSEMBLY_COMPONENTS,
-    ModelImplementationError,
     MypyError,
     REPOS,
-    create_tables,
     extract_from_pattern,
     run_mypy,
 )
 from utils.files import File, create_folders_if_not_exist
 from utils.io import print_system
 from utils.state import Conversation
-from utils.static_analysis import RouterNotFoundError, extract_router_name
 
 
 def save_templates(
@@ -93,11 +90,11 @@ def write_component(
             f.write(code)
 
         run_mypy(app_name, file_path)
-        if (
-            isinstance(component.design.root, Function)
-            and component.design.root.is_endpoint
-        ):
-            extract_router_name(code)
+        # if (
+        #     isinstance(component.design.root, Function)
+        #     and component.design.root.is_endpoint
+        # ):
+        #     extract_router_name(code)
         # elif isinstance(component.design.root, DBModel):
         #     create_tables(app_name, code)
 
@@ -110,7 +107,7 @@ def write_component(
     except (
         MultipleCodeBlocksError,
         MypyError,
-        RouterNotFoundError,
+        # RouterNotFoundError,
         # ModelImplementationError,
     ) as e:
         print_system(
@@ -141,7 +138,6 @@ def write_component(
 def first_write(
     app_name: str,
     component: ImplementedComponent,
-    external_infrastructure: List[str],
     conversation: Conversation,
 ) -> ImplementationContext:
     instructions = f"""Write the code for: {component.design.model_dump()}.
@@ -151,6 +147,7 @@ def first_write(
     - Use absolute imports.
     - Use appropriate typing in function arguments and return types.
     - Pick the most simple implementation.
+    - Use environment variables instead of placeholders.
     - Don't catch exceptions unless specified. Let errors raise.\n"""
     if isinstance(component.design.root, Function):
         if component.design.root.is_endpoint:
@@ -161,19 +158,16 @@ def first_write(
                 "- Define pydantic models for inputs and OUTPUTS where needed.\n"
                 "- Use the most simple types for pydantic models.\n"
             )
-            if "authentication" in external_infrastructure:
-                instructions += "- Authenticate it with app.modassembly.authentication.authenticate.\n"
         instructions += (
             "- mypy will be run over the code, so implement the function in a way that it passes mypy.\n"
             "- When using SQLALchemy models, access the actual column values. "
             "Example for a string attribute: `model.attribute.__str__()`.\n"
             f" - {component.design.root.purpose}\n"
         )
-    elif isinstance(component.design.root, DBModel):
-        if "sql" in external_infrastructure:
-            instructions += (
-                "- Import Base from app.modassembly.database.sql.get_sql_session.\n"
-            )
+    elif isinstance(component.design.root, DataModel):
+        instructions += (
+            "- Import Base from app.modassembly.database.sql.get_sql_session.\n"
+        )
         instructions += (
             "- Only use `ForeignKey` if the other model exists in the architecture.\n"
         )

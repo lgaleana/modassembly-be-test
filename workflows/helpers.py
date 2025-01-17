@@ -12,8 +12,8 @@ import networkx as nx
 from pydantic import BaseModel
 from utils.config.architecture import (
     Function,
-    DBModel,
     ImplementedComponent,
+    Infrastructure,
 )
 from utils.config.initial import create_initial_config
 from utils.github import (
@@ -37,12 +37,11 @@ REPOS = os.path.expanduser("~/repos")
 MODASSEMBLY_COMPONENTS = {
     "app.main": "app/main.py",
     "app.modassembly.database.sql.get_sql_session": "app/modassembly/database/sql/get_sql_session.py",
-    "app.modassembly.database.nosql.get_firestore_database": "app/modassembly/database/nosql/get_firestore_database.py",
     "app.modassembly.storage.get_gcs_bucket": "app/modassembly/storage/get_gcs_bucket.py",
-    "app.modassembly.authentication.create_access_token": "app/modassembly/authentication/create_access_token.py",
-    "app.modassembly.authentication.authenticate": "app/modassembly/authentication/authenticate.py",
-    "app.modassembly.authentication.verify_user": "app/modassembly/authentication/verify_user.py",
-    "app.modassembly.authentication.login_api": "app/modassembly/authentication/login_api.py",
+    "app.modassembly.tasks.get_gcs_tasks_client": "app/modassembly/tasks/get_gcs_tasks_client.py",
+    "app.modassembly.scheduler.get_gcs_scheduler_client": "app/modassembly/scheduler/get_gcs_scheduler_client.py",
+    "app.modassembly.email.get_email_client": "app/modassembly/email/get_email_client.py",
+    "app.modassembly.elasticsearch.get_elasticsearch_client": "app/modassembly/elasticsearch/get_elasticsearch_client.py",
 }
 
 
@@ -214,14 +213,13 @@ def group_nodes_by_dependencies(
 def update_main(
     app_name: str,
     architecture: List[ImplementedComponent],
-    external_infrastructure,
 ) -> None:
     with open(f"{REPOS}/{app_name}/app/main.py", "r") as f:
         main_content = f.read()
     main_content += "\n"
-    imports = get_model_modules(app_name, [])
-    for import_ in imports:
-        main_content += f"from {import_.module} import {import_.name}\n"
+    models = get_model_modules(app_name, [])
+    for model in models:
+        main_content += f"from {model.module} import {model.name}\n"
     for component in architecture:
         if (
             isinstance(component.design.root, Function)
@@ -232,7 +230,7 @@ def update_main(
             router_name = extract_router_name(component.file.content)
             main_content += f"from {import_} import {router_name}\n"
             main_content += f"app.include_router({router_name})\n"
-    if "sql" in external_infrastructure:
+    if len(models) > 0:
         main_content += "\n# Database\n"
         main_content += (
             "\nfrom app.modassembly.database.sql.get_sql_session import Base, engine\n"
@@ -248,6 +246,8 @@ def update_main(
 
 def update_architecture_dependencies(architecture: List[ImplementedComponent]) -> None:
     for component in architecture:
+        if isinstance(component.design.root, Infrastructure):
+            continue
         assert component.file
         imports = extract_imports(component.file.content)
         dependencies = set()

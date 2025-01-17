@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 
 from utils.config.architecture import (
     Component,
-    DBModel,
+    DataModel,
     Function,
     ImplementedComponent,
     save_config,
@@ -18,7 +18,7 @@ initial_config = {
                     name="main",
                     namespace="app",
                     purpose="The main FastAPI script.",
-                    dependencies=["Other dbmodels or functions"],
+                    dependencies=["Other datamodels or functions"],
                     is_endpoint=False,
                     pypi_packages=[
                         "fastapi==0.115.6",
@@ -32,44 +32,31 @@ initial_config = {
             )
         ),
     ],
-    "external_infrastructure": ["www"],
     "url": None,
 }
 
 
-sql_components = [
-    ImplementedComponent(
-        design=Component(
+AVAILABLE_INFRASTRUCTURE = [
+    {
+        "name": "SQLDatabase",
+        "namespace": "External",
+        "description": "A SQL database. Used with datamodels.",
+        "utility_functions": [
             Function(
                 name="get_sql_session",
                 namespace="app.modassembly.database.sql",
-                purpose="1) Initializes the Postgres database. 2) Gets a session.",
+                purpose="1) Initializes the Postgres database. Uses the DB_URL environment variable. 2) Gets a session.",
                 dependencies=[],
                 is_endpoint=False,
                 pypi_packages=["psycopg2-binary==2.9.10", "sqlalchemy==2.0.36"],
             )
-        )
-    ),
-]
-
-nosql_components = [
-    ImplementedComponent(
-        design=Component(
-            Function(
-                name="get_firestore_database",
-                namespace="app.modassembly.database.nosql",
-                purpose="1) Initializes the Firestore database client. 2) Returns it.",
-                dependencies=[],
-                is_endpoint=False,
-                pypi_packages=["google-cloud-firestore==2.19.0"],
-            )
-        )
-    ),
-]
-
-storage_components = [
-    ImplementedComponent(
-        design=Component(
+        ],
+    },
+    {
+        "name": "FileStorage",
+        "namespace": "External",
+        "description": "A GCS bucket to save/read files.",
+        "utility_functions": [
             Function(
                 name="get_gcs_bucket",
                 namespace="app.modassembly.storage",
@@ -78,103 +65,53 @@ storage_components = [
                 is_endpoint=False,
                 pypi_packages=["google-cloud-storage==2.19.0"],
             )
-        )
-    ),
-]
-
-
-auth_components = [
-    ImplementedComponent(
-        design=Component(
-            DBModel(
-                name="User",
-                namespace="app.models",
-                fields=[
-                    DBModel.ModelField(name="id", purpose="Primary key, autoincrement"),
-                    DBModel.ModelField(
-                        name="email",
-                        purpose="The email of the user, indexed, can't be null",
-                    ),
-                    DBModel.ModelField(
-                        name="hashed_password",
-                        purpose="The hashed password, can't be null",
-                    ),
-                    DBModel.ModelField(
-                        name="username",
-                        purpose="The username, indexed, can't be null",
-                    ),
-                ],
-                dependencies=[],
-                pypi_packages=["sqlalchemy==2.0.36"],
-            )
-        )
-    ),
-    ImplementedComponent(
-        design=Component(
+        ],
+    },
+    {
+        "name": "TaskQueue",
+        "namespace": "External",
+        "description": "Used to add tasks to a queue. IMPORTANT: You must have a valid endpoint to execute your task.",
+        "utility_functions": [
             Function(
-                name="create_access_token",
-                namespace="app.modassembly.authentication",
-                purpose="1) Encodes a JWT token using the user's email and an expiration time.",
+                name="get_gcs_tasks_client",
+                namespace="app.modassembly.tasks",
+                purpose="1) Initializes the GCS client. 2) Returns it.",
                 dependencies=[],
                 is_endpoint=False,
-                pypi_packages=["pyjwt==2.10.1"],
+                pypi_packages=["google-cloud-tasks==2.18.0"],
             )
-        )
-    ),
-    ImplementedComponent(
-        design=Component(
+        ],
+    },
+    {
+        "name": "CronJob",
+        "namespace": "External",
+        "description": "Used to schedule recurring jobs. IMPORTANT: You must have a valid endpoint to execute your job.",
+        "utility_functions": [
             Function(
-                name="authenticate",
-                namespace="app.modassembly.authentication",
-                purpose="1) Decodes the JWT token. 2) Retrieves an user. IMPORTANT: Used by the endpoints for authentication.",
-                dependencies=["app.models.User"],
+                name="get_gcs_scheduler_client",
+                namespace="app.modassembly.scheduler",
+                purpose="1) Initializes the GCS client. 2) Returns it.",
+                dependencies=[],
                 is_endpoint=False,
-                pypi_packages=[
-                    "pyjwt==2.10.1",
-                    "fastapi==0.115.6",
-                    "sqlalchemy==2.0.36",
-                ],
+                pypi_packages=["google-cloud-scheduler==2.15.0"],
             )
-        )
-    ),
-    ImplementedComponent(
-        design=Component(
+        ],
+    },
+    {
+        "name": "Email",
+        "namespace": "External",
+        "description": "A very basic email client for sending emails.",
+        "utility_functions": [
             Function(
-                name="verify_user",
-                namespace="app.modassembly.authentication",
-                purpose="1) Gets the user from the username. 2) Verifies the password.",
-                dependencies=[
-                    "app.models.User",
-                ],
+                name="get_email_client",
+                namespace="app.modassembly.email",
+                purpose="1) Initializes the client. Uses environment variables. 2) Returns it.",
+                dependencies=[],
                 is_endpoint=False,
-                pypi_packages=[
-                    "bcrypt==4.0.1",
-                    "passlib==1.7.4",
-                    "sqlalchemy==2.0.36",
-                ],
+                pypi_packages=[],
             )
-        )
-    ),
-    ImplementedComponent(
-        design=Component(
-            Function(
-                name="login_api",
-                namespace="app.modassembly.authentication",
-                purpose="Logs in an user, given their credentials. 1) Verifies the user. 2) Creates a new JWT token. 3) Returns the token. Use OAuth2PasswordRequestForm.",
-                dependencies=[
-                    "app.modassembly.database.sql.get_sql_session",
-                    "app.modassembly.authentication.verify_user",
-                    "app.modassembly.authentication.create_access_token",
-                ],
-                is_endpoint=True,
-                pypi_packages=[
-                    "fastapi==0.115.6",
-                    "pydantic[email]==2.10.4",
-                    "sqlalchemy==2.0.36",
-                ],
-            )
-        )
-    ),
+        ],
+    },
 ]
 
 
@@ -187,16 +124,6 @@ def create_initial_config(
     config = deepcopy(initial_config)
     config["name"] = app_name
     config["user"] = user
-
-    if "sql" in external_infrastructure:
-        config["architecture"].extend(sql_components)
-        if "authentication" in external_infrastructure:
-            config["architecture"].extend(auth_components)
-    if "nosql" in external_infrastructure:
-        config["architecture"].extend(nosql_components)
-    if "storage" in external_infrastructure:
-        config["architecture"].extend(storage_components)
-    config["external_infrastructure"] = external_infrastructure
     config["github"] = github_url
     save_config(config)
     return config

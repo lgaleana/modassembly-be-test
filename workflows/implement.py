@@ -10,7 +10,7 @@ load_dotenv()
 from ai import llm
 from app.logging.log_user_activity import log_user_activity
 from utils.config.architecture import (
-    DBModel,
+    DataModel,
     Function,
     load_config,
     save_config,
@@ -50,7 +50,7 @@ def run(app_name: str, user: str) -> Dict[str, Any]:
         [
             m
             for m in architecture_to_update.values()
-            if isinstance(m.design.root, DBModel)
+            if isinstance(m.design.root, DataModel)
         ]
     )
     functions_to_parallelize = group_nodes_by_dependencies(
@@ -69,7 +69,6 @@ def run(app_name: str, user: str) -> Dict[str, Any]:
                         first_write,
                         [repo_name] * len(level),
                         [architecture_to_update[l] for l in level],
-                        [config["external_infrastructure"]] * len(level),
                         [conversation.copy() for _ in level],
                     )
                 )
@@ -85,7 +84,7 @@ def run(app_name: str, user: str) -> Dict[str, Any]:
                 output.component.file
             )
 
-    update_main(repo_name, architecture, config["external_infrastructure"])
+    update_main(repo_name, architecture)
     update_architecture_dependencies(architecture)
 
     git_convo = conversation.copy()
@@ -103,7 +102,6 @@ def run(app_name: str, user: str) -> Dict[str, Any]:
 
     conversation = Conversation.load(app_name, user)
     if len(conversation) > 0:
-        conversation.remove_last_message_type("implementation")
         conversation.add_system(
             "Implementing the architecture... Done.", type_="implementation"
         )
@@ -123,7 +121,6 @@ def run(app_name: str, user: str) -> Dict[str, Any]:
                         "architecture": [
                             c.model_dump() for c in config["architecture"]
                         ],
-                        "external_infrastructure": config["external_infrastructure"],
                         "github": config["github"],
                         "url": config["url"],
                     },

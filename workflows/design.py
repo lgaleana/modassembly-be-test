@@ -1,6 +1,7 @@
 import argparse
+import json
 import os
-from typing import Any, Dict, List, Literal, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 from dotenv import load_dotenv
 from pydantic import BaseModel
@@ -11,12 +12,14 @@ from ai import llm
 from app.logging.log_user_activity import log_user_activity
 from utils.config.architecture import (
     Component,
-    DBModel,
+    DataModel,
     ImplementedComponent,
+    Infrastructure,
     load_config,
     present_to_llm,
     save_config,
 )
+from utils.config.initial import AVAILABLE_INFRASTRUCTURE
 from utils.io import print_system, user_input
 from utils.state import Conversation
 from workflows.helpers import (
@@ -37,7 +40,8 @@ class Action:
 
 class ComponentToUpdate(BaseModel):
     action: Literal["add", "update", "remove"]
-    base: Union[Component, str]
+    key: str
+    base: Optional[Component]
 
 
 def delete_file_for_key(key: str, user: str, app_name: str) -> None:
@@ -49,51 +53,48 @@ def delete_file_for_key(key: str, user: str, app_name: str) -> None:
 
 PROMPT = """You are helpful AI assistant that designs backend architectures.
 
-The architecture that you're working with is a python module that will be hosted on Cloud Run as a FastAPI. It's represented as a json in the following format:
+The entire architecture will be hosted on Google Cloud Platform. The core of the business logic (datamodels and functions) is a python service that will be hosted on Cloud Run as a FastAPI. The architecture is represented as a json in the following format:
 
 ```json
 [
     {{
-        {{
-            "type": "dbmodel",
-            "name": "The name of the dbmodel",
-            "namespace": "The virtual location of the dbmodel. Use a dot notation.",
-            "fields": [
-                {{
-                        "name": "The name of the field",
-                        "purpose": "What the field is used for, important remarks, etc."
-                }}
-            ],
-            "dependencies": ["The other namespace.dbmodels that the model is associated with"],
-            "pypi_packages": ["The pypi packages that the dbmodel will need"]
-        }},
-        "is_deployed": true or false whether the dbmodel has been implemented and deployed
+        "type": "infrastructure",
+        "name": "The name of the infrastructure",
+        "namespace" = "External" (only valid value)
     }},
     {{
-        {{
-            "type": "function",
-            "name": "The name of the function",
-            "namespace": "The virtual location of the function. Use a dot notation.",
-            "purpose": "What the function does, step by step. Ie: 1) ... 2) ...",
-            "dependencies": ["The other namespace.functions or namespace.dbmodels that the actual code of this function depends on"]
-            "is_endpoint": true or false whether this is a FastAPI endpoint
-            "pypi_packages": ["The pypi packages that the function will need"]
-        }},
-         "is_deployed": true or false whether the function has been implemented and deployed
+        "type": "datamodel",
+        "name": "The name of the datamodel",
+        "namespace": "The virtual location of the code. Use a dot notation.",
+        "fields": [
+            {{
+                    "name": "The name of the field",
+                    "purpose": "What the field is used for, important remarks, etc."
+            }}
+        ],
+        "dependencies": ["The other namespace.datamodels that the model is associated with"],
+        "pypi_packages": ["The pypi packages that the datamodel will need"]
     }},
+    {{
+       "type": "function",
+        "name": "The name of the function",
+        "namespace": "The virtual location of the code. Use a dot notation.",
+        "purpose": "What the function does, step by step. Ie: 1) ... 2) ... Each step is equivalent to a couple lines of code.",
+        "dependencies": ["The other namespace.functions that the code depends on"],
+        "pypi_packages": ["The pypi packages that the function will need"],
+        "is_endpoint": true or false whether this is a FastAPI endpoint
+    }}
     ...
 ]
 ```
-
-Think of this architecture as lego blocks that you can compose together. Use a modular design pattern. Too many steps in a function's purpose probably means that you should break it apart. Always prefer the most simple design.
 
 Work with the user to build the architecture by adding, updating or removing components. To add or update a component, use the following format:
 
 ```json
 {{
-    "action": "add", "update" or "remove",
-    "type": "dbmodel" or "function",
-    # Attributes of the dbmodel or function
+    "action": "add" or "update",
+    "type": "infrastructure", "datamodel" or "function",
+    # Attributes of the infrastructure, datamodel or function
 }}
 ```
 
@@ -102,16 +103,24 @@ To remove a component, use the following format:
 ```json
 {{
     "action": "remove",
-    "name": "The name of the function to remove"
-    "namespace": "The namespace of the function to remove"
+    "name": "The name of the component to remove"
+    "namespace": "The namespace of the component"
 }}
 ```
 
-As soon as you generate the json, the architecture will be updated.
+As you generate the json, it will be extracted and the component will be added/updated/removed to/from the architecture. So there is no need to ask for confirmation. Act as if the change has already been applied.
 
-There are two types of "design" components: dbmodels and functions. functions can be added, updated or removed at any time. However, dbmodels can only be added, updated or removed if they haven't been deployed yet. Updating production database models is not straightforward. To update or remove a dbmodel, the user must do it manually.
+There are three types of "design" components: infrastructures, datamodels and functions.
 
-At some point, the architecture will be implemented into actual code (you don't have access to that code). The order of implementation will be guided by the `"dependencies"` attribute. It's VERY IMPORTANT that you keep this attribute updated."""
+Think of datamodels as data sinks. They mostly represent database tables but they could represent any kind of tabular data. To add datamodels you must have the external infrastructure to support it first.
+
+At some point, every component will be implemented into actual code (you don't have access to that code). All of it will be executed on Google Cloud Run, except for the infrastructures. Cloud Run is a servelerss container desgined for web applications. More complex infrastructure has to be run seperately. "infrastructure" represents all the external infrastructure that is part of your backend architecture but that won't be run on Cloud Run. Nonetheless, Cloud Run has access to it. It's analogous to the GCP infrastructure.
+
+What this means is that you must be careful about how you design your business logic. Keep it within the limitations of a web service. For anything else, rely on the available external infrastructure. As you add infrastructure, utility functions will be added so that your application can connect to it. Add the infrastructure first; then, the functionality.
+
+functions represent the business logic. The main goal is to design an architecture that is malleable, easy to refactor and easy to maintain. You will accomplish this by using modularity and the single responsibility principle. Each function should do one thing. No function should be mapped to more than 100 lines of code.
+
+The `"dependencies"` attribute is VERY IMPORTANT. When each component is implemented into code, the order of implementation will be guided by it. Always update it."""
 
 
 def run(
@@ -128,16 +137,31 @@ def run(
     if len(conversation) == 0:
         conversation = Conversation()
         conversation.add_system(PROMPT)
+        raw_infrastructure = json.dumps(
+            [
+                {
+                    "name": i["name"],
+                    "namespace": i["namespace"],
+                    "utility_functions": [
+                        c.model_dump() for c in i["utility_functions"]
+                    ],
+                }
+                for i in AVAILABLE_INFRASTRUCTURE
+            ],
+            indent=4,
+        )
         conversation.add_system(
-            f"Initial architecture:\n\n{present_to_llm(list(architecture.values()))}"
+            "The following infrastructure is available for you "
+            f"to add to the architecture:\n\n{raw_infrastructure}\n\n"
+            "`app.main` is reserved for internal use. You can't update it."
         )
 
     conversation.remove_last_message_type("architecture")
     conversation.add_system(
         f"Current architecture:\n\n{present_to_llm(list(architecture.values()))}\n\n"
-        "`app.main` and the `app.modassembly` namespace are reserved for internal use. You can't update them.\n"
+        "Keep the business logic within the limitations of a web service.\n"
         "To rename or move a component, first remove it and add it again.\n"
-        "VERY IMPORTANT:When updating a component, update all of its occurrence accross the architecture.",
+        "VERY IMPORTANT: When updating a component, update all of its occurrence accross the architecture.",
         type_="architecture",
     )
     conversation.add_user(user_message)
@@ -152,6 +176,13 @@ def run(
             jsons = extract_json(response)
         except PatternNotFoundError as e:
             jsons = []
+        except Exception as e:
+            if attempts == 3:
+                components_to_update = {}
+                raise e
+            print_system(f"{type(e).__name__}({str(e)})")
+            conversation.add_system(f"{type(e).__name__}({str(e)})")
+            continue
 
         try:
             for json_ in jsons:
@@ -162,20 +193,16 @@ def run(
 
                 if "action" in json_:
                     action = json_["action"]
-                    if not json_["namespace"].startswith("app."):
-                        json_["namespace"] = "app." + json_["namespace"]
-                        conversation.add_system("Prefixing namespace with `app.`")
                     key = (
                         json_["namespace"] + "." + json_["name"]
                         if json_["namespace"]
                         else json_["name"]
                     )
-                    if key.startswith("app.modassembly") or key.startswith("app.main"):
+                    if key == "app.main":
                         raise ValueError(
                             f"Unable to {action} component :: {key} "
                             f"because it's reserved for internal use. "
-                            "`app.main` and the `app.modassembly` namespace are reserved for internal use. "
-                            "You can't update them. Please try again."
+                            "You can't update it. Please try again."
                         )
                     if action in [Action.UPDATE, Action.REMOVE]:
                         if key not in architecture:
@@ -184,21 +211,25 @@ def run(
                                 "because the component doesn't exist in the architecture. "
                                 "Please try again."
                             )
-                    if (
-                        key in architecture
-                        and isinstance(architecture[key].design, DBModel)
-                        and architecture[key].is_deployed
-                    ):
-                        raise ValueError(
-                            f"Unable to {action} dbmodel :: {key} "
-                            "because the dbmodel has already been deployed."
-                        )
                     if action in [Action.ADD, Action.UPDATE]:
                         component = Component.model_validate(json_)
+                        if (
+                            isinstance(component.root, DataModel)
+                            and "External.SQLDatabase" not in architecture
+                            and "External.FileStorage" not in architecture
+                            and "External.SQLDatabase" not in components_to_update
+                            and "External.FileStorage" not in components_to_update
+                        ):
+                            raise ValueError(
+                                f"Unable to {action} component :: {key} "
+                                "because there is no infrastructure to support it. "
+                                "Please add the proper infrastructure first."
+                            )
                         component.root.dependencies = [
                             (
                                 "app." + dependency
-                                if not dependency.startswith("app.")
+                                if not dependency.startswith("External")
+                                and not dependency.startswith("app.")
                                 else dependency
                             )
                             for dependency in component.root.dependencies
@@ -214,38 +245,54 @@ def run(
                                     "Add components in the order of their dependencies. "
                                     "Please try again."
                                 )
+                        if isinstance(component.root, Infrastructure):
+                            for infra in AVAILABLE_INFRASTRUCTURE:
+                                if infra["name"] == component.root.name:
+                                    utility_functions = infra["utility_functions"]
+                                    for function_ in utility_functions:
+                                        components_to_update[function_.key] = (
+                                            ComponentToUpdate(
+                                                action=Action.ADD,
+                                                key=function_.key,
+                                                base=function_,
+                                            )
+                                        )
+                                    break
+                        if not isinstance(
+                            component.root, Infrastructure
+                        ) and not component.root.namespace.startswith("app."):
+                            component.root.namespace = "app." + component.root.namespace
+                            conversation.add_system("Prefixing namespace with `app.`")
                         components_to_update[component.key] = ComponentToUpdate(
-                            action=action, base=component
+                            action=action, key=component.key, base=component
                         )
                     else:
                         components_to_update[key] = ComponentToUpdate(
-                            action=action, base=key
+                            action=action, key=key, base=None
                         )
                 else:
-                    implemented_component = ImplementedComponent.model_validate(json_)
-                    if not implemented_component.design.key.startswith(
-                        "app.modassembly"
-                    ) and not implemented_component.design.key.startswith("app.main"):
+                    component = Component.model_validate(json_)
+                    if not component.key == "app.main":
                         conversation.add_system(
-                            f"Will remove and add :: {implemented_component.design.key}."
+                            f"Will remove and add :: {component.key}."
                             "\n\nRemember to user add/update/remove operations."
                         )
                         jsons.append(
                             {
                                 "action": Action.REMOVE,
-                                "name": implemented_component.design.root.name,
-                                "namespace": implemented_component.design.root.namespace,
+                                "name": component.root.name,
+                                "namespace": component.root.namespace,
                             }
                         )
                         jsons.append(
                             {
                                 "action": Action.ADD,
-                                **implemented_component.design.model_dump(),
+                                **component.model_dump(),
                             }
                         )
                     else:
                         conversation.add_system(
-                            f"{implemented_component.design.key} won't be updated "
+                            f"{component.key} won't be updated "
                             "because it's reserved for internal use."
                         )
         except ValueError as e:
@@ -258,14 +305,14 @@ def run(
 
         for component in components_to_update.values():
             if component.action == Action.REMOVE:
-                del architecture[component.base]
-                delete_file_for_key(component.base, user, app_name)
+                del architecture[component.key]
+                delete_file_for_key(component.key, user, app_name)
             else:
-                architecture[component.base.key] = ImplementedComponent(
+                architecture[component.key] = ImplementedComponent(
                     design=component.base
                 )
-                architecture[component.base.key].file = None
-                delete_file_for_key(component.base.key, user, app_name)
+                architecture[component.key].file = None
+                delete_file_for_key(component.key, user, app_name)
         config["architecture"] = list(architecture.values())
         conversation.persist(app_name, user)
         save_config(config)
@@ -281,7 +328,6 @@ def run(
                         "architecture": [
                             c.model_dump() for c in config["architecture"]
                         ],
-                        "external_infrastructure": config["external_infrastructure"],
                         "github": config["github"],
                         "url": config["url"],
                     },
