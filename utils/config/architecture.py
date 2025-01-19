@@ -36,15 +36,11 @@ class Function(BaseComponent):
 class Infrastructure(BaseModel):
     type: Literal["infrastructure"] = "infrastructure"
     name: Literal[
-        "SQLDatabase",
-        "NoSQLDatabase",
-        "FileStorage",
-        "Redis",
-        "MessageQueue",
-        "TaskQueue",
-        "CronJob",
-        "Email",
-        "Authentication",
+        "CloudSQL",
+        "CloudStorage",
+        "CloudTasks",
+        "CloudScheduler",
+        "EmailClient",
         "Elasticsearch",
     ]
     namespace: Literal["External"] = "External"

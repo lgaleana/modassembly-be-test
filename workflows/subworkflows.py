@@ -1,3 +1,6 @@
+import os
+import subprocess
+import venv
 from typing import List
 
 from dotenv import load_dotenv
@@ -44,6 +47,42 @@ def save_templates(
             conversation.add_user(f"I wrote the code for:\n\n```python\n{content}\n```")
             conversation.add_user(f"I saved the code in {file_path}.")
             component.file = File(path=file_path, content=content)
+
+
+class InstallRequirementsError(Exception):
+    pass
+
+
+def install_requirements(
+    app_name: str,
+    architecture: List[ImplementedComponent],
+    conversation: Conversation,
+) -> None:
+    pypi_packages = set()
+    for component in architecture:
+        pypi_packages.update(component.design.root.pypi_packages)
+    requirements_path = f"{REPOS}/{app_name}/requirements.txt"
+    with open(requirements_path, "w") as f:
+        content = "\n".join(pypi_packages)
+        f.write(content)
+    conversation.add_user(f"I wrote the code for:\n\n```python\n{content}\n```")
+    conversation.add_user(f"I saved the code in {requirements_path}.")
+
+    venv_path = f"{REPOS}/{app_name}/venv"
+    os.makedirs(venv_path, exist_ok=True)
+    venv.create(venv_path, with_pip=True)
+    venv_python = os.path.join(venv_path, "bin", "python3")
+    print_system("Installing requirements...")
+    output = subprocess.run(
+        [venv_python, "-m", "pip", "install", "-r", requirements_path],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    print_system(output.stdout)
+    print_system(output.stderr)
+    if output.returncode != 0:
+        raise InstallRequirementsError(f"{output.stdout}\n{output.stderr}")
 
 
 class ImplementationContext(BaseModel):

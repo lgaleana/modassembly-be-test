@@ -38,9 +38,9 @@ initial_config = {
 
 AVAILABLE_INFRASTRUCTURE = [
     {
-        "name": "SQLDatabase",
+        "name": "CloudSQL",
         "namespace": "External",
-        "description": "A SQL database. Used with datamodels.",
+        "description": "A Google Cloud SQL database. Used with datamodels.",
         "utility_functions": [
             Function(
                 name="get_sql_session",
@@ -53,9 +53,9 @@ AVAILABLE_INFRASTRUCTURE = [
         ],
     },
     {
-        "name": "FileStorage",
+        "name": "CloudStorage",
         "namespace": "External",
-        "description": "A GCS bucket to save/read files.",
+        "description": "A Google Cloud Storage bucket to save/read files.",
         "utility_functions": [
             Function(
                 name="get_gcs_bucket",
@@ -68,14 +68,14 @@ AVAILABLE_INFRASTRUCTURE = [
         ],
     },
     {
-        "name": "TaskQueue",
+        "name": "CloudTasks",
         "namespace": "External",
-        "description": "A task queue. IMPORTANT: You must have a valid endpoint to execute your task.",
+        "description": "Google Cloud Tasks infrastructure. IMPORTANT: To schedule a task you must have an http endpoint.",
         "utility_functions": [
             Function(
-                name="get_gcs_tasks_client",
+                name="get_gcp_tasks_client",
                 namespace="app.modassembly.tasks",
-                purpose="1) Initializes the GCS client. 2) Returns it.",
+                purpose="1) Initializes the Cloud Tasks client. 2) Returns it.",
                 dependencies=[],
                 is_endpoint=False,
                 pypi_packages=["google-cloud-tasks==2.18.0"],
@@ -83,14 +83,14 @@ AVAILABLE_INFRASTRUCTURE = [
         ],
     },
     {
-        "name": "CronJob",
+        "name": "CloudScheduler",
         "namespace": "External",
-        "description": "Cron jobs that can be scheduled. IMPORTANT: You must have a valid endpoint to execute your job.",
+        "description": "Google Cloud Scheduler cron jobs. IMPORTANT: To schedule a job you must have an http endpoint.",
         "utility_functions": [
             Function(
-                name="get_gcs_scheduler_client",
+                name="get_gcp_scheduler_client",
                 namespace="app.modassembly.scheduler",
-                purpose="1) Initializes the GCS client. 2) Returns it.",
+                purpose="1) Initializes the Cloud Scheduler client. 2) Returns it.",
                 dependencies=[],
                 is_endpoint=False,
                 pypi_packages=["google-cloud-scheduler==2.15.0"],
@@ -98,7 +98,7 @@ AVAILABLE_INFRASTRUCTURE = [
         ],
     },
     {
-        "name": "Email",
+        "name": "EmailClient",
         "namespace": "External",
         "description": "A very basic email client for sending emails.",
         "utility_functions": [

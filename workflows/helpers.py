@@ -1,10 +1,8 @@
-import importlib
 import json
 import os
 import pathlib
 import re
 import subprocess
-import venv
 from typing import Any, Dict, List, Set
 
 import matplotlib.pyplot as plt
@@ -38,8 +36,8 @@ MODASSEMBLY_COMPONENTS = {
     "app.main": "app/main.py",
     "app.modassembly.database.sql.get_sql_session": "app/modassembly/database/sql/get_sql_session.py",
     "app.modassembly.storage.get_gcs_bucket": "app/modassembly/storage/get_gcs_bucket.py",
-    "app.modassembly.tasks.get_gcs_tasks_client": "app/modassembly/tasks/get_gcs_tasks_client.py",
-    "app.modassembly.scheduler.get_gcs_scheduler_client": "app/modassembly/scheduler/get_gcs_scheduler_client.py",
+    "app.modassembly.tasks.get_gcp_tasks_client": "app/modassembly/tasks/get_gcp_tasks_client.py",
+    "app.modassembly.scheduler.get_gcp_scheduler_client": "app/modassembly/scheduler/get_gcp_scheduler_client.py",
     "app.modassembly.email.get_email_client": "app/modassembly/email/get_email_client.py",
     "app.modassembly.elasticsearch.get_elasticsearch_client": "app/modassembly/elasticsearch/get_elasticsearch_client.py",
 }
@@ -130,38 +128,6 @@ def create_app(
     return config
 
 
-class InstallRequirementsError(Exception):
-    pass
-
-
-def install_requirements(
-    app_name: str,
-    architecture: List[ImplementedComponent],
-) -> None:
-    pypi_packages = set()
-    for component in architecture:
-        pypi_packages.update(component.design.root.pypi_packages)
-    requirements_path = f"{REPOS}/{app_name}/requirements.txt"
-    with open(requirements_path, "w") as f:
-        f.write("\n".join(pypi_packages))
-
-    venv_path = f"{REPOS}/{app_name}/venv"
-    os.makedirs(venv_path, exist_ok=True)
-    venv.create(venv_path, with_pip=True)
-    venv_python = os.path.join(venv_path, "bin", "python3")
-    print_system("Installing requirements...")
-    output = subprocess.run(
-        [venv_python, "-m", "pip", "install", "-r", requirements_path],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    print_system(output.stdout)
-    print_system(output.stderr)
-    if output.returncode != 0:
-        raise InstallRequirementsError(f"{output.stdout}\n{output.stderr}")
-
-
 def get_architecture_to_update(
     saved_architecture: List[ImplementedComponent],
     new_architecture: List[ImplementedComponent],
@@ -217,9 +183,13 @@ def update_main(
     with open(f"{REPOS}/{app_name}/app/main.py", "r") as f:
         main_content = f.read()
     main_content += "\n"
+
     models = get_model_modules(app_name, [])
     for model in models:
         main_content += f"from {model.module} import {model.name}\n"
+
+    endpoints = []
+    main_component = None
     for component in architecture:
         if (
             isinstance(component.design.root, Function)
@@ -230,12 +200,19 @@ def update_main(
             router_name = extract_router_name(component.file.content)
             main_content += f"from {import_} import {router_name}\n"
             main_content += f"app.include_router({router_name})\n"
+            endpoints.append(component.design.key)
+        elif component.design.key == "app.main":
+            main_component = component
+    assert main_component
+    main_component.design.root.dependencies = endpoints
+
     if len(models) > 0:
         main_content += "\n# Database\n"
         main_content += (
             "\nfrom app.modassembly.database.sql.get_sql_session import Base, engine\n"
         )
         main_content += "Base.metadata.create_all(engine)\n"
+
     for component in architecture:
         if component.design.key == "app.main":
             assert component.file

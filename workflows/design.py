@@ -112,7 +112,7 @@ As you generate the json, it will be extracted and the component will be added/u
 
 There are three types of "design" components: infrastructures, datamodels and functions.
 
-Think of datamodels as data sinks. They mostly represent database tables but could also be used with document-based data. To add datamodels you must have the external infrastructure to support it first.
+Think of datamodels as data sinks. They represent database tables. To add datamodels you must first have the external infrastructure to support it.
 
 At some point, every component will be implemented into actual code (you don't have access to that code). All of it will be executed on Google Cloud Run, except for the infrastructures. Cloud Run is a servelerss container desgined for web applications. More complex infrastructure has to be run seperately. "infrastructure" represents all the external infrastructure that is part of your backend architecture but that won't be run on Cloud Run. Nonetheless, Cloud Run has access to it. It's analogous to the GCP infrastructure. You can use APIs directly.
 
@@ -167,7 +167,7 @@ def run(
     conversation.add_user(user_message)
     conversation.add_system(
         "Functions should map to less than 100 lines of code.\n"
-        "Remember to update all references in the architecture.",
+        "Remember to update the logic and the references in the entire architecture.",
         type_="reminder",
     )
 
@@ -220,10 +220,10 @@ def run(
                         component = Component.model_validate(json_)
                         if (
                             isinstance(component.root, DataModel)
-                            and "External.SQLDatabase" not in architecture
-                            and "External.FileStorage" not in architecture
-                            and "External.SQLDatabase" not in components_to_update
-                            and "External.FileStorage" not in components_to_update
+                            and "External.CloudSQL" not in architecture
+                            and "External.CloudStorage" not in architecture
+                            and "External.CloudSQL" not in components_to_update
+                            and "External.CloudStorage" not in components_to_update
                         ):
                             raise ValueError(
                                 f"Unable to {action} component :: {key} "
