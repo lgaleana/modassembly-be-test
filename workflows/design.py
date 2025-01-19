@@ -116,11 +116,11 @@ Think of datamodels as data sinks. They mostly represent database tables but the
 
 At some point, every component will be implemented into actual code (you don't have access to that code). All of it will be executed on Google Cloud Run, except for the infrastructures. Cloud Run is a servelerss container desgined for web applications. More complex infrastructure has to be run seperately. "infrastructure" represents all the external infrastructure that is part of your backend architecture but that won't be run on Cloud Run. Nonetheless, Cloud Run has access to it. It's analogous to the GCP infrastructure.
 
-What this means is that you must be careful about how you design your business logic. Keep it within the limitations of a web service. For anything else, rely on the available external infrastructure. As you add infrastructure, utility functions will be added so that your application can connect to it. Add the infrastructure first; then, the functionality.
+What this means is that you must be careful about how you design your business logic. Keep it within the limitations of a web service. For anything else, rely on the available external infrastructure. As you add infrastructure, utility functions will be added so that your application can connect to it.
 
-functions represent the business logic. The main goal is to design an architecture that is malleable, easy to refactor and easy to maintain. You will accomplish this by using modularity and the single responsibility principle. Each function should do one thing. No function should be mapped to more than 100 lines of code.
+functions represent the business logic. The main goal is to design an architecture that is malleable, easy to refactor and easy to maintain. You will accomplish this by using modularity and the single responsibility principle. Each function should do one thing.
 
-The `"dependencies"` attribute is VERY IMPORTANT. When each component is implemented into code, the order of implementation will be guided by it. Always update it."""
+The `"dependencies"` attribute is VERY IMPORTANT. As you add components, add them in the order of their dependencies. When each component is implemented into code, the order of implementation will be guided by them. Always update them."""
 
 
 def run(
@@ -156,15 +156,20 @@ def run(
             "`app.main` is reserved for internal use. You can't update it."
         )
 
+    conversation.remove_last_message_type("reminder")
     conversation.remove_last_message_type("architecture")
     conversation.add_system(
         f"Current architecture:\n\n{present_to_llm(list(architecture.values()))}\n\n"
         "Keep the business logic within the limitations of a web service.\n"
-        "To rename or move a component, first remove it and add it again.\n"
-        "VERY IMPORTANT: When updating a component, update all of its occurrence accross the architecture.",
+        "To rename or move a component, first remove it and add it again.",
         type_="architecture",
     )
     conversation.add_user(user_message)
+    conversation.add_system(
+        "Functions should map to less than 100 lines of code.\n"
+        "Remember to update all references in the architecture.",
+        type_="reminder",
+    )
 
     attempts = 0
     components_to_update = {}
@@ -202,14 +207,14 @@ def run(
                         raise ValueError(
                             f"Unable to {action} component :: {key} "
                             f"because it's reserved for internal use. "
-                            "You can't update it. Please try again."
+                            "You can't update it. Update everything again."
                         )
                     if action in [Action.UPDATE, Action.REMOVE]:
                         if key not in architecture:
                             raise ValueError(
                                 f"Unable to {action} component :: {key} "
                                 "because the component doesn't exist in the architecture. "
-                                "Please try again."
+                                "Update everything again."
                             )
                     if action in [Action.ADD, Action.UPDATE]:
                         component = Component.model_validate(json_)
@@ -223,7 +228,7 @@ def run(
                             raise ValueError(
                                 f"Unable to {action} component :: {key} "
                                 "because there is no infrastructure to support it. "
-                                "Please add the proper infrastructure first."
+                                "Update everything again."
                             )
                         component.root.dependencies = [
                             (
@@ -239,23 +244,28 @@ def run(
                                 dependency not in architecture
                                 and dependency not in components_to_update
                             ):
+                                print_system(components_to_update)
                                 raise ValueError(
                                     f"Unable to {action} component :: {component.key} "
                                     f"because the `dependency` :: {dependency} doesn't exist in the architecture. "
                                     "Add components in the order of their dependencies. "
-                                    "Please try again."
+                                    "Update everything again."
                                 )
                         if isinstance(component.root, Infrastructure):
                             for infra in AVAILABLE_INFRASTRUCTURE:
                                 if infra["name"] == component.root.name:
                                     utility_functions = infra["utility_functions"]
                                     for function_ in utility_functions:
+                                        print_system(function_.key)
                                         components_to_update[function_.key] = (
                                             ComponentToUpdate(
                                                 action=Action.ADD,
                                                 key=function_.key,
                                                 base=function_,
                                             )
+                                        )
+                                        conversation.add_system(
+                                            f"Will add :: {function_.key}."
                                         )
                                     break
                         if not isinstance(
@@ -275,7 +285,7 @@ def run(
                     if not component.key == "app.main":
                         conversation.add_system(
                             f"Will remove and add :: {component.key}."
-                            "\n\nRemember to user add/update/remove operations."
+                            "\n\nRemember to use add/update/remove operations."
                         )
                         jsons.append(
                             {
