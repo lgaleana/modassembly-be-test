@@ -70,7 +70,7 @@ AVAILABLE_INFRASTRUCTURE = [
     {
         "name": "TaskQueue",
         "namespace": "External",
-        "description": "Used to add tasks to a queue. IMPORTANT: You must have a valid endpoint to execute your task.",
+        "description": "A task queue. IMPORTANT: You must have a valid endpoint to execute your task.",
         "utility_functions": [
             Function(
                 name="get_gcs_tasks_client",
@@ -85,7 +85,7 @@ AVAILABLE_INFRASTRUCTURE = [
     {
         "name": "CronJob",
         "namespace": "External",
-        "description": "Used to schedule recurring jobs. IMPORTANT: You must have a valid endpoint to execute your job.",
+        "description": "Cron jobs that can be scheduled. IMPORTANT: You must have a valid endpoint to execute your job.",
         "utility_functions": [
             Function(
                 name="get_gcs_scheduler_client",
@@ -105,6 +105,21 @@ AVAILABLE_INFRASTRUCTURE = [
             Function(
                 name="get_email_client",
                 namespace="app.modassembly.email",
+                purpose="1) Initializes the client. Uses environment variables. 2) Returns it.",
+                dependencies=[],
+                is_endpoint=False,
+                pypi_packages=[],
+            )
+        ],
+    },
+    {
+        "name": "Elasticsearch",
+        "namespace": "External",
+        "description": "Elasticsearch infrastructure for indexing and retrieving documents.",
+        "utility_functions": [
+            Function(
+                name="get_elasticsearch_client",
+                namespace="app.modassembly.elasticsearch",
                 purpose="1) Initializes the client. Uses environment variables. 2) Returns it.",
                 dependencies=[],
                 is_endpoint=False,
