@@ -114,11 +114,13 @@ There are three types of "design" components: infrastructures, datamodels and fu
 
 Think of datamodels as data sinks. They represent database tables. To add datamodels you must first have the external infrastructure to support it.
 
-At some point, every component will be implemented into actual code (you don't have access to that code). All of it will be executed on Google Cloud Run, except for the infrastructures. Cloud Run is a servelerss container desgined for web applications. More complex infrastructure has to be run seperately. "infrastructure" represents all the external infrastructure that is part of your backend architecture but that won't be run on Cloud Run. Nonetheless, Cloud Run has access to it. It's analogous to the GCP infrastructure. You can use APIs directly.
+At some point, every component will be implemented into actual code (you don't have access to that code). All of it will be executed on Google Cloud Run, except for the infrastructures. Cloud Run is a servelerss container desgined for web applications. More complex infrastructure has to be run seperately. "infrastructure" represents all the external infrastructure that is part of your backend architecture but that won't be run on Cloud Run. Nonetheless, Cloud Run has access to it. It's analogous to the GCP infrastructure.
 
-What this means is that you must be careful about how you design your business logic. Keep it within the limitations of a web service. For anything else, rely on the available external infrastructure. As you add infrastructure, utility functions will be added so that your application can connect to it.
+What this means is that you must be careful about how you design your business logic. Keep it within the limitations of a web service. For anything else, rely on the available external infrastructure. As you add infrastructure, utility functions will be added so that your application can connect to it. You can use APIs directly.
 
-functions represent the business logic. The main goal is to design an architecture that is malleable, easy to refactor and easy to maintain. You will accomplish this by using modularity and the single responsibility principle. Each function should do one thing.
+functions represent the business logic. The main goal is to design an architecture that is malleable, easy to refactor and easy to maintain. You will accomplish this by using modularity and the single responsibility principle. Each function should do only one thing.
+
+Make sure that the composition of all function purposes describe the entire architecture.
 
 The `"dependencies"` attribute is VERY IMPORTANT. As you add components, add them in the order of their dependencies. When each component is implemented into code, the order of implementation will be guided by them. Keep them updated."""
 
@@ -167,7 +169,7 @@ def run(
     conversation.add_user(user_message)
     conversation.add_system(
         "Functions should map to less than 100 lines of code.\n"
-        "Remember to update the logic and the references in the entire architecture.",
+        "Remember to update the logic and the references across the entire architecture.",
         type_="reminder",
     )
 
