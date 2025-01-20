@@ -41,7 +41,7 @@ AVAILABLE_INFRASTRUCTURE = [
         "name": "CloudSQLDatabase",
         "namespace": "External",
         "description": "A Google Cloud SQL database. Used with datamodels.",
-        "utility_functions": [
+        "added_functions": [
             Function(
                 name="get_sql_session",
                 namespace="app.modassembly.database.sql",
@@ -56,11 +56,11 @@ AVAILABLE_INFRASTRUCTURE = [
         "name": "CloudStorageBucket",
         "namespace": "External",
         "description": "A Google Cloud Storage bucket to save/read files.",
-        "utility_functions": [
+        "added_functions": [
             Function(
                 name="get_gcs_bucket",
                 namespace="app.modassembly.storage",
-                purpose="1) Initializes the GCS client. 2) Creates a bucket if it doesn't exist. 3) Returns it.",
+                purpose="1) Initializes the GCS client. Uses the GCS_BUCKET environment variable. 2) Creates a bucket if it doesn't exist. 3) Returns it.",
                 dependencies=[],
                 is_endpoint=False,
                 pypi_packages=["google-cloud-storage==2.19.0"],
@@ -70,8 +70,8 @@ AVAILABLE_INFRASTRUCTURE = [
     {
         "name": "CloudTasksQueue",
         "namespace": "External",
-        "description": "A Google Cloud Tasks queue. IMPORTANT: Tasks get executed by an http endpoint.",
-        "utility_functions": [
+        "description": "A Google Cloud Tasks queue. IMPORTANT: Triggers an http endpoint.",
+        "added_functions": [
             Function(
                 name="get_gcp_tasks_client",
                 namespace="app.modassembly.tasks",
@@ -83,7 +83,7 @@ AVAILABLE_INFRASTRUCTURE = [
             Function(
                 name="get_gcp_tasks_queue",
                 namespace="app.modassembly.tasks",
-                purpose="1) Gets the Tasks queue. 2) Returns it.",
+                purpose="1) Gets the Tasks queue. Uses environment variables. 2) Returns it.",
                 dependencies=[],
                 is_endpoint=False,
                 pypi_packages=["google-cloud-tasks==2.18.0"],
@@ -91,25 +91,16 @@ AVAILABLE_INFRASTRUCTURE = [
         ],
     },
     {
-        "name": "CloudScheduler",
+        "name": "CloudSchedulerJob",
         "namespace": "External",
-        "description": "A Google Cloud Scheduler. IMPORTANT: Jobs get executed by an http endpoint.",
-        "utility_functions": [
-            Function(
-                name="get_gcp_scheduler_client",
-                namespace="app.modassembly.scheduler",
-                purpose="1) Initializes the Cloud Scheduler client. 2) Returns it.",
-                dependencies=[],
-                is_endpoint=False,
-                pypi_packages=["google-cloud-scheduler==2.15.0"],
-            )
-        ],
+        "description": "A Google Cloud Scheduler job. IMPORTANT: Triggers an http endpoint.",
+        "added_functions": [],
     },
     {
         "name": "EmailClient",
         "namespace": "External",
         "description": "A very basic email client for sending emails.",
-        "utility_functions": [
+        "added_functions": [
             Function(
                 name="get_email_client",
                 namespace="app.modassembly.email",

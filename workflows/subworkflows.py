@@ -182,10 +182,9 @@ def first_write(
     instructions = f"""Write the code for: {component.design.model_dump()}.
 
     Speficications:
-    - The code should work (no placeholders).
+    - The code should work E2E. Leave no placeholders.
     - Use absolute imports.
-    - Use appropriate typing in function arguments and return types.
-    - Pick the most simple implementation.
+    - Use typing in function arguments and return types.
     - Use environment variables instead of placeholders.
     - Don't catch exceptions unless specified. Let errors raise.\n"""
     if isinstance(component.design.root, Function):
@@ -206,8 +205,6 @@ def first_write(
     elif isinstance(component.design.root, DataModel):
         instructions += (
             "- Import Base from app.modassembly.database.sql.get_sql_session.\n"
-        )
-        instructions += (
             "- Only use `ForeignKey` if the other model exists in the architecture.\n"
         )
     instructions += "\n```python\n...\n```"

@@ -39,10 +39,11 @@ class Infrastructure(BaseModel):
         "CloudSQLDatabase",
         "CloudStorageBucket",
         "CloudTasksQueue",
-        "CloudScheduler",
+        "CloudSchedulerJob",
         "EmailClient",
     ]
     namespace: Literal["External"] = "External"
+    config: Dict[str, Any] = {}
     description: str = ""
     dependencies: List[str] = []
     pypi_packages: List[str] = []

@@ -38,7 +38,6 @@ MODASSEMBLY_COMPONENTS = {
     "app.modassembly.storage.get_gcs_bucket": "app/modassembly/storage/get_gcs_bucket.py",
     "app.modassembly.tasks.get_gcp_tasks_client": "app/modassembly/tasks/get_gcp_tasks_client.py",
     "app.modassembly.tasks.get_gcp_tasks_queue": "app/modassembly/tasks/get_gcp_tasks_queue.py",
-    "app.modassembly.scheduler.get_gcp_scheduler_client": "app/modassembly/scheduler/get_gcp_scheduler_client.py",
     "app.modassembly.email.get_email_client": "app/modassembly/email/get_email_client.py",
     "app.modassembly.elasticsearch.get_elasticsearch_client": "app/modassembly/elasticsearch/get_elasticsearch_client.py",
 }

@@ -61,6 +61,7 @@ The entire architecture will be hosted on Google Cloud Platform. The core of the
         "type": "infrastructure",
         "name": "The name of the infrastructure",
         "namespace" = "External" (only valid value)
+        "config": {{"The configuration of the infrastructure"}}
     }},
     {{
         "type": "datamodel",
@@ -114,13 +115,11 @@ There are three types of "design" components: infrastructures, datamodels and fu
 
 Think of datamodels as data sinks. They represent database tables. To add datamodels you must first have the external infrastructure to support it.
 
-At some point, every component will be implemented into actual code (you don't have access to that code). All of it will be executed on Google Cloud Run, except for the infrastructures. More complex infrastructure has to be run seperately. "infrastructure" represents all the external infrastructure that is part of your backend architecture but that won't be run on Cloud Run. It's analogous to the GCP infrastructure.
+At some point, every component will be implemented into actual code (you don't have access to that code). All of it will be executed on Google Cloud Run, except for the infrastructures. Cloud Run is a servelerss container desgined for web applications. More complex infrastructure has to be run seperately. "infrastructure" represents all the external infrastructure that is part of your backend architecture but that won't be run on Cloud Run. Nonetheless, Cloud Run has access to it. It's analogous to the GCP infrastructure.
 
-What this means is that you must be careful about how you design your business logic. Keep it within the limitations of a web service. For anything else, rely on the available external infrastructure. As you add infrastructure, utility functions will be added so that your application can connect to it. You can use APIs directly.
+What this means is that you must be careful about how you design your business logic. Keep it within the limitations of a web service. For anything else, rely on the available external infrastructure. As you add infrastructure, utility functions will be added for you so that your application can connect to it. You can use APIs directly.
 
 functions represent the business logic. The main goal is to design an architecture that is malleable, easy to refactor and easy to maintain. You will accomplish this by using modularity and the single responsibility principle. Each function should do only one thing.
-
-Make sure that the composition of all function purposes describe the entire architecture.
 
 The `"dependencies"` attribute is VERY IMPORTANT. As you add components, add them in the order of their dependencies. When each component is implemented into code, the order of implementation will be guided by the dependencies. Always update them."""
 
@@ -144,9 +143,8 @@ def run(
                 {
                     "name": i["name"],
                     "namespace": i["namespace"],
-                    "utility_functions": [
-                        c.model_dump() for c in i["utility_functions"]
-                    ],
+                    "description": i["description"],
+                    "added_functions": [c.model_dump() for c in i["added_functions"]],
                 }
                 for i in AVAILABLE_INFRASTRUCTURE
             ],
@@ -169,7 +167,7 @@ def run(
     conversation.add_user(user_message)
     conversation.add_system(
         "Functions should map to less than 100 lines of code.\n"
-        "Remember to update the logic and the references across the entire architecture.",
+        "Remember to update purposes and dependencies across the entire architecture.",
         type_="reminder",
     )
 
@@ -192,7 +190,7 @@ def run(
             continue
 
         try:
-            for json_ in jsons:
+            for i, json_ in enumerate(jsons):
                 if isinstance(json_, List):
                     for j in json_:
                         jsons.append(j)
@@ -209,14 +207,13 @@ def run(
                         raise ValueError(
                             f"Unable to {action} component :: {key} "
                             f"because it's reserved for internal use. "
-                            "You can't update it. Update everything again."
+                            "You can't update it."
                         )
                     if action in [Action.UPDATE, Action.REMOVE]:
                         if key not in architecture:
                             raise ValueError(
                                 f"Unable to {action} component :: {key} "
-                                "because the component doesn't exist in the architecture. "
-                                "Update everything again."
+                                "because the component doesn't exist in the architecture."
                             )
                     if action in [Action.ADD, Action.UPDATE]:
                         component = Component.model_validate(json_)
@@ -225,12 +222,12 @@ def run(
                             and "External.CloudSQLDatabase" not in architecture
                             and "External.CloudStorageBucket" not in architecture
                             and "External.CloudSQLDatabase" not in components_to_update
-                            and "External.CloudStorageBucket" not in components_to_update
+                            and "External.CloudStorageBucket"
+                            not in components_to_update
                         ):
                             raise ValueError(
                                 f"Unable to {action} component :: {key} "
-                                "because there is no infrastructure to support it. "
-                                "Update everything again."
+                                "because there is no infrastructure to support it."
                             )
                         component.root.dependencies = [
                             (
@@ -249,14 +246,13 @@ def run(
                                 raise ValueError(
                                     f"Unable to {action} component :: {component.key} "
                                     f"because the `dependency` :: {dependency} doesn't exist in the architecture. "
-                                    "Add components in the order of their dependencies. "
-                                    "Update everything again."
+                                    "Add components in the order of their dependencies."
                                 )
                         if isinstance(component.root, Infrastructure):
                             for infra in AVAILABLE_INFRASTRUCTURE:
                                 if infra["name"] == component.root.name:
-                                    utility_functions = infra["utility_functions"]
-                                    for function_ in utility_functions:
+                                    added_functions = infra["added_functions"]
+                                    for function_ in added_functions:
                                         components_to_update[function_.key] = (
                                             ComponentToUpdate(
                                                 action=Action.ADD,
@@ -310,7 +306,10 @@ def run(
                 components_to_update = {}
                 raise e
             print_system(f"{type(e).__name__}({str(e)})")
-            conversation.add_system(f"{type(e).__name__}({str(e)})")
+            conversation.add_system(
+                f"ERROR :: {e}\nSkipped :: " + ", ".join(j["name"] for j in jsons)
+            )
+            conversation.add_user("There was an error. Please try again.")
             continue
 
         for component in components_to_update.values():
