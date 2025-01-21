@@ -3,8 +3,8 @@ from typing import Any, Dict, List
 
 from utils.config.architecture import (
     Component,
-    DataModel,
     Function,
+    Infrastructure,
     ImplementedComponent,
     save_config,
 )
@@ -12,6 +12,15 @@ from utils.config.architecture import (
 
 initial_config = {
     "architecture": [
+        ImplementedComponent(
+            design=Component(
+                root=Infrastructure(
+                    name="CloudRun",
+                    namespace="External",
+                    config={},
+                )
+            )
+        ),
         ImplementedComponent(
             design=Component(
                 Function(
@@ -38,7 +47,13 @@ initial_config = {
 
 AVAILABLE_INFRASTRUCTURE = [
     {
-        "name": "CloudSQLDatabase",
+        "name": "CloudRun",
+        "namespace": "External",
+        "description": "A Google Cloud Run web service.",
+        "added_functions": [],
+    },
+    {
+        "name": "CloudSQL",
         "namespace": "External",
         "description": "A Google Cloud SQL database. Used with datamodels.",
         "added_functions": [
@@ -53,7 +68,7 @@ AVAILABLE_INFRASTRUCTURE = [
         ],
     },
     {
-        "name": "CloudStorageBucket",
+        "name": "CloudStorage",
         "namespace": "External",
         "description": "A Google Cloud Storage bucket to save/read files.",
         "added_functions": [
@@ -68,7 +83,7 @@ AVAILABLE_INFRASTRUCTURE = [
         ],
     },
     {
-        "name": "CloudTasksQueue",
+        "name": "CloudTasks",
         "namespace": "External",
         "description": "A Google Cloud Tasks queue. IMPORTANT: Triggers an http endpoint.",
         "added_functions": [
@@ -91,7 +106,7 @@ AVAILABLE_INFRASTRUCTURE = [
         ],
     },
     {
-        "name": "CloudSchedulerJob",
+        "name": "CloudScheduler",
         "namespace": "External",
         "description": "A Google Cloud Scheduler job. IMPORTANT: Triggers an http endpoint.",
         "added_functions": [],

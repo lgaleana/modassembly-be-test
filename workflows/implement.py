@@ -103,13 +103,13 @@ def run(app_name: str, user: str) -> Dict[str, Any]:
         repo=repo_name,
     )
 
+    save_config(config)
     conversation = Conversation.load(app_name, user)
     if len(conversation) > 0:
         conversation.add_system(
             "Implementing the architecture... Done.", type_="implementation"
         )
         conversation.persist(app_name, user)
-    save_config(config)
     print_system(config["github"])
 
     if user != "lgaleana":

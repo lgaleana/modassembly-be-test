@@ -1,4 +1,3 @@
-from datetime import datetime
 import json
 from copy import deepcopy
 from typing import Any, Dict, List, Optional
@@ -80,19 +79,15 @@ class Conversation(List[Dict[str, Any]]):
     def empty(self) -> bool:
         return len(self) == 0
 
-    def persist(self, app_name: str, user: str) -> None:
-        with open(f"{REPOS}/{user}_{app_name}/conversation.json", "w") as file:
+    def persist(self, app_name: str, user: str, *, name: str = "conversation") -> None:
+        with open(f"{REPOS}/{user}_{app_name}/{name}.json", "w") as file:
             json.dump(self, file, indent=4)
 
     def count_tokens(self) -> int:
         return sum(count_tokens(m["content"]) for m in self)
 
     @staticmethod
-    def load(app_name: str, user: str) -> "Conversation":
-        with open(f"{REPOS}/{user}_{app_name}/conversation.json", "r") as file:
+    def load(app_name: str, user: str, *, name: str = "conversation") -> "Conversation":
+        with open(f"{REPOS}/{user}_{app_name}/{name}.json", "r") as file:
             payload = json.load(file)
         return Conversation(payload)
-
-
-def get_time_name() -> str:
-    return datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
