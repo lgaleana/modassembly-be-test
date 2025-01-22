@@ -5,9 +5,11 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import json
 
+from ai import llm
 from app.logging.get_user_activity_logs import get_user_activity_logs
 from app.models.User import User
 from utils.config.architecture import ImplementedComponent
+from utils.state import Conversation
 from web.modassembly_web.app.modassembly.authentication.authenticate import authenticate
 from workflows import brainstorm
 from workflows import design

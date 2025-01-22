@@ -132,7 +132,9 @@ Infrastructure represents the GCP infrastructure. Deploying infrastructure is ex
 
 Data models and functions will be executed on Google Cloud Run as a FastAPI. Cloud Run is a servelerss container desgined for web applications. Keep the business logic within the limitations of a web service. As you add infrastructure, utility functions will be added for you so that your application can connect to it.
 
-Functions represent the business logic. Design an architecture that is malleable, easy to refactor and easy to maintain. Functions should map to less than 100 lines of code. `app.main` and `app.modassembly` are reserved for internal use. You can't update them."""
+Functions represent the business logic. Design an architecture that is malleable, easy to refactor and easy to maintain. Functions should map to less than 100 lines of code. Use python naming conventions. `app.main` and `app.modassembly` are reserved for internal use. You can't update them.
+
+Update components with less dependencies first."""
 
 
 def run(
@@ -158,18 +160,34 @@ def run(
     )
     if message_type:
         conversation.add_user(
-            f"Consider the following proposal:"
-            f"\n\n{user_message}\n\n"
-            "Identify all the flows that start with an http request and end with an http response. "
-            "Each step representes a component. Each component depends on each other. "
-            "For each flow, identify the dependencies in the following format:\n"
-            "Flow1 -> component1, ...\n...",
+            f"""Consider the following proposal for a web service:
+
+{user_message}
+
+Identify all the flows that start with an http request and end with an http response. 
+Identify the infrastructure and data models.
+Identify the steps in the flow that should map to functions.
+Identify the dependencies in the following format:
+- component1 uses component2, component3, ...
+- component2 uses component3, component4, ...
+- ...
+
+Go!""",
             type_=message_type,
         )
-        conversation.add_assistant(llm.stream_text(conversation), type_="reasoning")
+        conversation.add_assistant(
+            llm.stream_text(conversation),
+            type_="instruction",
+        )
+        conversation.add_user(
+            "Update components with less dependencies first. Generate the jsons. Go!",
+            type_="instruction",
+        )
     else:
         conversation.add_user(user_message)
-    conversation.add_user("Now generate the jsons. Go!", type_="instruction")
+        conversation.add_user(
+            "Focus on updating/removing components.", type_="instruction"
+        )
 
     attempts = 0
     components_to_update = {}
@@ -316,8 +334,7 @@ def run(
                 delete_file_for_key(component.key, user, app_name)
         config["architecture"] = list(architecture.values())
         save_config(config)
-        conversation.remove_last_message_type("reasoning")
-        conversation.remove_last_message_type("instruction")
+        conversation.remove_all_message_type("instruction")
         conversation.persist(app_name, user, name="conversation_architecture")
 
         if user != "lgaleana":

@@ -73,6 +73,11 @@ class Conversation(List[Dict[str, Any]]):
                 del self[i]
                 break
 
+    def remove_all_message_type(self, type_: str) -> None:
+        for i in range(len(self) - 1, -1, -1):
+            if self[i].get("type") == type_:
+                del self[i]
+
     def copy(self) -> "Conversation":
         return deepcopy(self)
 
