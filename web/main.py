@@ -19,6 +19,8 @@ from app.modassembly.database.sql.get_sql_session import (
     engine,
 )
 from web.endpoints.app import router as app_router
+from web.endpoints.config import router as config_router
+from web.endpoints.conversation import router as conversation_router
 from web.endpoints.design import router as design_router
 from web.endpoints.implement import router as implement_router
 
@@ -33,6 +35,8 @@ app.add_middleware(
 )
 
 app.include_router(app_router, prefix="/app")
+app.include_router(config_router, prefix="/config")
+app.include_router(conversation_router, prefix="/conversation")
 app.include_router(design_router, prefix="/design")
 app.include_router(implement_router, prefix="/implement")
 app.include_router(login_router, prefix="")

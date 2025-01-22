@@ -94,13 +94,16 @@ def create_app(
         raise ValueError(f"Repository {repo_name} already exists")
 
     os.mkdir(f"{REPOS}/{repo_name}")
-    Conversation().persist(app_name, user)
     with open(f"{REPOS}/fastapi-template/.gitignore", "r") as f1, open(
         f"{REPOS}/{repo_name}/.gitignore", "w"
     ) as f2:
         content = f1.read()
         content = f"{content}\nDockerfile\ndeploy.sh\n"
         f2.write(content)
+
+    Conversation().persist(app_name, user)
+    Conversation().persist(app_name, user, name="conversation_brainstorm")
+    Conversation().persist(app_name, user, name="conversation_architecture")
 
     print_system("Initializing git and github...")
     github_url = create_github_repository(repo_name)

@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 from dotenv import load_dotenv
 from pydantic import BaseModel
@@ -123,13 +123,13 @@ To rename or move a component, first remove it and add it again.
 
 There are three types of components: infrastructures, datamodels and functions.
 
-Infrastructure represent the GCP infrastructure.
-
-At some point, data models and functions will be implemented into actual code (you don't have access to that code). They will be executed on Google Cloud Run as a FastAPI. Cloud Run is a servelerss container desgined for web applications. What this means is that you must be careful about how you design your business logic. Keep it within the limitations of a web service. For anything else, rely on the other infrastructure. Available infrastructure:
+Infrastructure represent the GCP infrastructure. Available infrastructure:
 
 ```json
 {INFRASTRUCTURE}
 ```
+
+At some point, data models and functions will be implemented into actual code (you don't have access to that code). They will be executed on Google Cloud Run as a FastAPI. Cloud Run is a servelerss container desgined for web applications. What this means is that you must be careful about how you design your business logic. Keep it within the limitations of a web service. For anything else, rely on the other infrastructure.
 
 Think of data models as data sinks. They represent database tables.
 
@@ -140,9 +140,11 @@ def run(
     app_name: str,
     user: str,
     user_message: str,
-) -> Dict[str, Any]:
+    *,
+    message_type: Optional[str] = None,
+) -> Tuple[Dict[str, Any], Conversation]:
     config = load_config(app_name, user)
-    conversation = Conversation.load(app_name, user, name="conversation_design")
+    conversation = Conversation.load(app_name, user, name="conversation_architecture")
 
     architecture = {c.design.root.key: c for c in config["architecture"]}
 
@@ -155,7 +157,14 @@ def run(
         f"Current architecture:\n\n{present_to_llm(list(architecture.values()))}",
         type_="architecture",
     )
-    conversation.add_user(user_message)
+    if message_type:
+        conversation.add_user(user_message, type_=message_type)
+        conversation.add_user(
+            "Update the logic and the dependencies (except app.main) across the entire architecture. Go.",
+            type_="instruction",
+        )
+    else:
+        conversation.add_user(user_message)
 
     attempts = 0
     components_to_update = {}
@@ -172,10 +181,8 @@ def run(
                 raise e
             components_to_update = {}
             print_system(f"{type(e).__name__}({str(e)})")
-            conversation.add_system(
-                f"ERROR :: {e}\nSkipped :: " + ", ".join(j["name"] for j in jsons)
-            )
-            conversation.add_user("There was an error. Update everything again.")
+            conversation.add_system(f"ERROR :: {e}\n\nSkipping all changes.")
+            conversation.add_user("There was an error. Please try again.")
             continue
 
         try:
@@ -288,10 +295,8 @@ def run(
                 raise e
             components_to_update = {}
             print_system(f"{type(e).__name__}({str(e)})")
-            conversation.add_system(
-                f"ERROR :: {e}\nSkipped :: " + ", ".join(j["name"] for j in jsons)
-            )
-            conversation.add_user("There was an error. Update everything again.")
+            conversation.add_system(f"ERROR :: {e}\n\nSkipping all changes.")
+            conversation.add_user("There was an error. Try again.")
             continue
 
         for component in components_to_update.values():
@@ -306,7 +311,8 @@ def run(
                 delete_file_for_key(component.key, user, app_name)
         config["architecture"] = list(architecture.values())
         save_config(config)
-        conversation.persist(app_name, user, name="conversation_design")
+        conversation.remove_last_message_type("instruction")
+        conversation.persist(app_name, user, name="conversation_architecture")
 
         if user != "lgaleana":
             log_user_activity(
@@ -325,4 +331,4 @@ def run(
                 },
             )
 
-        return config
+        return config, conversation
