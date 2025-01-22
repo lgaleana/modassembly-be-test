@@ -15,7 +15,7 @@ from workflows import brainstorm
 from workflows import design
 
 
-CHAT_LIMIT = 100
+CHAT_LIMIT = 50
 MAP_LIMIT = 50
 
 
