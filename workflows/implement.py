@@ -84,7 +84,7 @@ def run(app_name: str, user: str) -> Dict[str, Any]:
             )
 
     update_main(repo_name, architecture)
-    # update_architecture_dependencies(architecture)
+    update_architecture_dependencies(architecture)
 
     git_convo = conversation.copy()
     git_convo.add_user("Give me a one line commit message for the changes. Go: ...")

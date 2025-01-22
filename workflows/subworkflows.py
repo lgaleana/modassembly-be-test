@@ -20,6 +20,7 @@ from workflows.helpers import (
 from utils.files import File, create_folders_if_not_exist
 from utils.io import print_system
 from utils.state import Conversation
+from utils.static_analysis import RouterNotFoundError, extract_router_name
 
 
 def save_templates(
@@ -129,11 +130,11 @@ def write_component(
             f.write(code)
 
         run_mypy(app_name, file_path)
-        # if (
-        #     isinstance(component.design.root, Function)
-        #     and component.design.root.is_endpoint
-        # ):
-        #     extract_router_name(code)
+        if (
+            isinstance(component.design.root, Function)
+            and component.design.root.is_endpoint
+        ):
+            extract_router_name(code)
         # elif isinstance(component.design.root, DBModel):
         #     create_tables(app_name, code)
 
@@ -146,7 +147,7 @@ def write_component(
     except (
         MultipleCodeBlocksError,
         MypyError,
-        # RouterNotFoundError,
+        RouterNotFoundError,
         # ModelImplementationError,
     ) as e:
         print_system(

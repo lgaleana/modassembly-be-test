@@ -102,17 +102,6 @@ def save_config(config: Dict[str, Any]) -> None:
         )
 
 
-def present_to_llm(architecture: List[ImplementedComponent]) -> str:
-    components = []
-    for component in architecture:
-        design = component.design.root
-        components.append(f"{design.type}: {design.key}")
-        if isinstance(design, (Function, DataModel)):
-            components.append("  Dependencies: " + ", ".join(design.dependencies))
-        components.append("")
-    return "\n".join(components)
-
-
 def update_architecture_diff(
     architecture: List[ImplementedComponent],
     architecture_diff: List[ImplementedComponent],

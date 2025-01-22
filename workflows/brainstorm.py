@@ -1,4 +1,4 @@
-from typing import Iterator
+from typing import Iterator, List
 
 from dotenv import load_dotenv
 
@@ -7,11 +7,24 @@ load_dotenv()
 from ai import llm
 from app.logging.log_user_activity import log_user_activity
 from utils.config.architecture import (
+    DataModel,
+    Function,
+    ImplementedComponent,
     load_config,
-    present_to_llm,
 )
 from utils.config.initial import AVAILABLE_INFRASTRUCTURE
 from utils.state import Conversation
+
+
+def present_to_llm(architecture: List[ImplementedComponent]) -> str:
+    components = []
+    for component in architecture:
+        design = component.design.root
+        components.append(f"{design.type}: {design.key}")
+        if isinstance(design, (Function, DataModel)):
+            components.append("  Dependencies: " + ", ".join(design.dependencies))
+        components.append("")
+    return "\n".join(components)
 
 
 INFRASTRUCTURE = "\n".join(
@@ -29,14 +42,7 @@ The main logic will be executed on Google Cloud Run as a FastAPI. Cloud Run is a
 
 Work with the user to design a backend system. Discuss product features instead of infrastructure. Avoid showing code. Be opinionated and specific. Start small.
 
-It's very useful to focus on E2E user flows. For each flow, use the following format:
-
-...:
-1. ...
-2. ...
-...
-
-..."""
+It's very useful to focus on the E2E flow of a request."""
 
 
 def run(

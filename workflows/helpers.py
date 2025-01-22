@@ -227,7 +227,10 @@ def update_main(
 
 def update_architecture_dependencies(architecture: List[ImplementedComponent]) -> None:
     for component in architecture:
-        if isinstance(component.design.root, Infrastructure):
+        if (
+            isinstance(component.design.root, Infrastructure)
+            or component.design.key == "app.main"
+        ):
             continue
         assert component.file
         imports = extract_imports(component.file.content)

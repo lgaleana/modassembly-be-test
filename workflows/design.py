@@ -15,7 +15,6 @@ from utils.config.architecture import (
     ImplementedComponent,
     Infrastructure,
     load_config,
-    present_to_llm,
     save_config,
 )
 from utils.config.initial import AVAILABLE_INFRASTRUCTURE
@@ -38,6 +37,10 @@ class ComponentToUpdate(BaseModel):
     action: Literal["update", "remove"]
     key: str
     base: Optional[Component]
+
+
+def present_to_llm(architecture: List[ImplementedComponent]) -> str:
+    return json.dumps([c.design.model_dump() for c in architecture])
 
 
 def delete_file_for_key(key: str, user: str, app_name: str) -> None:
@@ -130,11 +133,11 @@ Infrastructure represents the GCP infrastructure. Deploying infrastructure is ex
 {INFRASTRUCTURE}
 ```
 
-Data models and functions will be executed on Google Cloud Run as a FastAPI. Cloud Run is a servelerss container desgined for web applications. Keep the business logic within the limitations of a web service. As you add infrastructure, utility functions will be added for you so that your application can connect to it.
+Data models and functions will be executed on Google Cloud Run as a FastAPI. Keep the business logic within the limitations of a web service. As you add infrastructure, utility functions will be added for you so that your application can connect to it.
 
 Functions represent the business logic. Design an architecture that is malleable, easy to refactor and easy to maintain. Functions should map to less than 100 lines of code. Use python naming conventions. `app.main` and `app.modassembly` are reserved for internal use. You can't update them.
 
-Update components with less dependencies first."""
+Update components in the order of less to more dependencies."""
 
 
 def run(
@@ -160,27 +163,23 @@ def run(
     )
     if message_type:
         conversation.add_user(
-            f"""Consider the following proposal for a web service:
-
-{user_message}
-
-Identify all the flows that start with an http request and end with an http response. 
-Identify the infrastructure and data models.
-Identify the steps in the flow that should map to functions.
-Identify the dependencies in the following format:
-- component1 uses component2, component3, ...
-- component2 uses component3, component4, ...
-- ...
-
-Go!""",
+            user_message,
             type_=message_type,
+        )
+        conversation.add_user(
+            f"""Consider the proposal above to update the architecture.
+Explain each flow that starts with an http request and ends with an http response.
+In one sentence, name the infrastructures and the datamodels.
+Identify the steps in the flow that should map to functions.
+Internally, each function uses the next function.""",
+            type_="instruction",
         )
         conversation.add_assistant(
             llm.stream_text(conversation),
             type_="instruction",
         )
         conversation.add_user(
-            "Update components with less dependencies first. Generate the jsons. Go!",
+            "Generate the jsons. Go!",
             type_="instruction",
         )
     else:
