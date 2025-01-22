@@ -44,7 +44,7 @@ class Infrastructure(BaseModel):
         "EmailClient",
     ]
     namespace: Literal["External"] = "External"
-    config: Dict[str, Any]
+    config: Dict[str, Any] = {}
     description: str = ""
     dependencies: List[str] = []
     pypi_packages: List[str] = []

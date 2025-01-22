@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Union, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Union, Tuple
 
 import json
 from pydantic import BaseModel
@@ -89,7 +89,7 @@ def stream_next(
         first_chunk = next(response)
 
     if first_chunk.choices[0].delta.content is not None:
-        output, usage = _collect_text(first_chunk, response)
+        output = "".join(_collect_text(first_chunk, response))
     else:
         output, usage = _collect_tool(first_chunk, response)
 
@@ -112,7 +112,7 @@ def stream_text(
 
     assert first_chunk.choices[0].delta.content is not None
 
-    output, usage = _collect_text(first_chunk, response)
+    output = "".join(_collect_text(first_chunk, response))
     return output
 
 
@@ -145,21 +145,34 @@ def stream(
     return stream_text(messages, model, temperature)
 
 
+def iterate_text(
+    messages,
+    model: Optional[str] = None,
+    temperature: Optional[float] = None,
+) -> Iterator[str]:
+    response = _generate(messages, model, temperature, tools=[])
+
+    first_chunk = next(response)
+    while (
+        first_chunk.choices[0].delta.content is None
+        and first_chunk.choices[0].delta.tool_calls is None
+    ):
+        first_chunk = next(response)
+
+    assert first_chunk.choices[0].delta.content is not None
+    return _collect_text(first_chunk, response)
+
+
 def _collect_text(
     first_chunk: ChatCompletionChunk, chunks: Stream[ChatCompletionChunk]
-) -> Tuple[str, CompletionUsage]:
-    message = first_chunk.choices[0].delta.content or ""
-    usage = None
-    print_assistant(message, end="", flush=True)
+) -> Iterator[str]:
+    yield first_chunk.choices[0].delta.content or ""
+    print_assistant(first_chunk.choices[0].delta.content or "", end="", flush=True)
     for chunk in chunks:
-        if chunk.usage:
-            usage = chunk.usage
         if chunk.choices and chunk.choices[0].delta.content is not None:
-            message += chunk.choices[0].delta.content
+            yield chunk.choices[0].delta.content
             print_assistant(chunk.choices[0].delta.content, end="", flush=True)
     print_assistant()
-    assert usage
-    return message, usage
 
 
 def _collect_tool(

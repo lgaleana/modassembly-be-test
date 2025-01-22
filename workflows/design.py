@@ -71,7 +71,6 @@ The entire system will be hosted on Google Cloud Platform. The architecture is r
         "type": "infrastructure",
         "name": "The name of the infrastructure",
         "namespace" = "External" (only valid value)
-        "config": {{"The configuration of the infrastructure"}}
     }},
     {{
         "type": "datamodel",
@@ -83,16 +82,16 @@ The entire system will be hosted on Google Cloud Platform. The architecture is r
                     "purpose": "What the field is used for, important remarks, etc."
             }}
         ],
-        "dependencies": ["The other namespace.datamodels that the model is associated with"],
-        "pypi_packages": ["The pypi packages that the datamodel will need"]
+        "dependencies": ["The other namespace.datamodels that the model is associated with."],
+        "pypi_packages": ["The pypi packages that the datamodel will need."]
     }},
     {{
        "type": "function",
         "name": "The name of the function",
         "namespace": "The virtual location of the code. Use a dot notation.",
-        "purpose": "What the function does, step by step. Ie: 1) ... 2) ... Each step is equivalent to a couple lines of code.",
-        "dependencies": ["The other namespace.functions or namespace.datamodels that the code depends on"],
-        "pypi_packages": ["The pypi packages that the function will need"],
+        "purpose": "What the function does, step by step. Ie: 1) ... 2) ...",
+        "dependencies": ["The other namespace.functions or namespace.datamodels that the code depends on."],
+        "pypi_packages": ["The pypi packages that the function will need."],
         "is_endpoint": true or false whether this is a FastAPI endpoint
     }}
     ...
@@ -123,17 +122,17 @@ To rename or move a component, first remove it and add it again.
 
 There are three types of components: infrastructures, datamodels and functions.
 
-Infrastructure represent the GCP infrastructure. Available infrastructure:
+Think of data models as data sinks. They represent database tables. To add datamodels you must first have the external infrastructure to support it.
+
+Infrastructure represents the GCP infrastructure. Deploying infrastructure is expensive. Select the absolute necessary.
 
 ```json
 {INFRASTRUCTURE}
 ```
 
-At some point, data models and functions will be implemented into actual code (you don't have access to that code). They will be executed on Google Cloud Run as a FastAPI. Cloud Run is a servelerss container desgined for web applications. What this means is that you must be careful about how you design your business logic. Keep it within the limitations of a web service. For anything else, rely on the other infrastructure.
+Data models and functions will be executed on Google Cloud Run as a FastAPI. Cloud Run is a servelerss container desgined for web applications. Keep the business logic within the limitations of a web service. As you add infrastructure, utility functions will be added for you so that your application can connect to it.
 
-Think of data models as data sinks. They represent database tables.
-
-Functions represent the business logic. The main goal is to design an architecture that is malleable, easy to refactor and easy to maintain. You will accomplish this by using modularity and the single responsibility principle. Each function should do only one thing. Functions should map to less than 100 lines of code. Use python naming conventions. `app.main` is reserved for internal use. You can't update it."""
+Functions represent the business logic. Design an architecture that is malleable, easy to refactor and easy to maintain. Functions should map to less than 100 lines of code. `app.main` and `app.modassembly` are reserved for internal use. You can't update them."""
 
 
 def run(
@@ -153,18 +152,24 @@ def run(
         conversation.add_system(PROMPT)
 
     conversation.remove_last_message_type("architecture")
-    conversation.add_user(
+    conversation.add_system(
         f"Current architecture:\n\n{present_to_llm(list(architecture.values()))}",
         type_="architecture",
     )
     if message_type:
-        conversation.add_user(user_message, type_=message_type)
         conversation.add_user(
-            "Update the logic and the dependencies (except app.main) across the entire architecture. Go.",
-            type_="instruction",
+            f"Consider the following proposal:"
+            f"\n\n{user_message}\n\n"
+            "Identify all the flows that start with an http request and end with an http response. "
+            "Each step representes a component. Each component depends on each other. "
+            "For each flow, identify the dependencies in the following format:\n"
+            "Flow1 -> component1, ...\n...",
+            type_=message_type,
         )
+        conversation.add_assistant(llm.stream_text(conversation), type_="reasoning")
     else:
         conversation.add_user(user_message)
+    conversation.add_user("Now generate the jsons. Go!", type_="instruction")
 
     attempts = 0
     components_to_update = {}
@@ -311,6 +316,7 @@ def run(
                 delete_file_for_key(component.key, user, app_name)
         config["architecture"] = list(architecture.values())
         save_config(config)
+        conversation.remove_last_message_type("reasoning")
         conversation.remove_last_message_type("instruction")
         conversation.persist(app_name, user, name="conversation_architecture")
 

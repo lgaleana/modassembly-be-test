@@ -30,12 +30,12 @@ initial_config = {
                     dependencies=["Other datamodels or functions"],
                     is_endpoint=False,
                     pypi_packages=[
-                        "fastapi==0.115.6",
-                        "mypy==1.14.0",
-                        "pydantic==2.10.4",
-                        "python-dotenv==1.0.1",
-                        "python-multipart==0.0.20",
-                        "uvicorn==0.34.0",
+                        "fastapi",
+                        "mypy",
+                        "pydantic",
+                        "python-dotenv",
+                        "python-multipart",
+                        "uvicorn",
                     ],
                 )
             )
@@ -63,7 +63,7 @@ AVAILABLE_INFRASTRUCTURE = [
                 purpose="1) Initializes the Postgres database. Uses the DB_URL environment variable. 2) Gets a session.",
                 dependencies=[],
                 is_endpoint=False,
-                pypi_packages=["psycopg2-binary==2.9.10", "sqlalchemy==2.0.36"],
+                pypi_packages=["psycopg2-binary", "sqlalchemy"],
             )
         ],
     },
@@ -78,7 +78,7 @@ AVAILABLE_INFRASTRUCTURE = [
                 purpose="1) Initializes the GCS client. Uses the GCS_BUCKET environment variable. 2) Creates a bucket if it doesn't exist. 3) Returns it.",
                 dependencies=[],
                 is_endpoint=False,
-                pypi_packages=["google-cloud-storage==2.19.0"],
+                pypi_packages=["google-cloud-storage"],
             )
         ],
     },
@@ -93,7 +93,7 @@ AVAILABLE_INFRASTRUCTURE = [
                 purpose="1) Initializes the Cloud Tasks client. 2) Creates a Tasks queue 3) Returns the client.",
                 dependencies=[],
                 is_endpoint=False,
-                pypi_packages=["google-cloud-tasks==2.18.0"],
+                pypi_packages=["google-cloud-tasks"],
             ),
             Function(
                 name="get_gcp_tasks_queue",
@@ -101,7 +101,7 @@ AVAILABLE_INFRASTRUCTURE = [
                 purpose="1) Gets the Tasks queue. Uses environment variables. 2) Returns it.",
                 dependencies=[],
                 is_endpoint=False,
-                pypi_packages=["google-cloud-tasks==2.18.0"],
+                pypi_packages=["google-cloud-tasks"],
             ),
         ],
     },

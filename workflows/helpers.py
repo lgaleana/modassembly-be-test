@@ -104,6 +104,7 @@ def create_app(
     Conversation().persist(app_name, user)
     Conversation().persist(app_name, user, name="conversation_brainstorm")
     Conversation().persist(app_name, user, name="conversation_architecture")
+    Conversation().persist(app_name, user, name="conversation_code")
 
     print_system("Initializing git and github...")
     github_url = create_github_repository(repo_name)

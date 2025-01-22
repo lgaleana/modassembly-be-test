@@ -32,11 +32,7 @@ def run(app_name: str, user: str) -> Dict[str, Any]:
     config = load_config(app_name, user)
     architecture = config["architecture"]
 
-    conversation = Conversation()
-    raw_architecture = json.dumps([c.model_dump() for c in architecture])
-    conversation.add_user(
-        f"Consider the following python architecture: {raw_architecture}"
-    )
+    conversation = Conversation.load(app_name, user, name="conversation_architecture")
 
     save_templates(repo_name, architecture, conversation)
     install_requirements(repo_name, architecture, conversation)
