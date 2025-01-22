@@ -124,7 +124,7 @@ There are three types of components: infrastructures, datamodels and functions.
 
 Think of data models as data sinks. They represent database tables. To add datamodels you must first have the external infrastructure to support it.
 
-Infrastructure represents the GCP infrastructure. Deploying infrastructure is expensive. Select the absolute necessary.
+Infrastructure represents the GCP infrastructure. Deploying infrastructure is expensive. Select the minimum necessary.
 
 ```json
 {INFRASTRUCTURE}
