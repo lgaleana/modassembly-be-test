@@ -30,7 +30,7 @@ class DataModel(BaseComponent):
 class Function(BaseComponent):
     type: Literal["function"] = "function"
     purpose: str
-    is_endpoint: bool
+    is_endpoint: bool = False
 
 
 class Infrastructure(BaseModel):
@@ -45,9 +45,6 @@ class Infrastructure(BaseModel):
     ]
     namespace: Literal["External"] = "External"
     config: Dict[str, Any] = {}
-    description: str = ""
-    dependencies: List[str] = []
-    pypi_packages: List[str] = []
 
     @property
     def key(self) -> str:

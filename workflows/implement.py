@@ -12,6 +12,7 @@ from app.logging.log_user_activity import log_user_activity
 from utils.config.architecture import (
     DataModel,
     Function,
+    Infrastructure,
     load_config,
     save_config,
 )
@@ -41,7 +42,8 @@ def run(app_name: str, user: str) -> Dict[str, Any]:
     for dependency in list(architecture_to_update.keys()):
         for component in architecture:
             if (
-                dependency in component.design.root.dependencies
+                not isinstance(component.design.root, Infrastructure)
+                and dependency in component.design.root.dependencies
                 and dependency not in MODASSEMBLY_COMPONENTS
             ):
                 architecture_to_update[component.design.key] = component

@@ -61,7 +61,10 @@ def install_requirements(
 ) -> None:
     pypi_packages = set()
     for component in architecture:
-        pypi_packages.update(component.design.root.pypi_packages)
+        if isinstance(component.design.root, DataModel) or isinstance(
+            component.design.root, Function
+        ):
+            pypi_packages.update(component.design.root.pypi_packages)
     requirements_path = f"{REPOS}/{app_name}/requirements.txt"
     with open(requirements_path, "w") as f:
         content = "\n".join(pypi_packages)

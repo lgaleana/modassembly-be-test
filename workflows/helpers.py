@@ -10,6 +10,7 @@ import networkx as nx
 from pydantic import BaseModel
 from utils.config.architecture import (
     Function,
+    DataModel,
     ImplementedComponent,
     Infrastructure,
 )
@@ -58,30 +59,8 @@ def extract_from_pattern(response: str, *, pattern: str) -> List[str]:
 
 def extract_json(response: str) -> List[Any]:
     json_str = extract_from_pattern(response, pattern=r"```json\n(.*?)```")
+    json_str = [s.replace("None", "null") for s in json_str]
     return [json.loads(json_str) for json_str in json_str]
-
-
-def visualize_graph(G: nx.DiGraph, *, figsize=(12, 12), k=0.15, iterations=20):
-    pos = nx.spring_layout(G, k=k, iterations=iterations)
-    plt.figure(figsize=figsize)
-
-    nx.draw_networkx_nodes(G, pos, node_size=500, node_color="lightblue")
-    nx.draw_networkx_edges(G, pos, arrows=True)
-
-    labels = {node: node for node in G.nodes()}
-    nx.draw_networkx_labels(G, pos, labels, font_size=8)
-
-    plt.axis("off")
-    plt.show()
-
-
-def build_graph(architecture: List[ImplementedComponent]) -> nx.DiGraph:
-    G = nx.DiGraph()
-    for component in architecture:
-        G.add_node(component.design.key)
-        for dependency in component.design.root.dependencies:
-            G.add_edge(component.design.key, dependency)
-    return G
 
 
 def create_app(
@@ -161,7 +140,10 @@ def group_nodes_by_dependencies(
     levels = []
     dependencies = {}
     for component in architecture:
-        dependencies[component.design.root.key] = component.design.root.dependencies
+        if isinstance(component.design.root, DataModel) or isinstance(
+            component.design.root, Function
+        ):
+            dependencies[component.design.root.key] = component.design.root.dependencies
 
     remaining_components = set(dependencies.keys())
     while remaining_components:
@@ -192,7 +174,6 @@ def update_main(
     for model in models:
         main_content += f"from {model.module} import {model.name}\n"
 
-    endpoints = []
     main_component = None
     for component in architecture:
         if (
@@ -204,11 +185,8 @@ def update_main(
             router_name = extract_router_name(component.file.content)
             main_content += f"from {import_} import {router_name}\n"
             main_content += f"app.include_router({router_name})\n"
-            endpoints.append(component.design.key)
         elif component.design.key == "app.main":
             main_component = component
-    assert main_component
-    main_component.design.root.dependencies = endpoints
 
     if len(models) > 0:
         main_content += "\n# Database\n"

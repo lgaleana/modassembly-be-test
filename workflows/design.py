@@ -12,6 +12,7 @@ from app.logging.log_user_activity import log_user_activity
 from utils.config.architecture import (
     Component,
     DataModel,
+    Function,
     ImplementedComponent,
     Infrastructure,
     load_config,
@@ -40,7 +41,7 @@ class ComponentToUpdate(BaseModel):
 
 
 def present_to_llm(architecture: List[ImplementedComponent]) -> str:
-    return json.dumps([c.design.model_dump() for c in architecture])
+    return json.dumps([c.design.model_dump() for c in architecture], indent=4)
 
 
 def delete_file_for_key(key: str, user: str, app_name: str) -> None:
@@ -121,31 +122,23 @@ To remove a component, use the following format:
 }}
 ```
 
-To rename or move a component, first remove it and add it again.
-
 There are three types of components: infrastructures, datamodels and functions.
 
-Think of data models as data sinks. They represent database tables. To add datamodels you must first have the external infrastructure to support it.
-
-Infrastructure represents the GCP infrastructure. Deploying infrastructure is expensive. Select the minimum necessary.
+Infrastructure represents the GCP infrastructure. As you add infrastructure, utility functions will be added for you so that your application can connect to it. Available infrastructure:
 
 ```json
 {INFRASTRUCTURE}
 ```
 
-Data models and functions will be executed on Google Cloud Run as a FastAPI. Keep the business logic within the limitations of a web service. As you add infrastructure, utility functions will be added for you so that your application can connect to it.
+Think of data models as data sinks. To add datamodels you must first have the external infrastructure to support it.
 
-Functions represent the business logic. Design an architecture that is malleable, easy to refactor and easy to maintain. Functions should map to less than 100 lines of code. Use python naming conventions. `app.main` and `app.modassembly` are reserved for internal use. You can't update them.
-
-Update components in the order of less to more dependencies."""
+functions represent the business logic. They will be executed on Google Cloud Run as a FastAPI. Use python naming conventions. `app.main` and `app.modassembly` are reserved for internal use. You can't update them."""
 
 
 def run(
     app_name: str,
     user: str,
     user_message: str,
-    *,
-    message_type: Optional[str] = None,
 ) -> Tuple[Dict[str, Any], Conversation]:
     config = load_config(app_name, user)
     conversation = Conversation.load(app_name, user, name="conversation_architecture")
@@ -161,32 +154,19 @@ def run(
         f"Current architecture:\n\n{present_to_llm(list(architecture.values()))}",
         type_="architecture",
     )
-    if message_type:
-        conversation.add_user(
-            user_message,
-            type_=message_type,
-        )
-        conversation.add_user(
-            f"""Consider the proposal above to update the architecture.
-Explain each flow that starts with an http request and ends with an http response.
-In one sentence, name the infrastructures and the datamodels.
-Identify the steps in the flow that should map to functions.
-Internally, each function uses the next function.""",
-            type_="instruction",
-        )
-        conversation.add_assistant(
-            llm.stream_text(conversation),
-            type_="instruction",
-        )
-        conversation.add_user(
-            "Generate the jsons. Go!",
-            type_="instruction",
-        )
-    else:
-        conversation.add_user(user_message)
-        conversation.add_user(
-            "Focus on updating/removing components.", type_="instruction"
-        )
+    conversation.add_system(
+        """To rename or move a component, first remove it and add it again.
+        
+Focus on the E2E flow of an http request. Break it apart into functions. For an E2E flow that looks like: "Add an endpoint that does X, Y and Z", consider whether X, Y and Z should be functions. functions should fit within 100 lines of code. We also need a function for the endpoint itself. You would add them in the following order:
+
+1. Less dependent
+2. More dependent
+...
+N. Endpoint
+
+Be brief. Focus on adding/updating/removing components."""
+    )
+    conversation.add_user(user_message)
 
     attempts = 0
     components_to_update = {}
@@ -240,25 +220,28 @@ Internally, each function uses the next function.""",
                                 f"Unable to {action} component :: {key} "
                                 "because there is no infrastructure to support it."
                             )
-                        component.root.dependencies = [
-                            (
-                                "app." + dependency
-                                if not dependency.startswith("External")
-                                and not dependency.startswith("app.")
-                                else dependency
-                            )
-                            for dependency in component.root.dependencies
-                        ]
-                        for dependency in component.root.dependencies:
-                            if (
-                                dependency not in architecture
-                                and dependency not in components_to_update
-                            ):
-                                raise ValueError(
-                                    f"Unable to {action} component :: {component.key} "
-                                    f"because the `dependency` :: {dependency} doesn't exist in the architecture. "
-                                    "Add components in the order of their dependencies."
+                        if isinstance(component.root, DataModel) or isinstance(
+                            component.root, Function
+                        ):
+                            component.root.dependencies = [
+                                (
+                                    "app." + dependency
+                                    if not dependency.startswith("External")
+                                    and not dependency.startswith("app.")
+                                    else dependency
                                 )
+                                for dependency in component.root.dependencies
+                            ]
+                            for dependency in component.root.dependencies:
+                                if (
+                                    dependency not in architecture
+                                    and dependency not in components_to_update
+                                ):
+                                    raise ValueError(
+                                        f"Unable to {action} component :: {component.key} "
+                                        f"because the `dependency` :: {dependency} doesn't exist in the architecture. "
+                                        "Add components in the order of their dependencies."
+                                    )
                         if isinstance(component.root, Infrastructure):
                             for infra in AVAILABLE_INFRASTRUCTURE:
                                 if infra["name"] == component.root.name:
@@ -317,7 +300,7 @@ Internally, each function uses the next function.""",
                 raise e
             components_to_update = {}
             print_system(f"{type(e).__name__}({str(e)})")
-            conversation.add_system(f"ERROR :: {e}\n\nSkipping all changes.")
+            conversation.add_system(f"ERROR :: {e}\n\nNo changes applied.")
             conversation.add_user("There was an error. Try again.")
             continue
 

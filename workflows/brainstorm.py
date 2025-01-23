@@ -22,8 +22,7 @@ def present_to_llm(architecture: List[ImplementedComponent]) -> str:
         design = component.design.root
         components.append(f"{design.type}: {design.key}")
         if isinstance(design, (Function, DataModel)):
-            components.append("  Dependencies: " + ", ".join(design.dependencies))
-        components.append("")
+            components.append(" Uses: " + ", ".join(design.dependencies))
     return "\n".join(components)
 
 
@@ -35,14 +34,14 @@ PROMPT = f"""You are helpful AI assistant that designs distributed backend syste
 
 The entire system will be hosted on Google Cloud Platform.
 
-You can choose from the following infrastructure. Deploying infrastructure is expensive. Select the minimum necessary.
+You are limited to the following infrastructure. Deploying infrastructure is expensive. Select the minimum necessary.
 {INFRASTRUCTURE}
 
-The main logic will be executed on Google Cloud Run as a FastAPI. Cloud Run is a servelerss container desgined for web applications. Keep the business logic within the limitations of a web service.
+The main logic will be executed on Google Cloud Run as a FastAPI. Cloud Run is a servelerss container desgined for web applications. Keep the business logic within the limitations of a web service. Other than APIs, it's impossible to support anything not supported by GCP. Let the user know if you fall into this situation.
 
 Work with the user to design a backend system. Discuss product features instead of infrastructure. Avoid showing code. Be opinionated and specific. Start small.
 
-It's very useful to focus on the E2E flow of a request."""
+It's very useful to focus on the E2E flow of an http request."""
 
 
 def run(
@@ -56,12 +55,11 @@ def run(
     if len(conversation) == 0:
         conversation = Conversation()
         conversation.add_system(PROMPT)
+        conversation.add_system(
+            f"Current architecture:\n\n{present_to_llm(config['architecture'])}",
+            type_="architecture",
+        )
 
-    conversation.remove_last_message_type("architecture")
-    conversation.add_system(
-        f"Current architecture:\n\n{present_to_llm(config['architecture'])}",
-        type_="architecture",
-    )
     conversation.add_user(user_message)
     response = ""
     for chunk in llm.iterate_text(conversation):
