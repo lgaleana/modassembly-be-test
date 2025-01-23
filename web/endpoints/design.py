@@ -113,7 +113,7 @@ def sync(request: Request, user: User = Depends(authenticate)) -> None:
         """Let's update the architecture with the latest changes. Think in terms of components. Think in terms of infrastructure, data models and functions.
 
 In one sentence, tell me a summary of the changes that we're trying to make since it was last updated.
-Then, in one sentence, tell me all the infrastructure to add, update or remove: "First, ..."."""
+Then, in one sentence, tell me all the infrastructure to add, update or remove (if any): "First, ..."."""
     )
     user_message = llm.stream_text(conversation)
     conversation.add_assistant(user_message)
@@ -124,7 +124,7 @@ Then, in one sentence, tell me all the infrastructure to add, update or remove: 
     )
 
     conversation.add_user(
-        "In one sentence, tell me all the data models to add, update or remove."
+        "In one sentence, tell me all the data models to add, update or remove (if any)."
     )
     user_message = llm.stream_text(conversation)
     conversation.add_assistant(user_message)
