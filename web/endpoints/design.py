@@ -113,7 +113,7 @@ def sync(request: Request, user: User = Depends(authenticate)) -> None:
         """Let's update the architecture with the latest changes. Think in terms of components. Think in terms of infrastructure, data models and functions.
 
 In one sentence, tell me a summary of the changes that we're trying to make since it was last updated.
-Then, in one sentence, tell me all the infrastructure to add, update or remove (if any): "First, ..."."""
+Then, in one sentence, tell me all the infrastructure to add, update or remove (if any): "For now, ..."."""
     )
     user_message = llm.stream_text(conversation)
     conversation.add_assistant(user_message)
@@ -137,7 +137,9 @@ Then, in one sentence, tell me all the infrastructure to add, update or remove (
     conversation.add_user(
         """Now, consider how the entire logic of the architecture is changing. Refactoring an architecture is not easy. So we'll do it in steps. Be very careful.
         
-First, we're going to remove all functions that are no longer needed. Then, we're going to add/update all the new functionality. It's very useful to think in terms of flows that start with an http request and end with an http response. Use the following format:
+First, we're going to remove all functions that are no longer needed. Then, we're going to add/update all the new functionality.
+
+It's very useful to think in terms of flows that start with an http request and end with an http response. Use the following format:
 
 (NOTE: app.main and the app.modassembly namespace are reserved for internal use. They can't be updated.)
 ```json
@@ -169,7 +171,7 @@ First, we're going to remove all functions that are no longer needed. Then, we'r
     design.run(
         request.app_name,
         str(user.username),
-        "Remove duplicated logic.",
+        "Consider each E2E flow.Remove the duplicated logic.",
     )
 
     conversation = Conversation.load(

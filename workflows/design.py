@@ -157,14 +157,14 @@ def run(
     conversation.add_system(
         """To rename or move a component, first remove it and add it again.
         
-Focus on the E2E flow of an http request. Break it apart into functions. For an E2E flow that looks like: "Add an endpoint that does X, Y and Z", consider whether X, Y and Z should be functions. functions should fit within 100 lines of code. We also need a function for the endpoint itself. You would add them in the following order:
+Focus on the E2E flow of an http request. Break it apart into functions. For an E2E flow that looks like: "Add an endpoint that does X, Y and Z", consider whether X, Y and Z should be functions. Consider the cmoplexity of each step. functions should fit within 100 lines of code. We also need a function for the endpoint itself. You would add them in the following order:
 
 1. Less dependent
 2. More dependent
 ...
 N. Endpoint
 
-Be brief. Focus on adding/updating/removing components."""
+Be brief."""
     )
     conversation.add_user(user_message)
 
