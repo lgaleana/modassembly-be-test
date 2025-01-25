@@ -247,16 +247,16 @@ class ModelImplementationError(Exception):
     pass
 
 
-def create_tables(app_name: str, code: str) -> None:
+def create_tables(repo_name: str, code: str) -> None:
     models = extract_sqlalchemy_models(code)
-    model_modules = get_model_modules(app_name, models)
+    model_modules = get_model_modules(repo_name, models)
     imports = "\n".join([f"from {m.module} import {m.name}" for m in model_modules])
     test_code = f"""
 import sys
-sys.path.insert(0, "{REPOS}/{app_name}")
+sys.path.insert(0, "{REPOS}/{repo_name}")
 from sqlalchemy import create_engine
 {imports}
-test_engine = create_engine(f"sqlite:///{REPOS}/{app_name}/test.db")
+test_engine = create_engine(f"sqlite:///{REPOS}/{repo_name}/test.db")
 {code}
 model_classes = [{', '.join(models)}]
 for model_class in model_classes:
@@ -264,7 +264,7 @@ for model_class in model_classes:
     model_class.__table__.drop(bind=test_engine, checkfirst=True)
     model_class.__table__.create(bind=test_engine)
 """
-    venv_python = os.path.join(REPOS, app_name, "venv", "bin", "python3")
+    venv_python = os.path.join(REPOS, repo_name, "venv", "bin", "python3")
     process = subprocess.run(
         [venv_python, "-c", test_code], capture_output=True, text=True
     )

@@ -12,8 +12,10 @@ from ai import llm
 from utils.config.architecture import DataModel, Function, ImplementedComponent
 from workflows.helpers import (
     MODASSEMBLY_COMPONENTS,
+    ModelImplementationError,
     MypyError,
     REPOS,
+    create_tables,
     extract_from_pattern,
     run_mypy,
 )
@@ -105,7 +107,7 @@ class CompilationError(Exception):
 
 
 def write_component(
-    app_name: str,
+    repo_name: str,
     user_message: str,
     component: ImplementedComponent,
     conversation: Conversation,
@@ -126,20 +128,20 @@ def write_component(
             )
         code = patterns[0]
 
-        create_folders_if_not_exist(app_name, component.design.root.namespace)
+        create_folders_if_not_exist(repo_name, component.design.root.namespace)
         folders = component.design.root.namespace.replace(".", "/")
         file_path = f"{folders}/{component.design.root.name}.py"
-        with open(f"{REPOS}/{app_name}/{file_path}", "w") as f:
+        with open(f"{REPOS}/{repo_name}/{file_path}", "w") as f:
             f.write(code)
 
-        run_mypy(app_name, file_path)
+        run_mypy(repo_name, file_path)
         if (
             isinstance(component.design.root, Function)
             and component.design.root.is_endpoint
         ):
             extract_router_name(code)
-        # elif isinstance(component.design.root, DBModel):
-        #     create_tables(app_name, code)
+        elif isinstance(component.design.root, DataModel):
+            create_tables(repo_name, code)
 
         component.file = File(path=file_path, content=code)
         return ImplementationContext(
@@ -151,7 +153,7 @@ def write_component(
         MultipleCodeBlocksError,
         MypyError,
         RouterNotFoundError,
-        # ModelImplementationError,
+        ModelImplementationError,
     ) as e:
         print_system(
             f"!!! Error for :: {component.design.root.name}\n\n"
@@ -168,18 +170,20 @@ def write_component(
                     assistant_message=assistant_message,
                 )
             raise e
+        if os.path.exists(f"{REPOS}/{repo_name}/{file_path}"):
+            os.remove(f"{REPOS}/{repo_name}/{file_path}")
         conversation.add_assistant(assistant_message)
         conversation.add_user(
             f"Found the following errors ::\n\n"
             f"{type(e).__name__}({e})\n\nPlease fix the code."
         )
         return write_component(
-            app_name, user_message, component, conversation, attempts
+            repo_name, user_message, component, conversation, attempts
         )
 
 
 def first_write(
-    app_name: str,
+    repo_name: str,
     component: ImplementedComponent,
     conversation: Conversation,
 ) -> ImplementationContext:
@@ -212,4 +216,4 @@ def first_write(
             "- Only use `ForeignKey` if the other model exists in the architecture.\n"
         )
     instructions += "\n```python\n...\n```"
-    return write_component(app_name, instructions, component, conversation)
+    return write_component(repo_name, instructions, component, conversation)
