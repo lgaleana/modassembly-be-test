@@ -107,78 +107,73 @@ def sync(request: Request, user: User = Depends(authenticate)) -> None:
         user=str(user.username),
         name="conversation_brainstorm",
     )
-    config = load_config(request.app_name, str(user.username))
-
     conversation.add_user(
-        """Let's update the architecture with the latest changes. Think in terms of components. Think in terms of infrastructure, data models and functions.
+        """Consider all the proposed changes since we last updated the architecture. Then let's update the architecture. Refactoring a production system is very risky. So we'll do it step by step. Be very careful.
 
-In one sentence, tell me a summary of the changes that we're trying to make since it was last updated.
-Then, in one sentence, tell me all the infrastructure to add, update or remove (if any): "For now, ..."."""
-    )
-    user_message = llm.stream_text(conversation)
-    conversation.add_assistant(user_message)
-    design.run(
-        request.app_name,
-        str(user.username),
-        user_message,
-    )
+First, tell me a summary of the changes that we're trying to make.
+Then, in one sentence, tell me all the infrastructure to add, update or remove (if any).
+In one sentence, tell me all the data models to add, update or remove (if any).
 
-    conversation.add_user(
-        "In one sentence, tell me all the data models to add, update or remove (if any)."
-    )
-    user_message = llm.stream_text(conversation)
-    conversation.add_assistant(user_message)
-    design.run(
-        request.app_name,
-        str(user.username),
-        f"{user_message} (add infrastructure first, if not present)",
-    )
+To finish, we'll update the functions:
+    In one sentence, tell me all the functions to remove (if any).
+    Then think of all the flows that start with an http request and end with an http response.
+        Break them apart into steps X, Y, Z...
+        Add/update each one of the flows as needed.
 
-    conversation.add_user(
-        """Now, consider how the entire logic of the architecture is changing. Refactoring an architecture is not easy. So we'll do it in steps. Be very careful.
-        
-First, we're going to remove all functions that are no longer needed. Then, we're going to add/update all the new functionality.
-
-It's very useful to think in terms of flows that start with an http request and end with an http response. Use the following format:
-
-(NOTE: app.main and the app.modassembly namespace are reserved for internal use. They can't be updated.)
+Use the following format:
 ```json
 {
-    "remove": "In one sentence, tell me all the functions to remove" or null,
-    "add": [
-        "Add/update an/the endpoint that does X, Y...",
-        ...
-    ] or []
+    "summary": "...",
+    "infrastructure": "For now, add/update/remove..." or null,
+    "data_models": "Add/update/remove..." or null,
+    "functions": {
+        "remove": "Remove..." or null,
+        "add": [
+            "Add/update an/the endpoint that does X, Y...",
+            ...
+        ] or []
+    }
 }
 ```"""
     )
-    user_message = llm.stream_text(conversation)
-    refactor = extract_json(user_message)[0]
-    if refactor["remove"]:
+
+    refactor = extract_json(llm.stream_text(conversation))[0]
+    prefix_message = refactor["summary"] + "\n\n"
+    if refactor["infrastructure"]:
         design.run(
             request.app_name,
             str(user.username),
-            refactor["remove"],
+            prefix_message + refactor["infrastructure"],
         )
-    if refactor["add"]:
-        for flow in refactor["add"]:
+        prefix_message = ""
+    if refactor["data_models"]:
+        design.run(
+            request.app_name,
+            str(user.username),
+            prefix_message + refactor["data_models"],
+        )
+    if refactor["functions"]["remove"]:
+        design.run(
+            request.app_name,
+            str(user.username),
+            prefix_message + refactor["functions"]["remove"],
+        )
+    if refactor["functions"]["add"]:
+        for flow in refactor["functions"]["add"]:
             design.run(
                 request.app_name,
                 str(user.username),
-                flow,
+                prefix_message + flow,
             )
+            prefix_message = ""
 
-    design.run(
-        request.app_name,
-        str(user.username),
-        "Consider each E2E flow.Remove the duplicated logic.",
-    )
-
+    config = load_config(request.app_name, str(user.username))
     conversation = Conversation.load(
         app_name=request.app_name,
         user=str(user.username),
         name="conversation_brainstorm",
     )
+    conversation.remove_last_message_type("architecture")
     conversation.add_system(
         f"Current architecture:\n\n{brainstorm.present_to_llm(config['architecture'])}",
         type_="architecture",

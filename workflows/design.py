@@ -124,7 +124,7 @@ To remove a component, use the following format:
 
 There are three types of components: infrastructures, datamodels and functions.
 
-Infrastructure represents the GCP infrastructure. As you add infrastructure, utility functions will be added for you so that your application can connect to it. Available infrastructure:
+Infrastructure represents the GCP infrastructure. As you add infrastructure, utility functions will be added for you so that your application can connect to it. You can skip adding them. Available infrastructure:
 
 ```json
 {INFRASTRUCTURE}
@@ -149,22 +149,26 @@ def run(
         conversation = Conversation()
         conversation.add_system(PROMPT)
 
+    conversation.remove_last_message_type("instruction")
     conversation.remove_last_message_type("architecture")
     conversation.add_system(
-        f"Current architecture:\n\n{present_to_llm(list(architecture.values()))}",
-        type_="architecture",
-    )
-    conversation.add_system(
-        """To rename or move a component, first remove it and add it again.
-        
-Focus on the E2E flow of an http request. Break it apart into functions. For an E2E flow that looks like: "Add an endpoint that does X, Y and Z", consider whether X, Y and Z should be functions. Consider the cmoplexity of each step. functions should fit within 100 lines of code. We also need a function for the endpoint itself. You would add them in the following order:
+        """Consider an user message that looks like: "Add an endpoint that does X, Y and Z". In such cases, consider the complexity of each step. Consider whether X, Y and Z should be functions. Keep functions within 100 lines of code.
+
+Add/update/remove components in the following order:
 
 1. Less dependent
 2. More dependent
 ...
 N. Endpoint
 
-Be brief."""
+To rename or move a component, first remove it and add it again.
+
+Be brief.""",
+        type_="instruction",
+    )
+    conversation.add_system(
+        f"Current architecture:\n\n{present_to_llm(list(architecture.values()))}",
+        type_="architecture",
     )
     conversation.add_user(user_message)
 

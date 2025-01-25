@@ -111,7 +111,7 @@ def run(app_name: str, user: str) -> Dict[str, Any]:
     print_system(config["github"])
 
     if user != "lgaleana":
-        for _ in architecture:
+        for _ in architecture_to_update:
             log_user_activity(
                 user,
                 "implement-component",
