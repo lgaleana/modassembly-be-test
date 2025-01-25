@@ -132,7 +132,7 @@ Infrastructure represents the GCP infrastructure. As you add infrastructure, uti
 
 Think of data models as data sinks. To add datamodels you must first have the external infrastructure to support it.
 
-functions represent the business logic. They will be executed on Google Cloud Run as a FastAPI. Use python naming conventions. `app.main` and `app.modassembly` are reserved for internal use. You can't update them."""
+functions represent the business logic. They will be executed on Google Cloud Run as a FastAPI. Use python naming conventions."""
 
 
 def run(
@@ -152,7 +152,9 @@ def run(
     conversation.remove_last_message_type("instruction")
     conversation.remove_last_message_type("architecture")
     conversation.add_system(
-        """Consider an user message that looks like: "Add an endpoint that does X, Y and Z". In such cases, consider the complexity of each step. Consider whether X, Y and Z should be functions. Keep functions within 100 lines of code.
+        """`app.main` and `app.modassembly` are reserved for internal use. You can't update them. Avoid circular dependencies.
+        
+Consider an user message that looks like: "Add an endpoint that does X, Y and Z". In such cases, consider the complexity of each step. Consider whether X, Y and Z should be functions. Keep functions within 100 lines of code.
 
 Add/update/remove components in the following order:
 

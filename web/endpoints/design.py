@@ -124,7 +124,7 @@ Use the following format:
 ```json
 {
     "summary": "...",
-    "infrastructure": "For now, add/update/remove..." or null,
+    "infrastructure": "Add/update/remove..." or null,
     "data_models": "Add/update/remove..." or null,
     "functions": {
         "remove": "Remove..." or null,
@@ -138,7 +138,7 @@ Use the following format:
     )
 
     refactor = extract_json(llm.stream_text(conversation))[0]
-    prefix_message = refactor["summary"] + "\n\n"
+    prefix_message = refactor["summary"] + "\n\nFor now, "
     if refactor["infrastructure"]:
         design.run(
             request.app_name,
@@ -152,12 +152,14 @@ Use the following format:
             str(user.username),
             prefix_message + refactor["data_models"],
         )
+        prefix_message = ""
     if refactor["functions"]["remove"]:
         design.run(
             request.app_name,
             str(user.username),
             prefix_message + refactor["functions"]["remove"],
         )
+        prefix_message = ""
     if refactor["functions"]["add"]:
         for flow in refactor["functions"]["add"]:
             design.run(

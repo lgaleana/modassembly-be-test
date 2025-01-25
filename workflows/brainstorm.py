@@ -65,6 +65,11 @@ def run(
             type_="architecture",
         )
 
+    conversation.remove_last_message_type("architecture")
+    conversation.add_system(
+        f"Current architecture:\n\n{present_to_llm(config['architecture'])}",
+        type_="architecture",
+    )
     conversation.add_user(user_message)
     response = ""
     for chunk in llm.iterate_text(conversation):
