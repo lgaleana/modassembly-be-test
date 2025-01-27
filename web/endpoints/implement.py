@@ -25,7 +25,7 @@ class Request(BaseModel):
 def implement_architecture(
     request: Request, user: User = Depends(authenticate)
 ) -> Dict[str, Any]:
-    logs = get_user_activity_logs(user.username, "design")
+    logs = get_user_activity_logs(user.username, "implement")
     if len(logs) > USAGE_LIMIT:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,

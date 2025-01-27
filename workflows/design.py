@@ -24,7 +24,6 @@ from utils.state import Conversation
 from workflows.brainstorm import PROMPT
 from workflows.helpers import (
     PatternNotFoundError,
-    REPOS,
     extract_json,
 )
 
@@ -42,13 +41,6 @@ class ComponentToUpdate(BaseModel):
 
 def present_to_llm(architecture: List[ImplementedComponent]) -> str:
     return json.dumps([c.design.model_dump() for c in architecture], indent=4)
-
-
-def delete_file_for_key(key: str, user: str, app_name: str) -> None:
-    file_path = key.replace(".", "/") + ".py"
-    file_path = f"{REPOS}/{user}_{app_name}/{file_path}"
-    if os.path.exists(file_path):
-        os.remove(file_path)
 
 
 INFRASTRUCTURE = json.dumps(
@@ -149,8 +141,12 @@ def run(
         conversation = Conversation()
         conversation.add_system(PROMPT)
 
-    conversation.remove_last_message_type("instruction")
     conversation.remove_last_message_type("architecture")
+    conversation.remove_last_message_type("instruction")
+    conversation.add_system(
+        f"Current logic:\n\n{present_to_llm(list(architecture.values()))}",
+        type_="architecture",
+    )
     conversation.add_system(
         """`app.main` and `app.modassembly` are reserved for internal use. You can't update them. Avoid circular dependencies.
         
@@ -167,10 +163,6 @@ To rename or move a component, first remove it and add it again.
 
 Be brief.""",
         type_="instruction",
-    )
-    conversation.add_system(
-        f"Current architecture:\n\n{present_to_llm(list(architecture.values()))}",
-        type_="architecture",
     )
     conversation.add_user(user_message)
 
@@ -312,14 +304,15 @@ Be brief.""",
 
         for component in components_to_update.values():
             if component.action == Action.REMOVE:
-                architecture.pop(component.key, None)
-                delete_file_for_key(component.key, user, app_name)
+                architecture[component.key].update_status = "to_remove"
             else:
                 architecture[component.key] = ImplementedComponent(
                     design=component.base
                 )
-                architecture[component.key].file = None
-                delete_file_for_key(component.key, user, app_name)
+                if isinstance(component.base, Infrastructure):
+                    architecture[component.key].update_status = "up_to_date"
+                else:
+                    architecture[component.key].update_status = "to_update"
         config["architecture"] = list(architecture.values())
         save_config(config)
         conversation.remove_all_message_type("instruction")

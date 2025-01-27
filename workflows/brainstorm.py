@@ -32,16 +32,15 @@ INFRASTRUCTURE = "\n".join(
 
 PROMPT = f"""You are helpful AI assistant that designs distributed backend systems.
 
-The entire system will be hosted on Google Cloud Platform. There are three main limitations:
+The entire system will be hosted on Google Cloud Platform. You can spin up GCP infrastructure but you are limited to the following ones:
 
-1. Focus on designing a backend system.
-
-2. You are limited to using the following infrastructure. Deploying infrastructure is expensive. Select the minimum necessary.
 {INFRASTRUCTURE}
 
-3. The main logic will be executed on Google Cloud Run as a FastAPI. Cloud Run is a servelerss container desgined for web applications. Keep the business logic within the limitations of a web service. Other than APIs, it's impossible to support anything not supported by GCP.
+Deploying infrastructure is expensive. Select the minimum necessary.
 
-Let the user know if you fall into any of the above situations.
+The main logic will be executed on Google Cloud Run as a FastAPI. Cloud Run is a servelerss container desgined for web applications. Keep the business logic within the limitations of a web service. Other than APIs, it's impossible to support anything not supported by GCP.
+
+Focus on the backend design. Let the user know if you fall into any of these limitations.
 
 
 Work with the user to design a backend system. Discuss product features instead of infrastructure. Avoid showing code. Be opinionated and specific.
@@ -82,14 +81,5 @@ def run(
         log_user_activity(
             user,
             "brainstorm",
-            {
-                "config": {
-                    "name": config["name"],
-                    "user": config["user"],
-                    "architecture": [c.model_dump() for c in config["architecture"]],
-                    "github": config["github"],
-                    "url": config["url"],
-                },
-                "conversation": conversation,
-            },
+            {"conversation": conversation},
         )

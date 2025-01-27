@@ -1,7 +1,7 @@
 import os
 import subprocess
 import venv
-from typing import List
+from typing import Dict, List
 
 from dotenv import load_dotenv
 from pydantic import BaseModel, ConfigDict
@@ -29,13 +29,17 @@ def save_templates(
     app_name: str,
     architecture: List[ImplementedComponent],
     conversation: Conversation,
-) -> None:
+) -> Dict[str, ImplementedComponent]:
     for file in [".gitignore", "README.md"]:
         with open(f"{REPOS}/fastapi-template/{file}", "r") as f1, open(
             f"{REPOS}/{app_name}/{file}", "w"
         ) as f2:
-            f2.write(f1.read())
+            content = f1.read()
+            f2.write(content)
+            conversation.add_user(f"I wrote:\n\n{content}")
+            conversation.add_user(f"I saved it in {file}.")
 
+    updated_components = {}
     for component in architecture:
         if not component.design.key in MODASSEMBLY_COMPONENTS:
             continue
@@ -50,6 +54,9 @@ def save_templates(
             conversation.add_user(f"I wrote the code for:\n\n```python\n{content}\n```")
             conversation.add_user(f"I saved the code in {file_path}.")
             component.file = File(path=file_path, content=content)
+            component.update_status = "up_to_date"
+            updated_components[component.design.key] = component
+    return updated_components
 
 
 class InstallRequirementsError(Exception):
@@ -71,8 +78,8 @@ def install_requirements(
     with open(requirements_path, "w") as f:
         content = "\n".join(pypi_packages)
         f.write(content)
-    conversation.add_user(f"I wrote the code for:\n\n```python\n{content}\n```")
-    conversation.add_user(f"I saved the code in {requirements_path}.")
+    conversation.add_user(f"I wrote:\n\n{content}")
+    conversation.add_user(f"I saved it in {requirements_path}.")
 
     venv_path = f"{REPOS}/{app_name}/venv"
     os.makedirs(venv_path, exist_ok=True)
@@ -120,6 +127,8 @@ def write_component(
     patterns = extract_from_pattern(assistant_message, pattern=r"```python\n(.*?)```")
 
     code = None
+    folders = component.design.root.namespace.replace(".", "/")
+    file_path = f"{folders}/{component.design.root.name}.py"
     try:
         if len(patterns) > 1:
             raise MultipleCodeBlocksError(
@@ -129,8 +138,6 @@ def write_component(
         code = patterns[0]
 
         create_folders_if_not_exist(repo_name, component.design.root.namespace)
-        folders = component.design.root.namespace.replace(".", "/")
-        file_path = f"{folders}/{component.design.root.name}.py"
         with open(f"{REPOS}/{repo_name}/{file_path}", "w") as f:
             f.write(code)
 
@@ -144,6 +151,7 @@ def write_component(
             create_tables(repo_name, code)
 
         component.file = File(path=file_path, content=code)
+        component.update_status = "up_to_date"
         return ImplementationContext(
             component=component,
             user_message=user_message,
@@ -159,19 +167,23 @@ def write_component(
             f"!!! Error for :: {component.design.root.name}\n\n"
             f"{type(e).__name__}({e})"
         )
+        if file_path and os.path.exists(f"{REPOS}/{repo_name}/{file_path}"):
+            os.remove(f"{REPOS}/{repo_name}/{file_path}")
+
         if attempts == 3:
-            if isinstance(e, MypyError):
+            if isinstance(e, MypyError) and file_path:
                 assert code is not None
                 print_system(f"!!!!! WARNING: Letting mypy pass.")
+
                 component.file = File(path=file_path, content=code)
+                component.update_status = "up_to_date"
                 return ImplementationContext(
                     component=component,
                     user_message=user_message,
                     assistant_message=assistant_message,
                 )
             raise e
-        if os.path.exists(f"{REPOS}/{repo_name}/{file_path}"):
-            os.remove(f"{REPOS}/{repo_name}/{file_path}")
+
         conversation.add_assistant(assistant_message)
         conversation.add_user(
             f"Found the following errors ::\n\n"
@@ -187,7 +199,7 @@ def first_write(
     component: ImplementedComponent,
     conversation: Conversation,
 ) -> ImplementationContext:
-    instructions = f"""Write the code for: {component.design.model_dump()}.
+    instructions = f"""Write the code for: {component.design.model_dump_json(indent=4)}.
 
     Speficications:
     - The code should work E2E. Leave no placeholders.

@@ -64,6 +64,7 @@ class Component(RootModel):
 class ImplementedComponent(BaseModel):
     design: Component
     file: Optional[File] = None
+    update_status: Literal["to_update", "to_remove", "up_to_date"] = "to_update"
     is_deployed: bool = False
 
 
