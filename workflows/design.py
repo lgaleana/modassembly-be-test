@@ -40,7 +40,10 @@ class ComponentToUpdate(BaseModel):
 
 
 def present_to_llm(architecture: List[ImplementedComponent]) -> str:
-    return json.dumps([c.design.model_dump() for c in architecture], indent=4)
+    return json.dumps(
+        [c.design.model_dump() for c in architecture if c.update_status != "to_remove"],
+        indent=4,
+    )
 
 
 INFRASTRUCTURE = json.dumps(
@@ -85,7 +88,7 @@ The entire system will be hosted on Google Cloud Platform. The architecture is r
        "type": "function",
         "name": "The name of the function",
         "namespace": "The virtual location of the code, ie, the file path.. Use a dot notation.",
-        "purpose": "Detailed description of what the function does, step by step. Ie: 1) ...\n2) ...Mention every important remark.",
+        "purpose": "What the function does, step by step. Ie: 1) ...\n2) ... Mention every important remark.",
         "dependencies": ["The other namespace.functions or namespace.datamodels that the code depends on."],
         "pypi_packages": ["The pypi packages that the function will need."],
         "is_endpoint": true or false whether this is a FastAPI endpoint

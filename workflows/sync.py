@@ -115,6 +115,7 @@ def sync_configs(app_name: str, user: str) -> None:
                         ImplementedComponent(
                             design=design_component,
                             file=File(path=file_path, content=code),
+                            update_status=old_component.update_status,
                             is_deployed=(
                                 old_component.is_deployed
                                 if old_component is not None

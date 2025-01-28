@@ -102,7 +102,7 @@ def run(app_name: str, user: str) -> Dict[str, Any]:
                     updated_components[output.component.design.key] = output.component
 
             conversation.add_user(
-                """Based on the lastest changes, are there any "up_to_date" components that also need to be updated? Pay attention to the "up_to_date" components' code. Which ones depend on the code that you just wrote that need to be updated?
+                """Based on the lastest changes, are there any "up_to_date" components that also need to be updated? Pay attention to the "up_to_date" components' code. Based on the code that you just wrote, which ones need to be updated? Use the following format:
 
 ```json
 [namespace.name, namespace.name, ...] or [] if nothing left to update

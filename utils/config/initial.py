@@ -65,7 +65,7 @@ AVAILABLE_INFRASTRUCTURE = [
                 name="get_sql_session",
                 namespace="app.modassembly.database.sql",
                 purpose="1) Initializes Base, engine and SessionLocal. Uses the DB_URL environment variable.\n"
-                "2) Defines get_sql_session, which yields a SessionLocal instance.",
+                "2) Defines the get_sql_session generator, which yields a SessionLocal instance.",
                 dependencies=[],
                 is_endpoint=False,
                 pypi_packages=["psycopg2-binary", "sqlalchemy"],

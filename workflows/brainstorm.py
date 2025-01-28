@@ -19,6 +19,8 @@ from utils.state import Conversation
 def present_to_llm(architecture: List[ImplementedComponent]) -> str:
     components = []
     for component in architecture:
+        if component.update_status == "to_remove":
+            continue
         design = component.design.root
         components.append(f"{design.type}: {design.key}")
         if isinstance(design, (Function, DataModel)):
@@ -41,7 +43,6 @@ Deploying infrastructure is expensive. Select the minimum necessary.
 The main logic will be executed on Google Cloud Run as a FastAPI. Cloud Run is a servelerss container desgined for web applications. Keep the business logic within the limitations of a web service. Other than APIs, it's impossible to support anything not supported by GCP.
 
 Focus on the backend design. Let the user know if you fall into any of these limitations.
-
 
 Work with the user to design a backend system. Discuss product features instead of infrastructure. Avoid showing code. Be opinionated and specific.
 
