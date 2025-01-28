@@ -12,13 +12,20 @@ from ai import llm
 from utils.config.architecture import (
     Component,
     ImplementedComponent,
+    Infrastructure,
     load_config,
     save_config,
 )
 from utils.files import File
 from utils.io import print_system
 from utils.state import Conversation
-from workflows.helpers import REPOS, extract_json
+from workflows.helpers import (
+    REPOS,
+    extract_json,
+    update_architecture_dependencies,
+    update_main,
+)
+from workflows.subworkflows import save_templates
 
 
 def sync_configs(app_name: str, user: str) -> None:
@@ -30,24 +37,26 @@ def sync_configs(app_name: str, user: str) -> None:
     conversation = Conversation()
     conversation.add_system(PROMPT)
     raw_architecture = json.dumps(
-        [c.design.model_dump() for c in architecture.values()]
+        [c.model_dump() for c in config["architecture"]], indent=4
     )
-    conversation.add_user(f"Current architecture: {raw_architecture}")
+    conversation.add_user(f"Architecture and code:\n\n{raw_architecture}")
 
-    synced_architecture = []
-    app_path = f"{REPOS}/{user}_{app_name}/app"
-    for root, _, files in os.walk(app_path):
+    repo_name = f"{user}_{app_name}"
+    repo_path = f"{REPOS}/{repo_name}/app"
+    synced_architecture = [
+        component
+        for component in config["architecture"]
+        if isinstance(component.design.root, Infrastructure)
+    ]
+    for root, _, files in os.walk(repo_path):
         for file in files:
             if file.endswith(".py") and not file.endswith("__init__.py"):
-                relative_path = os.path.relpath(root, app_path)
+                relative_path = os.path.relpath(root, repo_path)
                 key = file.replace(".py", "")
                 if relative_path != ".":
                     key = os.path.join(relative_path, key)
                     key = key.replace(os.sep, ".")
-                    key = f"app.{key}"
-                else:
-                    key = file.replace(".py", "")
-                    key = f"app.{key}"
+                key = f"app.{key}"
 
                 full_path = os.path.join(root, file)
                 with open(full_path, "r") as f:
@@ -65,8 +74,9 @@ def sync_configs(app_name: str, user: str) -> None:
                                 conversation.add_user(
                                     f"The code for :: {key} has changed. "
                                     f"New code ::\n\n{code}\n\n"
-                                    "Update the component design. "
-                                    "VERY IMPORTANT: Extract the exact hardcoded values."
+                                    "Update the component's spec "
+                                    "with a detailed step by step description. "
+                                    "It's very important that you mention all the hardcoded values."
                                 )
                                 response = llm.stream_text(conversation)
                                 conversation.add_assistant(response)
@@ -83,9 +93,10 @@ def sync_configs(app_name: str, user: str) -> None:
                             conversation.add_user(
                                 "Consider the following code ::"
                                 f"\n\n{code}\n\n"
-                                f"Add a component design for namespace :: "
-                                f"{namespace} and name :: {name}. "
-                                "VERY IMPORTANT: Extract the exact hardcoded values."
+                                f"Add a component spec for namespace :: "
+                                f"{namespace} and name :: {name} "
+                                "with a detailed step by step description. "
+                                "It's very important that you mention all the hardcoded values."
                             )
                             response = llm.stream_text(conversation)
                             conversation.add_assistant(response)
@@ -99,10 +110,11 @@ def sync_configs(app_name: str, user: str) -> None:
                         conversation.add_system(f"{type(e).__name__}({e})")
                         continue
 
+                    file_path = design_component.key.replace(".", "/") + ".py"
                     synced_architecture.append(
                         ImplementedComponent(
                             design=design_component,
-                            file=File(path=full_path, content=code),
+                            file=File(path=file_path, content=code),
                             is_deployed=(
                                 old_component.is_deployed
                                 if old_component is not None
@@ -111,8 +123,12 @@ def sync_configs(app_name: str, user: str) -> None:
                         )
                     )
                     break
+
     breakpoint()
     config["architecture"] = synced_architecture
+    save_templates(repo_name, synced_architecture, conversation)
+    update_main(repo_name, synced_architecture)
+    update_architecture_dependencies(synced_architecture)
     save_config(config)
 
 

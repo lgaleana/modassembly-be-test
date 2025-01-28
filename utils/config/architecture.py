@@ -41,7 +41,7 @@ class Infrastructure(BaseModel):
         "CloudStorage",
         "CloudTasks",
         "CloudScheduler",
-        "EmailClient",
+        "Firestore",
     ]
     namespace: Literal["External"] = "External"
     config: Dict[str, Any] = {}

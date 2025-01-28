@@ -201,31 +201,30 @@ def first_write(
 ) -> ImplementationContext:
     instructions = f"""Write the code for: {component.design.model_dump_json(indent=4)}.
 
-    Speficications:
-    - The code should work E2E. Leave no placeholders.
-    - Use absolute imports.
-    - Use typing in function arguments and return types.
-    - Use environment variables instead of placeholders.
-    - Don't catch exceptions unless specified. Let errors raise.\n"""
+The code should work E2E. Leave no placeholders.
+Use absolute imports.
+Use typing in function arguments and return types.
+Use environment variables instead of placeholders.
+Don't catch exceptions unless specified. Let errors raise.\n"""
     if isinstance(component.design.root, Function):
         if component.design.root.is_endpoint:
             instructions += (
-                "- Since this function is meant to be an endpoint, "
+                "Since this function is meant to be an endpoint, "
                 "a) add enough documentation and b) add proper typing, "
                 "so that it's easy to use in Swagger.\n"
-                "- Define pydantic models for inputs and OUTPUTS where needed.\n"
-                "- Use the most simple types for pydantic models.\n"
+                "Define pydantic models for inputs and OUTPUTS where needed.\n"
+                "Use the most simple types for pydantic models.\n"
             )
         instructions += (
-            "- mypy will be run over the code, so implement the function in a way that it passes mypy.\n"
-            "- When using SQLALchemy models, access the actual column values. "
+            "mypy will be run over the code, so implement the function in a way that it passes mypy.\n"
+            "When using SQLALchemy models, access the actual column values. "
             "Example for a string attribute: `model.attribute.__str__()`.\n"
             f" - {component.design.root.purpose}\n"
         )
     elif isinstance(component.design.root, DataModel):
         instructions += (
-            "- Import Base from app.modassembly.database.sql.get_sql_session.\n"
-            "- Only use `ForeignKey` if the other model exists in the architecture.\n"
+            "Import Base from app.modassembly.database.sql.get_sql_session.\n"
+            "Only use `ForeignKey` if the other model exists in the architecture.\n"
         )
     instructions += "\n```python\n...\n```"
     return write_component(repo_name, instructions, component, conversation)

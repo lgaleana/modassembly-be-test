@@ -71,7 +71,7 @@ The entire system will be hosted on Google Cloud Platform. The architecture is r
     {{
         "type": "datamodel",
         "name": "The name of the datamodel",
-        "namespace": "The virtual location of the code. Use a dot notation.",
+        "namespace": "The virtual location of the code, ie, the file path. Use a dot notation.",
         "fields": [
             {{
                     "name": "The name of the field",
@@ -84,8 +84,8 @@ The entire system will be hosted on Google Cloud Platform. The architecture is r
     {{
        "type": "function",
         "name": "The name of the function",
-        "namespace": "The virtual location of the code. Use a dot notation.",
-        "purpose": "What the function does, step by step. Ie: 1) ... 2) ...",
+        "namespace": "The virtual location of the code, ie, the file path.. Use a dot notation.",
+        "purpose": "Detailed description of what the function does, step by step. Ie: 1) ...\n2) ...Mention every important remark.",
         "dependencies": ["The other namespace.functions or namespace.datamodels that the code depends on."],
         "pypi_packages": ["The pypi packages that the function will need."],
         "is_endpoint": true or false whether this is a FastAPI endpoint
@@ -94,7 +94,7 @@ The entire system will be hosted on Google Cloud Platform. The architecture is r
 ]
 ```
 
-Follow the user's instructions by adding, updating or removing components. To add or update a component, use the following format:
+Work with the user to add/update/remove components. To add or update a component, use the following format:
 
 ```json
 {{
@@ -124,7 +124,9 @@ Infrastructure represents the GCP infrastructure. As you add infrastructure, uti
 
 Think of data models as data sinks. To add datamodels you must first have the external infrastructure to support it.
 
-functions represent the business logic. They will be executed on Google Cloud Run as a FastAPI. Use python naming conventions."""
+functions represent the business logic. They will be executed on Google Cloud Run as a FastAPI. Use python naming conventions.
+
+`app.main` and `app.modassembly` are reserved for internal use. You can't update them. Avoid circular dependencies."""
 
 
 def run(
@@ -148,20 +150,16 @@ def run(
         type_="architecture",
     )
     conversation.add_system(
-        """`app.main` and `app.modassembly` are reserved for internal use. You can't update them. Avoid circular dependencies.
+        """Your goal is to interpret the user's requests and add/update/remove components to design the architecture that makes the most sense.
         
-Consider an user message that looks like: "Add an endpoint that does X, Y and Z". In such cases, consider the complexity of each step. Consider whether X, Y and Z should be functions. Keep functions within 100 lines of code.
-
-Add/update/remove components in the following order:
+Example: for a message that looks like: "Add an endpoint that does X, Y and Z", consider the complexity of each step. Consider whether X, Y and Z should be functions. functions should map to less than 100 lines of code. Then, add/update/remove components in the following order:
 
 1. Less dependent
 2. More dependent
 ...
 N. Endpoint
 
-To rename or move a component, first remove it and add it again.
-
-Be brief.""",
+Remember to update the upstream dependencies. To rename or move a component, first remove it and add it again. Be brief.""",
         type_="instruction",
     )
     conversation.add_user(user_message)

@@ -48,11 +48,10 @@ def run(app_name: str, user: str) -> Dict[str, Any]:
 
         for component in architecture:
             if component.update_status == "to_remove":
-                if os.path.exists(component.file.path):
+                if component.file and os.path.exists(component.file.path):
                     os.remove(component.file.path)
-                architecture.pop(component.design.key, None)
-                component.update_status = "up_to_date"
-                conversation.add_user(f"I removed {component.file.path}.")
+                architecture.remove(component)
+                conversation.add_user(f"I removed {component.design.key}.")
 
         updated_components = {}
         while True:
@@ -103,7 +102,7 @@ def run(app_name: str, user: str) -> Dict[str, Any]:
                     updated_components[output.component.design.key] = output.component
 
             conversation.add_user(
-                """Based on the latest code changes, are there any "up_to_date" components that also need to be updated? This might be the case if another component's code depends on code that was just updated.
+                """Based on the lastest changes, are there any "up_to_date" components that also need to be updated? Pay attention to the "up_to_date" components' code. Which ones depend on the code that you just wrote that need to be updated?
 
 ```json
 [namespace.name, namespace.name, ...] or [] if nothing left to update

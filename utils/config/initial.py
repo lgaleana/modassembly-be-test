@@ -26,7 +26,11 @@ initial_config = {
                 Function(
                     name="main",
                     namespace="app",
-                    purpose="The main FastAPI script.",
+                    purpose="1) Calls load_dotenv().\n"
+                    "2) Imports all the models and routers.\n"
+                    "3) Initializes the FastAPI app.\n"
+                    "4) Adds CORSMiddleware with *.\n"
+                    "5) Calls Base.metadata.create_all(engine).",
                     dependencies=["Other datamodels or functions"],
                     is_endpoint=False,
                     pypi_packages=[
@@ -60,7 +64,8 @@ AVAILABLE_INFRASTRUCTURE = [
             Function(
                 name="get_sql_session",
                 namespace="app.modassembly.database.sql",
-                purpose="1) Initializes the Postgres database. Uses the DB_URL environment variable. 2) Gets a session.",
+                purpose="1) Initializes Base, engine and SessionLocal. Uses the DB_URL environment variable.\n"
+                "2) Defines get_sql_session, which yields a SessionLocal instance.",
                 dependencies=[],
                 is_endpoint=False,
                 pypi_packages=["psycopg2-binary", "sqlalchemy"],
@@ -75,7 +80,7 @@ AVAILABLE_INFRASTRUCTURE = [
             Function(
                 name="get_gcs_bucket",
                 namespace="app.modassembly.storage",
-                purpose="1) Initializes the GCS client. Uses the GCS_BUCKET environment variable. 2) Creates a bucket if it doesn't exist. 3) Returns it.",
+                purpose="1) Reads from the environment variable GCS_BUCKET.\n2) Creates a global bucket if it doesn't exist.\n3) Returns it.",
                 dependencies=[],
                 is_endpoint=False,
                 pypi_packages=["google-cloud-storage"],
@@ -90,7 +95,7 @@ AVAILABLE_INFRASTRUCTURE = [
             Function(
                 name="get_gcp_tasks_client",
                 namespace="app.modassembly.tasks",
-                purpose="1) Initializes the Cloud Tasks client. 2) Creates a Tasks queue 3) Returns the client.",
+                purpose="1) Creates a global Cloud Tasks client if it doesn't exist.\n2) Returns it.",
                 dependencies=[],
                 is_endpoint=False,
                 pypi_packages=["google-cloud-tasks"],
@@ -98,7 +103,7 @@ AVAILABLE_INFRASTRUCTURE = [
             Function(
                 name="get_gcp_tasks_queue",
                 namespace="app.modassembly.tasks",
-                purpose="1) Gets the Tasks queue. Uses environment variables. 2) Returns it.",
+                purpose="1) Calls get_gcp_tasks_client.\n2) Returns the queue_path. Reads from environment variables GCP_PROJECT, GCP_LOCATION and GCP_QUEUE",
                 dependencies=[],
                 is_endpoint=False,
                 pypi_packages=["google-cloud-tasks"],
@@ -112,17 +117,17 @@ AVAILABLE_INFRASTRUCTURE = [
         "added_functions": [],
     },
     {
-        "name": "EmailClient",
+        "name": "Firestore",
         "namespace": "External",
-        "description": "A very basic email client for sending emails.",
+        "description": "A Google Cloud Firestore database.",
         "added_functions": [
             Function(
-                name="get_email_client",
-                namespace="app.modassembly.email",
-                purpose="1) Initializes the client. Uses environment variables. 2) Returns it.",
+                name="get_firestore_database",
+                namespace="app.modassembly.database.nosql",
+                purpose="1) Creates a global Firestore client if it doesn't exist. Uses the environment variable FIRESTORE_DB.\n2) Returns the client.",
                 dependencies=[],
                 is_endpoint=False,
-                pypi_packages=[],
+                pypi_packages=["google-cloud-firestore"],
             )
         ],
     },

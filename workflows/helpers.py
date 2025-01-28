@@ -76,9 +76,7 @@ def create_app(
     with open(f"{REPOS}/fastapi-template/.gitignore", "r") as f1, open(
         f"{REPOS}/{repo_name}/.gitignore", "w"
     ) as f2:
-        content = f1.read()
-        content = f"{content}\nDockerfile\ndeploy.sh\n"
-        f2.write(content)
+        f2.write(f1.read())
 
     Conversation().persist(app_name, user)
     Conversation().persist(app_name, user, name="conversation_brainstorm")
@@ -168,13 +166,13 @@ def update_main(
 ) -> None:
     with open(f"{REPOS}/{app_name}/app/main.py", "r") as f:
         main_content = f.read()
-    main_content += "\n"
 
     models = get_model_modules(app_name, [])
+    main_content += "\n# Models\n\n"
     for model in models:
         main_content += f"from {model.module} import {model.name}\n"
 
-    main_component = None
+    main_content += "\n# Endpoints\n\n"
     for component in architecture:
         if (
             isinstance(component.design.root, Function)
@@ -185,13 +183,11 @@ def update_main(
             router_name = extract_router_name(component.file.content)
             main_content += f"from {import_} import {router_name}\n"
             main_content += f"app.include_router({router_name})\n"
-        elif component.design.key == "app.main":
-            main_component = component
 
     if len(models) > 0:
-        main_content += "\n# Database\n"
+        main_content += "\n# Database\n\n"
         main_content += (
-            "\nfrom app.modassembly.database.sql.get_sql_session import Base, engine\n"
+            "from app.modassembly.database.sql.get_sql_session import Base, engine\n"
         )
         main_content += "Base.metadata.create_all(engine)\n"
 
@@ -255,12 +251,18 @@ def create_tables(repo_name: str, code: str) -> None:
 import sys
 sys.path.insert(0, "{REPOS}/{repo_name}")
 from sqlalchemy import create_engine
+from app.modassembly.database.sql.get_sql_session import Base
+
+# Configure Base before defining models
+Base.metadata.clear()
+
 {imports}
-test_engine = create_engine(f"sqlite:///{REPOS}/{repo_name}/test.db")
+
 {code}
+
+test_engine = create_engine(f"sqlite:///{REPOS}/{repo_name}/test.db")
 model_classes = [{', '.join(models)}]
 for model_class in model_classes:
-    model_class.__table_args__ = {{'extend_existing': True}}
     model_class.__table__.drop(bind=test_engine, checkfirst=True)
     model_class.__table__.create(bind=test_engine)
 """
@@ -277,20 +279,30 @@ class MypyError(Exception):
 
 
 def run_mypy(app_name: str, file_path: str) -> None:
+    full_path = f"{REPOS}/{app_name}/{file_path}"
+    with open(full_path, "r") as f:
+        content = f.read()
+    imports = extract_imports(content)
+    files_to_check = [full_path]
+    for import_ in imports:
+        if import_.startswith("app."):
+            import_path = "/".join(import_.split(".")[:-1]) + ".py"
+            files_to_check.append(f"{REPOS}/{app_name}/{import_path}")
+
     venv_python = os.path.join(REPOS, app_name, "venv", "bin", "python3")
     process = subprocess.run(
         [
             venv_python,
             "-m",
             "mypy",
-            f"{REPOS}/{app_name}/{file_path}",
-            "--follow-imports=skip",  # Don't check imported modules
-            "--no-incremental",  # Skip cache handling for one-off checks
-            "--cache-dir=/dev/null",  # Disable cache writing
-            "--sqlite-cache",  # Use faster SQLite-based caching
-            "--python-version=3.9",  # Specify Python version explicitly
+            *files_to_check,  # Pass all files to check
+            "--no-incremental",
+            "--cache-dir=/dev/null",
+            "--sqlite-cache",
+            "--python-version=3.13",
             "--disable-error-code=call-overload",
             "--disable-error-code=import-untyped",
+            "--follow-imports=skip",  # Skip checking deeper imports
         ],
         capture_output=True,
         text=True,
