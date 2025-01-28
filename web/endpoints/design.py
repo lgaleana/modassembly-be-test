@@ -110,7 +110,7 @@ def sync(request: Request, user: User = Depends(authenticate)) -> None:
     conversation.add_user(
         """Consider all the proposed changes since we last updated the architecture. Then let's update the architecture. Refactoring a production system is very risky. So we'll do it step by step. Be very careful.
 
-First, tell me a summary of the changes that we're trying to make.
+First, in one sentence, tell me a short summary of what you're trying to do.
 Then, in one sentence, tell me all the infrastructure to add, update or remove (if any).
 In one sentence, tell me all the data models to add, update or remove (if any).
 
@@ -118,13 +118,13 @@ To finish, we'll update the functions:
     In one sentence, tell me all the functions to remove (if any).
     Then think of all the flows that start with an http request and end with an http response.
         Break them apart into steps X, Y, Z...
-        Add/update each one of the flows as needed.
+        Explain to me what they do.
 
 Use the following format:
 ```json
 {
-    "summary": "...",
-    "infrastructure": "Add/update/remove..." or null,
+    "summary": "I want to...",
+    "infrastructure": "First, add/update/remove..." or null,
     "data_models": "Add/update/remove..." or null,
     "functions": {
         "remove": "Remove..." or null,
@@ -138,36 +138,31 @@ Use the following format:
     )
 
     refactor = extract_json(llm.stream_text(conversation))[0]
-    prefix_message = refactor["summary"] + "\n\nFor now, "
     if refactor["infrastructure"]:
         design.run(
             request.app_name,
             str(user.username),
-            prefix_message + refactor["infrastructure"],
+            refactor["infrastructure"],
         )
-        prefix_message = ""
     if refactor["data_models"]:
         design.run(
             request.app_name,
             str(user.username),
-            prefix_message + refactor["data_models"],
+            refactor["data_models"],
         )
-        prefix_message = ""
     if refactor["functions"]["remove"]:
         design.run(
             request.app_name,
             str(user.username),
-            prefix_message + refactor["functions"]["remove"],
+            refactor["functions"]["remove"],
         )
-        prefix_message = ""
     if refactor["functions"]["add"]:
         for flow in refactor["functions"]["add"]:
             design.run(
                 request.app_name,
                 str(user.username),
-                prefix_message + flow,
+                flow,
             )
-            prefix_message = ""
 
     config = load_config(request.app_name, str(user.username))
     conversation = Conversation.load(

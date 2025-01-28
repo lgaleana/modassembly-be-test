@@ -147,7 +147,9 @@ def write_component(
             and component.design.root.is_endpoint
         ):
             extract_router_name(code)
-        elif isinstance(component.design.root, DataModel):
+        elif isinstance(component.design.root, DataModel) and any(
+            "sqlalchemy" in d for d in component.design.root.dependencies
+        ):
             create_tables(repo_name, code)
 
         component.file = File(path=file_path, content=code)
@@ -221,7 +223,9 @@ Don't catch exceptions unless specified. Let errors raise.\n"""
             "Example for a string attribute: `model.attribute.__str__()`.\n"
             f" - {component.design.root.purpose}\n"
         )
-    elif isinstance(component.design.root, DataModel):
+    elif isinstance(component.design.root, DataModel) and any(
+        "sqlalchemy" in d for d in component.design.root.dependencies
+    ):
         instructions += (
             "Import Base from app.modassembly.database.sql.get_sql_session.\n"
             "Only use `ForeignKey` if the other model exists in the architecture.\n"

@@ -29,7 +29,11 @@ def present_to_llm(architecture: List[ImplementedComponent]) -> str:
 
 
 INFRASTRUCTURE = "\n".join(
-    [i["name"] + ": " + i["description"] for i in AVAILABLE_INFRASTRUCTURE]
+    [
+        i["name"] + ": " + i["description"]
+        for i in AVAILABLE_INFRASTRUCTURE
+        if i["name"] != "Firestore"
+    ]
 )
 
 PROMPT = f"""You are helpful AI assistant that designs distributed backend systems.
@@ -42,11 +46,13 @@ Deploying infrastructure is expensive. Select the minimum necessary.
 
 The main logic will be executed on Google Cloud Run as a FastAPI. Cloud Run is a servelerss container desgined for web applications. Keep the business logic within the limitations of a web service. Other than APIs, it's impossible to support anything not supported by GCP.
 
-Focus on the backend design. Let the user know if you fall into any of these limitations.
+Focus on the backend design.
+
+Let the user know if you fall into any of these limitations.
 
 Work with the user to design a backend system. Discuss product features instead of infrastructure. Avoid showing code. Be opinionated and specific.
 
-It's very useful to focus on the E2E flow of an http request. Start small."""
+It's very useful to focus on the E2E user flows. Start small."""
 
 
 def run(

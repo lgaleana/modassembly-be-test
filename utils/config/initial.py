@@ -26,11 +26,7 @@ initial_config = {
                 Function(
                     name="main",
                     namespace="app",
-                    purpose="1) Calls load_dotenv().\n"
-                    "2) Imports all the models and routers.\n"
-                    "3) Initializes the FastAPI app.\n"
-                    "4) Adds CORSMiddleware with *.\n"
-                    "5) Calls Base.metadata.create_all(engine).",
+                    purpose="The main FastAPI script.",
                     dependencies=["Other datamodels or functions"],
                     is_endpoint=False,
                     pypi_packages=[
@@ -65,7 +61,7 @@ AVAILABLE_INFRASTRUCTURE = [
                 name="get_sql_session",
                 namespace="app.modassembly.database.sql",
                 purpose="1) Initializes Base, engine and SessionLocal. Uses the DB_URL environment variable.\n"
-                "2) Defines the get_sql_session generator, which yields a SessionLocal instance.",
+                "2) Yields a SessionLocal instance.",
                 dependencies=[],
                 is_endpoint=False,
                 pypi_packages=["psycopg2-binary", "sqlalchemy"],

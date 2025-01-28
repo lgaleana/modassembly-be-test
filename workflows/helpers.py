@@ -39,8 +39,7 @@ MODASSEMBLY_COMPONENTS = {
     "app.modassembly.storage.get_gcs_bucket": "app/modassembly/storage/get_gcs_bucket.py",
     "app.modassembly.tasks.get_gcp_tasks_client": "app/modassembly/tasks/get_gcp_tasks_client.py",
     "app.modassembly.tasks.get_gcp_tasks_queue": "app/modassembly/tasks/get_gcp_tasks_queue.py",
-    "app.modassembly.email.get_email_client": "app/modassembly/email/get_email_client.py",
-    "app.modassembly.elasticsearch.get_elasticsearch_client": "app/modassembly/elasticsearch/get_elasticsearch_client.py",
+    "app.modassembly.database.nosql.get_firestore_database": "app/modassembly/database/nosql/get_firestore_database.py",
 }
 
 

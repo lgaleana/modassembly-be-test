@@ -155,7 +155,7 @@ def run(
     conversation.add_system(
         """Your goal is to interpret the user's requests and add/update/remove components to design the architecture that makes the most sense.
         
-Example: for a message that looks like: "Add an endpoint that does X, Y and Z", consider the complexity of each step. Consider whether X, Y and Z should be independentfunctions. functions should map to less than 100 lines of code. Then, add/update/remove components in the following order:
+Example: for a message that looks like: "Add an endpoint that does X, Y and Z", consider the complexity of each step. Consider whether X, Y and Z should be independent functions. functions should map to less than 100 lines of code. Then, add/update/remove components in the following order:
 
 1. Less dependent
 2. More dependent
