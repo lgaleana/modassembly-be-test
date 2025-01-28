@@ -13,6 +13,7 @@ from app.logging.log_user_activity import log_user_activity
 from utils.config.architecture import (
     DataModel,
     Function,
+    Infrastructure,
     load_config,
     save_config,
 )
@@ -47,7 +48,9 @@ def run(app_name: str, user: str) -> Dict[str, Any]:
         install_requirements(repo_name, architecture, conversation)
 
         for component in architecture:
-            if component.update_status == "to_remove":
+            if isinstance(component.design.root, Infrastructure):
+                component.update_status = "up_to_date"
+            elif component.update_status == "to_remove":
                 if component.file and os.path.exists(component.file.path):
                     os.remove(component.file.path)
                 architecture.remove(component)

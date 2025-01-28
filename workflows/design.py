@@ -155,7 +155,7 @@ def run(
     conversation.add_system(
         """Your goal is to interpret the user's requests and add/update/remove components to design the architecture that makes the most sense.
         
-Example: for a message that looks like: "Add an endpoint that does X, Y and Z", consider the complexity of each step. Consider whether X, Y and Z should be functions. functions should map to less than 100 lines of code. Then, add/update/remove components in the following order:
+Example: for a message that looks like: "Add an endpoint that does X, Y and Z", consider the complexity of each step. Consider whether X, Y and Z should be independentfunctions. functions should map to less than 100 lines of code. Then, add/update/remove components in the following order:
 
 1. Less dependent
 2. More dependent
@@ -211,9 +211,9 @@ Remember to update the upstream dependencies. To rename or move a component, fir
                         if (
                             isinstance(component.root, DataModel)
                             and "External.CloudSQL" not in architecture
-                            and "External.CloudStorage" not in architecture
+                            and "External.Firestore" not in architecture
                             and "External.CloudSQL" not in components_to_update
-                            and "External.CloudStorage" not in components_to_update
+                            and "External.Firestore" not in components_to_update
                         ):
                             raise ValueError(
                                 f"Unable to {action} component :: {key} "
