@@ -104,12 +104,12 @@ def run(app_name: str, user: str) -> Dict[str, Any]:
                     ].update_status = "up_to_date"
                     updated_components[output.component.design.key] = output.component
 
-            """conversation.add_user(
-                Based on the lastest changes, are there any "up_to_date" components that also need to be updated? Pay attention to the "up_to_date" components' code. Based on the code that you just wrote, which ones need to be updated? Use the following format:
+            conversation.add_user(
+                """Consider the code that you just wrote and the components that depend on it. Do we need to update any other components? Use the following format:
 
 ```json
 [namespace.name, namespace.name, ...] or [] if nothing left to update
-```
+```"""
             )
             response = llm.stream_text(conversation)
             conversation.add_assistant(response)
@@ -123,8 +123,7 @@ def run(app_name: str, user: str) -> Dict[str, Any]:
                     and component.design.key not in updated_components
                     and component.design.key not in updated_templates
                 ):
-                    component.update_status = "to_update" """
-            break
+                    component.update_status = "to_update"
 
         update_main(repo_name, architecture)
         update_architecture_dependencies(architecture)

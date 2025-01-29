@@ -148,7 +148,7 @@ def write_component(
         ):
             extract_router_name(code)
         elif isinstance(component.design.root, DataModel) and any(
-            "sqlalchemy" in d for d in component.design.root.dependencies
+            "sqlalchemy" in d for d in component.design.root.pypi_packages
         ):
             create_tables(repo_name, code)
 
@@ -169,9 +169,6 @@ def write_component(
             f"!!! Error for :: {component.design.root.name}\n\n"
             f"{type(e).__name__}({e})"
         )
-        if file_path and os.path.exists(f"{REPOS}/{repo_name}/{file_path}"):
-            os.remove(f"{REPOS}/{repo_name}/{file_path}")
-
         if attempts == 3:
             if isinstance(e, MypyError) and file_path:
                 assert code is not None
@@ -186,6 +183,8 @@ def write_component(
                 )
             raise e
 
+        if file_path and os.path.exists(f"{REPOS}/{repo_name}/{file_path}"):
+            os.remove(f"{REPOS}/{repo_name}/{file_path}")
         conversation.add_assistant(assistant_message)
         conversation.add_user(
             f"Found the following errors ::\n\n"
@@ -209,11 +208,11 @@ Use typing in function arguments and return types.
 Use environment variables instead of placeholders.
 Don't catch exceptions unless specified. Let errors raise.\n"""
     if isinstance(component.design.root, Function):
+        instructions += "Add basic logging for the function name, inputs and outputs.\n"
         if component.design.root.is_endpoint:
             instructions += (
                 "Since this function is meant to be an endpoint, "
-                "a) add enough documentation and b) add proper typing, "
-                "so that it's easy to use in Swagger.\n"
+                "add enough documentation, so that it's easy to use in Swagger.\n"
                 "Define pydantic models for inputs and OUTPUTS where needed.\n"
                 "Use the most simple types for pydantic models.\n"
             )
@@ -224,7 +223,7 @@ Don't catch exceptions unless specified. Let errors raise.\n"""
             f" - {component.design.root.purpose}\n"
         )
     elif isinstance(component.design.root, DataModel) and any(
-        "sqlalchemy" in d for d in component.design.root.dependencies
+        "sqlalchemy" in d for d in component.design.root.pypi_packages
     ):
         instructions += (
             "Import Base from app.modassembly.database.sql.get_sql_session.\n"

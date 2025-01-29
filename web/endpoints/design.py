@@ -110,7 +110,7 @@ def sync(request: Request, user: User = Depends(authenticate)) -> None:
     conversation.add_user(
         """Consider all the proposed changes since the architecture was last updated. Ignore optional functionality. Let's update the architecture. Refactoring a production system is very risky. So we'll do it step by step.
 
-First, from the changes that you described, identify the E2E flows that start with an http request and end with an http response.
+From the changes that you described, identify the E2E flows that start with an http request and end with an http response.
 Explain to me what each flow should do. Mention every necessary detail.
 
 Use the following format:

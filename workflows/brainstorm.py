@@ -21,10 +21,15 @@ def present_to_llm(architecture: List[ImplementedComponent]) -> str:
     for component in architecture:
         if component.update_status == "to_remove":
             continue
-        design = component.design.root
-        components.append(f"{design.type}: {design.key}")
-        if isinstance(design, (Function, DataModel)):
-            components.append(" Uses: " + ", ".join(design.dependencies))
+        components.append(f"{component.design.root.type}: {component.design.key}")
+        if isinstance(component.design.root, (Function, DataModel)):
+            if isinstance(component.design.root, Function):
+                components.append(f"   {component.design.root.purpose}")
+            else:
+                components.append(
+                    "   " + ", ".join(f.name for f in component.design.root.fields)
+                )
+            components.append(" Uses: " + ", ".join(component.design.root.dependencies))
     return "\n".join(components)
 
 
