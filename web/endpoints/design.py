@@ -108,61 +108,29 @@ def sync(request: Request, user: User = Depends(authenticate)) -> None:
         name="conversation_brainstorm",
     )
     conversation.add_user(
-        """Consider all the proposed changes since we last updated the architecture. Then let's update the architecture. Refactoring a production system is very risky. So we'll do it step by step. Be very careful.
+        """Consider all the proposed changes since the architecture was last updated. Ignore optional functionality. Let's update the architecture. Refactoring a production system is very risky. So we'll do it step by step.
 
-First, in one sentence, tell me a short summary of what you're trying to do.
-Then, in one sentence, tell me all the infrastructure to add, update or remove (if any).
-In one sentence, tell me all the data models to add, update or remove (if any).
-
-To finish, we'll update the functions:
-    In one sentence, tell me all the functions to remove (if any).
-    Then think of all the flows that start with an http request and end with an http response.
-        Break them apart into steps X, Y, Z...
-        Explain to me what they do.
+First, from the changes that you described, identify the E2E flows that start with an http request and end with an http response.
+Explain to me what each flow should do. Mention every necessary detail.
 
 Use the following format:
 ```json
 {
-    "summary": "I want to...",
-    "infrastructure": "First, add/update/remove..." or null,
-    "data_models": "Add/update/remove..." or null,
-    "functions": {
-        "remove": "Remove..." or null,
-        "add": [
-            "Add/update an/the endpoint that does X, Y...",
-            ...
-        ] or []
-    }
+    "flows": [
+        "Add/update/remove endpoint that does X, Y, Z...",
+        "..."
+    ]
 }
 ```"""
     )
 
     refactor = extract_json(llm.stream_text(conversation))[0]
-    if refactor["infrastructure"]:
+    for flow in refactor["flows"]:
         design.run(
             request.app_name,
             str(user.username),
-            refactor["infrastructure"],
+            flow,
         )
-    if refactor["data_models"]:
-        design.run(
-            request.app_name,
-            str(user.username),
-            refactor["data_models"],
-        )
-    if refactor["functions"]["remove"]:
-        design.run(
-            request.app_name,
-            str(user.username),
-            refactor["functions"]["remove"],
-        )
-    if refactor["functions"]["add"]:
-        for flow in refactor["functions"]["add"]:
-            design.run(
-                request.app_name,
-                str(user.username),
-                flow,
-            )
 
     config = load_config(request.app_name, str(user.username))
     conversation = Conversation.load(

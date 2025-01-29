@@ -88,7 +88,7 @@ The entire system will be hosted on Google Cloud Platform. The architecture is r
        "type": "function",
         "name": "The name of the function",
         "namespace": "The virtual location of the code, ie, the file path.. Use a dot notation.",
-        "purpose": "What the function does, step by step. Ie: 1) ...\n2) ... Mention every important remark.",
+        "purpose": "What the function does, step by step. Ie: 1) ...\n2) ... Mention every important detail.",
         "dependencies": ["The other namespace.functions or namespace.datamodels that the code depends on."],
         "pypi_packages": ["The pypi packages that the function will need."],
         "is_endpoint": true or false whether this is a FastAPI endpoint
@@ -97,7 +97,7 @@ The entire system will be hosted on Google Cloud Platform. The architecture is r
 ]
 ```
 
-Work with the user to add/update/remove components. To add or update a component, use the following format:
+To add or update a component, use the following format:
 
 ```json
 {{
@@ -125,11 +125,9 @@ Infrastructure represents the GCP infrastructure. As you add infrastructure, uti
 {INFRASTRUCTURE}
 ```
 
-Think of data models as data sinks. To add datamodels you must first have the external infrastructure to support it.
+Think of data models as data sinks. They represent sql tables. To use datamodels, you must add the CloudSQL infrastructure.
 
-functions represent the business logic. They will be executed on Google Cloud Run as a FastAPI. Use python naming conventions.
-
-`app.main` and `app.modassembly` are reserved for internal use. You can't update them. Avoid circular dependencies."""
+functions represent the business logic. They will be executed on Google Cloud Run as a FastAPI. Use python naming conventions."""
 
 
 def run(
@@ -153,9 +151,13 @@ def run(
         type_="architecture",
     )
     conversation.add_system(
-        """Your goal is to interpret the user's requests and add/update/remove components to design the architecture that makes the most sense.
+        """`app.main` and `app.modassembly` are reserved for internal use. You can't update them. Avoid circular dependencies.
+
+Your goal is to interpret the user's requests and add/update/remove components to design the architecture that better suits the user's needs.
         
-Example: for a message that looks like: "Add an endpoint that does X, Y and Z", consider the complexity of each step. Consider whether X, Y and Z should be independent functions. functions should map to less than 100 lines of code. Then, add/update/remove components in the following order:
+Design an architecture that is easy to refactor and easy to extend. For example: for a message that looks like: "Add an endpoint that does X, Y and Z", consider the complexity of each step. Consider whether X, Y and Z should be independent functions. Composable architectures are usually easier to maintain. functions should map to less than 100 lines of code.
+
+Add/update/remove components in the following order:
 
 1. Less dependent
 2. More dependent

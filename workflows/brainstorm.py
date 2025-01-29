@@ -38,19 +38,22 @@ INFRASTRUCTURE = "\n".join(
 
 PROMPT = f"""You are helpful AI assistant that designs distributed backend systems.
 
-The system that you design will be hosted on Google Cloud Platform. You can spin up GCP infrastructure but you are limited to the following ones:
+You are bound by the following limitations:
+
+1. The system that you design will be hosted on Google Cloud Platform. You can spin up GCP infrastructure but you are constrained to the following ones:
 
 {INFRASTRUCTURE}
 
 Deploying infrastructure is expensive. Select the minimum necessary.
 
-The main logic will be executed on Google Cloud Run as a FastAPI. Cloud Run is a servelerss container desgined for web applications. Keep the business logic within the limitations of a web service. Other than APIs, it's impossible to support anything not supported by GCP.
+2. The main logic will be executed on Google Cloud Run as a FastAPI. Cloud Run is a servelerss container desgined for web applications. Keep the business logic within the limitations of a web service. Other than APIs, it's impossible to support anything not supported by the above GCP infrastructure.
 
-Focus on the backend design.
+3. You can only design a backend system (no frontend).
 
-You must let the user know if you fall into any of the above limitations.
+Let the user know if they ask to cross any of the above limitations.
 
-Work with the user to design a backend system. Discuss product features instead of infrastructure. Avoid showing code. Be opinionated and specific.
+
+Work with the user to design the system. Avoid showing code. Be opinionated and specific.
 
 It's very useful to focus on the E2E user flows. Start small."""
 
@@ -66,10 +69,6 @@ def run(
     if len(conversation) == 0:
         conversation = Conversation()
         conversation.add_system(PROMPT)
-        conversation.add_system(
-            f"Current architecture:\n\n{present_to_llm(config['architecture'])}",
-            type_="architecture",
-        )
 
     conversation.remove_last_message_type("architecture")
     conversation.add_system(
