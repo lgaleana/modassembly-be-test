@@ -164,7 +164,7 @@ Add/update/remove components in the following order:
 ...
 N. Endpoint
 
-Remember to update the upstream dependencies. To rename or move a component, first remove it and add it again. Be brief.""",
+Reuse components as much as possible. Remember to update the upstream dependencies. To rename or move a component, first remove it and add it again. Be brief.""",
         type_="instruction",
     )
     conversation.add_user(user_message)
@@ -207,6 +207,14 @@ Remember to update the upstream dependencies. To rename or move a component, fir
                             f"Unable to {action} component :: {key} "
                             f"because it's reserved for internal use. "
                             "You can't update it."
+                        )
+                    if (
+                        key in architecture
+                        and architecture[key].update_status == "blocked"
+                    ):
+                        raise ValueError(
+                            f"Unable to {action} component :: {key} "
+                            "because it has been marked as blocked."
                         )
                     if action != Action.REMOVE:
                         component = Component.model_validate(json_)

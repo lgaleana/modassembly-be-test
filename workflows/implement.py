@@ -21,6 +21,7 @@ from utils.github import execute_git_commands, revert_changes
 from utils.io import print_system
 from utils.state import Conversation
 from workflows.helpers import (
+    REPOS,
     extract_json,
     group_nodes_by_dependencies,
     update_architecture_dependencies,
@@ -51,8 +52,10 @@ def run(app_name: str, user: str) -> Dict[str, Any]:
             if isinstance(component.design.root, Infrastructure):
                 component.update_status = "up_to_date"
             elif component.update_status == "to_remove":
-                if component.file and os.path.exists(component.file.path):
-                    os.remove(component.file.path)
+                if component.file and os.path.exists(
+                    f"{REPOS}/{repo_name}/{component.file.path}"
+                ):
+                    os.remove(f"{REPOS}/{repo_name}/{component.file.path}")
                 architecture.remove(component)
                 conversation.add_user(f"I removed {component.design.key}.")
 
@@ -105,7 +108,7 @@ def run(app_name: str, user: str) -> Dict[str, Any]:
                     updated_components[output.component.design.key] = output.component
 
             conversation.add_user(
-                """Consider the code that you just wrote and the components that depend on it. Do we need to update any other components? Use the following format:
+                """Consider the code that you just wrote and the other components' code that depends on it. Do we need to update any other components? Use the following format:
 
 ```json
 [namespace.name, namespace.name, ...] or [] if nothing left to update

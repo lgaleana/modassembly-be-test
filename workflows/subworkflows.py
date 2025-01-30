@@ -204,15 +204,18 @@ def first_write(
 
 The code should work E2E. Leave no placeholders.
 Use absolute imports.
-Use typing in function arguments and return types.
 Use environment variables instead of placeholders.
-Don't catch exceptions unless specified. Let errors raise.\n"""
+Don't catch exceptions unless specified. Let errors raise.
+"""
     if isinstance(component.design.root, Function):
-        instructions += "Add basic logging for the function name, inputs and outputs.\n"
+        instructions += (
+            "Use typing in the function signature.\n"
+            "Add basic logging for function name, inputs and outputs.\n"
+        )
         if component.design.root.is_endpoint:
             instructions += (
                 "Since this function is meant to be an endpoint, "
-                "add enough documentation, so that it's easy to use in Swagger.\n"
+                "add documentation, so that it's easy to use in Swagger.\n"
                 "Define pydantic models for inputs and OUTPUTS where needed.\n"
                 "Use the most simple types for pydantic models.\n"
             )

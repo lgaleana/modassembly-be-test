@@ -77,7 +77,6 @@ def create_app(
     ) as f2:
         f2.write(f1.read())
 
-    Conversation().persist(app_name, user)
     Conversation().persist(app_name, user, name="conversation_brainstorm")
     Conversation().persist(app_name, user, name="conversation_architecture")
 

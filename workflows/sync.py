@@ -74,9 +74,11 @@ def sync_configs(app_name: str, user: str) -> None:
                                 conversation.add_user(
                                     f"The code for :: {key} has changed. "
                                     f"New code ::\n\n{code}\n\n"
-                                    "Update the component's spec "
-                                    "with a detailed step by step description. "
-                                    "It's very important that you mention all the hardcoded values."
+                                    "Update the component's spec. "
+                                    "Include every important detail. "
+                                    "Ignore logs and comments. "
+                                    "Very important: Extract all the hardcoded values "
+                                    'and add them to "purpose".'
                                 )
                                 response = llm.stream_text(conversation)
                                 conversation.add_assistant(response)
@@ -86,6 +88,21 @@ def sync_configs(app_name: str, user: str) -> None:
                                 print_system(f"Updated :: {key}")
                             else:
                                 design_component = old_component.design
+
+                            synced_architecture.append(
+                                ImplementedComponent(
+                                    design=design_component,
+                                    file=File(
+                                        path=old_component.file.path, content=code
+                                    ),
+                                    update_status=(
+                                        "blocked"
+                                        if old_component.update_status == "blocked"
+                                        else "up_to_date"
+                                    ),
+                                    is_deployed=old_component.is_deployed,
+                                )
+                            )
                         else:
                             parts = key.split(".")
                             namespace = ".".join(parts[:-1])
@@ -94,15 +111,26 @@ def sync_configs(app_name: str, user: str) -> None:
                                 "Consider the following code ::"
                                 f"\n\n{code}\n\n"
                                 f"Add a component spec for namespace :: "
-                                f"{namespace} and name :: {name} "
-                                "with a detailed step by step description. "
-                                "It's very important that you mention all the hardcoded values."
+                                f"{namespace} and name :: {name}\n"
+                                "Include every important detail. "
+                                "Ignore logs and comments. "
+                                "Very important: Extract all the hardcoded values"
+                                'and add them to "purpose".'
                             )
                             response = llm.stream_text(conversation)
                             conversation.add_assistant(response)
                             jsons = extract_json(response)
                             assert len(jsons) == 1
+
                             design_component = Component.model_validate(jsons[0])
+                            file_path = design_component.key.replace(".", "/") + ".py"
+                            synced_architecture.append(
+                                ImplementedComponent(
+                                    design=design_component,
+                                    file=File(path=file_path, content=code),
+                                    update_status="blocked",
+                                )
+                            )
                             print_system(f"Added :: {key}")
                     except ValidationError as e:
                         if attempts == 3:
@@ -110,25 +138,10 @@ def sync_configs(app_name: str, user: str) -> None:
                         conversation.add_system(f"{type(e).__name__}({e})")
                         continue
 
-                    file_path = design_component.key.replace(".", "/") + ".py"
-                    synced_architecture.append(
-                        ImplementedComponent(
-                            design=design_component,
-                            file=File(path=file_path, content=code),
-                            update_status=old_component.update_status,
-                            is_deployed=(
-                                old_component.is_deployed
-                                if old_component is not None
-                                else False
-                            ),
-                        )
-                    )
                     break
 
     breakpoint()
     config["architecture"] = synced_architecture
-    save_templates(repo_name, synced_architecture, conversation)
-    update_main(repo_name, synced_architecture)
     update_architecture_dependencies(synced_architecture)
     save_config(config)
 
