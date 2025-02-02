@@ -48,16 +48,19 @@ def run(app_name: str, user: str) -> Dict[str, Any]:
         updated_templates = save_templates(repo_name, architecture, conversation)
         install_requirements(repo_name, architecture, conversation)
 
+        components_to_remove = []
         for component in architecture:
             if isinstance(component.design.root, Infrastructure):
                 component.update_status = "up_to_date"
             elif component.update_status == "to_remove":
-                if component.file and os.path.exists(
-                    f"{REPOS}/{repo_name}/{component.file.path}"
-                ):
-                    os.remove(f"{REPOS}/{repo_name}/{component.file.path}")
-                architecture.remove(component)
-                conversation.add_user(f"I removed {component.design.key}.")
+                components_to_remove.append(component)
+        for component in components_to_remove:
+            if component.file and os.path.exists(
+                f"{REPOS}/{repo_name}/{component.file.path}"
+            ):
+                os.remove(f"{REPOS}/{repo_name}/{component.file.path}")
+            architecture.remove(component)
+            conversation.add_user(f"I removed {component.design.key}.")
 
         updated_components = {}
         while True:
