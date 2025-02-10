@@ -3,7 +3,7 @@ fastapi==0.115.6
 google-cloud-firestore==2.19.0
 matplotlib==3.10.0
 networkx==3.4.2
-openai==1.58.1
+openai==1.61.1
 passlib==1.7.4
 psycopg2-binary==2.9.10
 pydantic==2.10.4

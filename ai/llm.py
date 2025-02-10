@@ -13,7 +13,7 @@ from utils.io import print_assistant, print_system
 client = OpenAI()
 
 
-MODEL = "gpt-4o"
+MODEL = "o3-mini-2025-01-31"
 TEMPERATURE = 0.0
 
 
@@ -54,22 +54,24 @@ def _generate(
     if temperature is None:
         temperature = TEMPERATURE
 
+    cleaned_messages = []
+    for message in messages:
+        cleaned_messages.append(
+            {"role": message["role"], "content": message["content"]}
+        )
+
     if tools:
         return client.chat.completions.create(
             model=model,
-            messages=messages,
-            temperature=temperature,
+            messages=cleaned_messages,
             stream=True,
-            stream_options={"include_usage": True},
             tools=tools,
             tool_choice="auto",
         )
     return client.chat.completions.create(
         model=model,
-        messages=messages,
-        temperature=temperature,
+        messages=cleaned_messages,
         stream=True,
-        stream_options={"include_usage": True},
     )
 
 

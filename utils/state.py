@@ -19,6 +19,12 @@ class Conversation(List[Dict[str, Any]]):
         else:
             self.append({"role": "system", "content": message})
 
+    def add_developer(self, message: str, *, type_: Optional[str] = None) -> None:
+        if type_ is not None:
+            self.append({"role": "developer", "content": message, "type": type_})
+        else:
+            self.append({"role": "developer", "content": message})
+
     def add_user(self, message: str, *, type_: Optional[str] = None) -> None:
         if type_ is not None:
             self.append({"role": "user", "content": message, "type": type_})

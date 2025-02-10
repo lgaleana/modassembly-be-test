@@ -127,7 +127,25 @@ Infrastructure represents the GCP infrastructure. As you add infrastructure, uti
 
 Think of data models as data sinks. They represent sql tables. To use datamodels, you must add the CloudSQL infrastructure.
 
-functions represent the business logic. They will be executed on Google Cloud Run as a FastAPI. Use python naming conventions."""
+functions represent the business logic. They will be executed on Google Cloud Run as a FastAPI. Use python naming conventions. `app.main` and `app.modassembly` are reserved for internal use. You can't update them. Avoid circular dependencies.
+
+Your goal is to interpret the user's requests and add/update/remove components to design the architecture that better suits the user's needs.
+        
+Design an architecture that is easy to refactor and easy to extend. For example: for a message that looks like: "Add an endpoint that does X, Y and Z", consider the complexity of each step. Consider whether X, Y and Z should be independent functions. Composable architectures are usually easier to maintain. functions should map to less than 100 lines of code.
+
+Add/update/remove components in the following order:
+
+1. Less dependent
+2. More dependent
+...
+N. Endpoint
+
+Use the format:
+```json
+...
+```
+
+Reuse components as much as possible. Remember to update the upstream dependencies. To rename or move a component, first remove it and add it again. Be brief."""
 
 
 def run(
@@ -142,30 +160,12 @@ def run(
 
     if len(conversation) == 0:
         conversation = Conversation()
-        conversation.add_system(PROMPT)
+        conversation.add_developer(PROMPT)
 
     conversation.remove_last_message_type("architecture")
-    conversation.remove_last_message_type("instruction")
-    conversation.add_system(
+    conversation.add_developer(
         f"Current logic:\n\n{present_to_llm(list(architecture.values()))}",
         type_="architecture",
-    )
-    conversation.add_system(
-        """`app.main` and `app.modassembly` are reserved for internal use. You can't update them. Avoid circular dependencies.
-
-Your goal is to interpret the user's requests and add/update/remove components to design the architecture that better suits the user's needs.
-        
-Design an architecture that is easy to refactor and easy to extend. For example: for a message that looks like: "Add an endpoint that does X, Y and Z", consider the complexity of each step. Consider whether X, Y and Z should be independent functions. Composable architectures are usually easier to maintain. functions should map to less than 100 lines of code.
-
-Add/update/remove components in the following order:
-
-1. Less dependent
-2. More dependent
-...
-N. Endpoint
-
-Reuse components as much as possible. Remember to update the upstream dependencies. To rename or move a component, first remove it and add it again. Be brief.""",
-        type_="instruction",
     )
     conversation.add_user(user_message)
 
