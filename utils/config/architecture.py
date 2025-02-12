@@ -30,7 +30,7 @@ class DataModel(BaseComponent):
 class Function(BaseComponent):
     type: Literal["function"] = "function"
     purpose: str
-    is_endpoint: bool = False
+    is_endpoint: bool
 
 
 class Infrastructure(BaseModel):
@@ -51,9 +51,20 @@ class Infrastructure(BaseModel):
         return f"{self.namespace}.{self.name}"
 
 
+class Service(BaseModel):
+    type: Literal["service"] = "service"
+    name: str
+    namespace: Literal["External"] = "External"
+    endpoints: List[Function]
+
+    @property
+    def key(self) -> str:
+        return f"{self.namespace}.{self.name}"
+
+
 class Component(RootModel):
     root: Annotated[
-        Union[DataModel, Function, Infrastructure], Field(discriminator="type")
+        Union[DataModel, Function, Infrastructure, Service], Field(discriminator="type")
     ]
 
     @property
@@ -64,7 +75,9 @@ class Component(RootModel):
 class ImplementedComponent(BaseModel):
     design: Component
     file: Optional[File] = None
-    update_status: Literal["to_update", "to_remove", "up_to_date", "blocked"] = "to_update"
+    update_status: Literal["to_update", "to_remove", "up_to_date", "blocked"] = (
+        "to_update"
+    )
     is_deployed: bool = False
 
 

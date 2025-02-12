@@ -26,23 +26,6 @@ class RawFunctionParams(BaseModel):
         return json.dumps(self.dict(), indent=2)
 
 
-class OCost(BaseModel):
-    PRICE_PER_1K_INPUT: float = 0.005
-    PRICE_PER_1K_OUTPUT: float = 0.015
-
-    input: int = 0
-    output: int = 0
-
-    def get(self) -> float:
-        return (
-            self.PRICE_PER_1K_INPUT * self.input / 1_000
-            + self.PRICE_PER_1K_OUTPUT * self.output / 1_000
-        )
-
-
-model_cost = OCost()
-
-
 def _generate(
     messages,  # PITA to type this
     model: Optional[str] = None,
@@ -67,11 +50,13 @@ def _generate(
             stream=True,
             tools=tools,
             tool_choice="auto",
+            reasoning_effort="low",
         )
     return client.chat.completions.create(
         model=model,
         messages=cleaned_messages,
         stream=True,
+        reasoning_effort="low",
     )
 
 

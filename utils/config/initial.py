@@ -26,7 +26,12 @@ initial_config = {
                 Function(
                     name="main",
                     namespace="app",
-                    purpose="The main FastAPI script.",
+                    purpose="1) Calls load_dotenv().\n"
+                    "2) Initializes the FastAPI app.\n"
+                    "3) Adds CORSMiddleware with *.\n"
+                    "4) Adds all the application routers.\n"
+                    "5) Adds all the application models.\n"
+                    "6) Calls Base.metadata.create_all(engine).",
                     dependencies=["Other datamodels or functions"],
                     is_endpoint=False,
                     pypi_packages=[
@@ -38,6 +43,28 @@ initial_config = {
                         "uvicorn",
                     ],
                 )
+            )
+        ),
+        ImplementedComponent(
+            design=Component(
+                Infrastructure(
+                    name="CloudSQL",
+                    namespace="External",
+                    config={},
+                )
+            )
+        ),
+        ImplementedComponent(
+            design=Component(
+                Function(
+                    name="get_sql_session",
+                    namespace="app.modassembly.database.sql",
+                    purpose="1) Initializes Base, engine and SessionLocal. Uses the DB_URL environment variable.\n"
+                    "2) Yields a SessionLocal instance.",
+                    dependencies=[],
+                    is_endpoint=False,
+                    pypi_packages=["psycopg2-binary", "sqlalchemy"],
+                ),
             )
         ),
     ],

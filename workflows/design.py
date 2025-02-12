@@ -1,5 +1,4 @@
 import json
-import os
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
 from dotenv import load_dotenv
@@ -18,7 +17,6 @@ from utils.config.architecture import (
     load_config,
     save_config,
 )
-from utils.config.initial import AVAILABLE_INFRASTRUCTURE
 from utils.io import print_system
 from utils.state import Conversation
 from workflows.brainstorm import PROMPT
@@ -46,30 +44,23 @@ def present_to_llm(architecture: List[ImplementedComponent]) -> str:
     )
 
 
-INFRASTRUCTURE = json.dumps(
-    [
-        {
-            "name": i["name"],
-            "namespace": i["namespace"],
-            "description": i["description"],
-            "added_functions": [c.model_dump() for c in i["added_functions"]],
-        }
-        for i in AVAILABLE_INFRASTRUCTURE
-    ],
-    indent=4,
-)
+PROMPT = f"""You are helpful assistant that designs distributed systems.
 
+The system's architecture is represented as a json in the following format:
 
-PROMPT = f"""You are helpful AI assistant that designs distributed backend systems.
-
-The entire system will be hosted on Google Cloud Platform. The architecture is represented as a json in the following format:
-
-```json
 [
     {{
         "type": "infrastructure",
         "name": "The name of the infrastructure",
-        "namespace" = "External" (only valid value)
+        "config": {{"The details of the infrastructure"}}
+    }},
+    {{
+        "type": "service",
+        "name": "The name of the service",
+        "endpoints": [
+            "namespace.function_name",
+            ...
+        ]
     }},
     {{
         "type": "datamodel",
@@ -77,8 +68,8 @@ The entire system will be hosted on Google Cloud Platform. The architecture is r
         "namespace": "The virtual location of the code, ie, the file path. Use a dot notation.",
         "fields": [
             {{
-                    "name": "The name of the field",
-                    "purpose": "What the field is used for, important remarks, etc."
+                "name": "The name of the field",
+                "purpose": "What the field is used for, important remarks, etc."
             }}
         ],
         "dependencies": ["The other namespace.datamodels that the model is associated with."],
@@ -87,51 +78,39 @@ The entire system will be hosted on Google Cloud Platform. The architecture is r
     {{
        "type": "function",
         "name": "The name of the function",
-        "namespace": "The virtual location of the code, ie, the file path.. Use a dot notation.",
-        "purpose": "What the function does, step by step. Ie: 1) ...\n2) ... Mention every important detail.",
+        "namespace": "The virtual location of the code, ie, the file path. Use a dot notation.",
+        "purpose": "What the function does. Code will be generated from this description. Mention every important detail.",
         "dependencies": ["The other namespace.functions or namespace.datamodels that the code depends on."],
-        "pypi_packages": ["The pypi packages that the function will need."],
+        "pypi_packages": ["The pypi packages that the code will need."],
         "is_endpoint": true or false whether this is a FastAPI endpoint
     }}
     ...
 ]
-```
 
-To add or update a component, use the following format:
+There are four types of components: infrastructure, services, datamodels and functions. infrastructure represents Google Cloud Platform infrastructure that you have access to. services represent other systems. You can communicate with them via their endpoints through HTTP requests. datamodels represent sqlalchemy models. functions represent the business logic. Use python naming conventions. datamodels and functions will be executed on Google Cloud Run as a FastAPI.
 
-```json
+Your goal is to interpret the user's requests and add/update/remove datamodels or functions to design the architecture that matches the user's needs. To add or update a datamodel or function, use the following format:
+
 {{
     "action":"update",
-    "type": "infrastructure", "datamodel" or "function",
-    # Attributes of the infrastructure, datamodel or function
+    "type": "datamodel" or "function",
+    # Attributes of the datamodel or function
 }}
-```
 
-To remove a component, use the following format:
+To remove a datamodel or function, use the following format:
 
-```json
 {{
     "action": "remove",
-    "name": "The name of the component to remove"
-    "namespace": "The namespace of the component"
+    "name": "The name of the datamodel or function to remove",
+    "namespace": "The namespace of the datamodel or function"
 }}
-```
 
-There are three types of components: infrastructures, datamodels and functions.
-
-Infrastructure represents the GCP infrastructure. As you add infrastructure, utility functions will be added for you so that your application can connect to it. You can skip adding them. Available infrastructure:
-
+Use the format:
 ```json
-{INFRASTRUCTURE}
+...
 ```
-
-Think of data models as data sinks. They represent sql tables. To use datamodels, you must add the CloudSQL infrastructure.
-
-functions represent the business logic. They will be executed on Google Cloud Run as a FastAPI. Use python naming conventions. `app.main` and `app.modassembly` are reserved for internal use. You can't update them. Avoid circular dependencies.
-
-Your goal is to interpret the user's requests and add/update/remove components to design the architecture that better suits the user's needs.
         
-Design an architecture that is easy to refactor and easy to extend. For example: for a message that looks like: "Add an endpoint that does X, Y and Z", consider the complexity of each step. Consider whether X, Y and Z should be independent functions. Composable architectures are usually easier to maintain. functions should map to less than 100 lines of code.
+Design an architecture that is easy to refactor and easy to extend. For example, for a message that looks like: "Add an endpoint that does X, Y and Z", consider the complexity of each step. Consider whether X, Y and Z should be independent functions. Composable architectures are easier to maintain. functions should map to less than 100 lines of code.
 
 Add/update/remove components in the following order:
 
@@ -139,11 +118,6 @@ Add/update/remove components in the following order:
 2. More dependent
 ...
 N. Endpoint
-
-Use the format:
-```json
-...
-```
 
 Reuse components as much as possible. Remember to update the upstream dependencies. To rename or move a component, first remove it and add it again. Be brief."""
 
@@ -164,7 +138,7 @@ def run(
 
     conversation.remove_last_message_type("architecture")
     conversation.add_developer(
-        f"Current logic:\n\n{present_to_llm(list(architecture.values()))}",
+        f"Current architecture:\n\n{present_to_llm(list(architecture.values()))}",
         type_="architecture",
     )
     conversation.add_user(user_message)
@@ -218,7 +192,7 @@ def run(
                         )
                     if action != Action.REMOVE:
                         component = Component.model_validate(json_)
-                        if (
+                        """if (
                             isinstance(component.root, DataModel)
                             and "External.CloudSQL" not in architecture
                             and "External.Firestore" not in architecture
@@ -229,28 +203,25 @@ def run(
                                 f"Unable to {action} component :: {key} "
                                 "because there is no infrastructure to support it."
                             )
-                        if isinstance(component.root, DataModel) or isinstance(
-                            component.root, Function
-                        ):
-                            component.root.dependencies = [
-                                (
-                                    "app." + dependency
-                                    if not dependency.startswith("External")
-                                    and not dependency.startswith("app.")
-                                    else dependency
+                        component.dependencies = [
+                            (
+                                "app." + dependency
+                                if not dependency.startswith("External")
+                                and not dependency.startswith("app.")
+                                else dependency
+                            )
+                            for dependency in component.dependencies
+                        ]
+                        for dependency in component.root.dependencies:
+                            if (
+                                dependency not in architecture
+                                and dependency not in components_to_update
+                            ):
+                                raise ValueError(
+                                    f"Unable to {action} component :: {component.key} "
+                                    f"because the `dependency` :: {dependency} doesn't exist in the architecture. "
+                                    "Add components in the order of their dependencies."
                                 )
-                                for dependency in component.root.dependencies
-                            ]
-                            for dependency in component.root.dependencies:
-                                if (
-                                    dependency not in architecture
-                                    and dependency not in components_to_update
-                                ):
-                                    raise ValueError(
-                                        f"Unable to {action} component :: {component.key} "
-                                        f"because the `dependency` :: {dependency} doesn't exist in the architecture. "
-                                        "Add components in the order of their dependencies."
-                                    )
                         if isinstance(component.root, Infrastructure):
                             for infra in AVAILABLE_INFRASTRUCTURE:
                                 if infra["name"] == component.root.name:
@@ -266,9 +237,10 @@ def run(
                                         conversation.add_system(
                                             f"Will add :: {function_.key}."
                                         )
-                                    break
-                        if not isinstance(
-                            component.root, Infrastructure
+                                    break"""
+                        if (
+                            isinstance(component.root, Function)
+                            or isinstance(component.root, DataModel)
                         ) and not component.root.namespace.startswith("app."):
                             component.root.namespace = "app." + component.root.namespace
                             conversation.add_system("Prefixing namespace with `app.`")
@@ -280,7 +252,7 @@ def run(
                             action=action, key=key, base=None
                         )
                 else:
-                    component = Component.model_validate(json_)
+                    component = Function.model_validate(json_)
                     if not component.key == "app.main":
                         conversation.add_system(
                             f"Will remove and add :: {component.key}."
@@ -289,8 +261,8 @@ def run(
                         jsons.append(
                             {
                                 "action": Action.REMOVE,
-                                "name": component.root.name,
-                                "namespace": component.root.namespace,
+                                "name": component.name,
+                                "namespace": component.namespace,
                             }
                         )
                         jsons.append(
