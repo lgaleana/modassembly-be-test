@@ -35,13 +35,13 @@ def run(app_name: str, user: str) -> Dict[str, Any]:
     config = load_config(app_name, user)
     architecture = config["architecture"]
 
-    conversation = Conversation.load(app_name, user, name="conversation_architecture")
-    conversation.remove_last_message_type("architecture")
+    conversation = Conversation()
     conversation.add_user(
-        "Consider all the changes since we last implemented the architecture. "
-        "Let's update the code. "
-        "Current specs vs code:\n\n"
-        f"{json.dumps([c.model_dump() for c in architecture], indent=4)}"
+        f"""Consider the following codebase:
+
+{json.dumps([c.model_dump() for c in architecture], indent=4)}
+
+We will update the components marked as `"to_update"`."""
     )
 
     try:
@@ -110,12 +110,13 @@ def run(app_name: str, user: str) -> Dict[str, Any]:
                     ].update_status = "up_to_date"
                     updated_components[output.component.design.key] = output.component
 
-            conversation.add_user(
-                """Consider the code that you just wrote and the other components' code that depends on it. Do we need to update any other components? Use the following format:
+            break
+            """conversation.add_user(
+                Consider the code that you just wrote and the other components' code that depends on it. Do we need to update any other components? Use the following format:
 
 ```json
 [namespace.name, namespace.name, ...] or [] if nothing left to update
-```"""
+```
             )
             response = llm.stream_text(conversation)
             conversation.add_assistant(response)
@@ -129,7 +130,7 @@ def run(app_name: str, user: str) -> Dict[str, Any]:
                     and component.design.key not in updated_components
                     and component.design.key not in updated_templates
                 ):
-                    component.update_status = "to_update"
+                    component.update_status = "to_update" """
 
         update_main(repo_name, architecture)
         update_architecture_dependencies(architecture)
