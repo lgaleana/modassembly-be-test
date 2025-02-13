@@ -32,6 +32,16 @@ from workflows.subworkflows import first_write, install_requirements, save_templ
 
 def run(app_name: str, user: str) -> Dict[str, Any]:
     repo_name = f"{user}_{app_name}"
+    execute_git_commands(
+        [
+            ["git", "add", "."],
+            ["git", "commit", "-m", "Commit config"],
+            ["git", "push", "origin", "main"],
+        ],
+        repo=repo_name,
+        check=False,
+    )
+
     config = load_config(app_name, user)
     architecture = config["architecture"]
 
@@ -135,9 +145,17 @@ We will update the components marked as `"to_update"`."""
         update_main(repo_name, architecture)
         update_architecture_dependencies(architecture)
 
-        git_convo = conversation.copy()
-        git_convo.add_user("Give me a one line commit message for the changes. Go: ...")
-        commit_message = llm.stream_text(git_convo)
+        arch_conversation = Conversation.load(
+            app_name, user, name="conversation_architecture"
+        )
+        arch_conversation.add_system("Implementing architecture... Done.")
+        arch_conversation.persist(app_name, user, name="conversation_architecture")
+        save_config(config)
+
+        conversation.add_user(
+            "Give me a one line commit message for the changes. Go: ..."
+        )
+        commit_message = llm.stream_text(conversation)
         print_system("Pushing changes to GitHub...")
         execute_git_commands(
             [
@@ -147,13 +165,6 @@ We will update the components marked as `"to_update"`."""
             ],
             repo=repo_name,
         )
-
-        conversation = Conversation.load(
-            app_name, user, name="conversation_architecture"
-        )
-        conversation.add_system("Implementing architecture... Done.")
-        conversation.persist(app_name, user, name="conversation_architecture")
-        save_config(config)
 
         if user != "lgaleana":
             for component in updated_components.values():

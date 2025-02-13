@@ -70,9 +70,7 @@ def install_requirements(
 ) -> None:
     pypi_packages = set()
     for component in architecture:
-        if isinstance(component.design.root, DataModel) or isinstance(
-            component.design.root, Function
-        ):
+        if isinstance(component.design.root, Function):
             pypi_packages.update(component.design.root.pypi_packages)
     requirements_path = f"{REPOS}/{app_name}/requirements.txt"
     with open(requirements_path, "w") as f:
@@ -147,9 +145,7 @@ def write_component(
             and component.design.root.is_endpoint
         ):
             extract_router_name(code)
-        elif isinstance(component.design.root, DataModel) and any(
-            "sqlalchemy" in d for d in component.design.root.pypi_packages
-        ):
+        elif isinstance(component.design.root, DataModel):
             create_tables(repo_name, code)
 
         component.file = File(path=file_path, content=code)
@@ -205,32 +201,21 @@ def first_write(
 The code should work E2E. Leave no placeholders.
 Use absolute imports.
 Use environment variables instead of placeholders.
-Don't catch exceptions unless specified. Let errors raise.
-"""
+Don't catch exceptions unless specified. Let errors raise."""
     if isinstance(component.design.root, Function):
-        instructions += (
-            "Use typing in the function signature.\n"
-            "Add basic logging for function name, inputs and outputs.\n"
-        )
+        instructions += "Use typing in the function signature.\n"
         if component.design.root.is_endpoint:
             instructions += (
-                "Since this function is meant to be an endpoint, "
-                "add documentation, so that it's easy to use in Swagger.\n"
-                "Define pydantic models for inputs and OUTPUTS where needed.\n"
-                "Use the most simple types for pydantic models.\n"
+                "Since this function is meant to be an endpoint, add documentation, so that it's easy to use in Swagger.\n"
+                "Define pydantic models for inputs and outputs where needed.\n"
             )
         instructions += (
             "mypy will be run over the code, so implement the function in a way that it passes mypy.\n"
-            "When using SQLALchemy models, access the actual column values. "
-            "Example for a string attribute: `model.attribute.__str__()`.\n"
-            f" - {component.design.root.purpose}\n"
+            f"{component.design.root.purpose}\n"
         )
-    elif isinstance(component.design.root, DataModel) and any(
-        "sqlalchemy" in d for d in component.design.root.pypi_packages
-    ):
+    elif isinstance(component.design.root, DataModel):
         instructions += (
             "Import Base from app.modassembly.database.sql.get_sql_session.\n"
-            "Only use `ForeignKey` if the other model exists in the architecture.\n"
         )
-    instructions += "\n```python\n...\n```"
+    instructions += "Use the format:\n\n```python\n...\n```"
     return write_component(repo_name, instructions, component, conversation)

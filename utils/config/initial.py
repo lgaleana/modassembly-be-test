@@ -19,7 +19,8 @@ initial_config = {
                     namespace="External",
                     config={},
                 )
-            )
+            ),
+            update_status="up_to_date",
         ),
         ImplementedComponent(
             design=Component(
@@ -35,12 +36,11 @@ initial_config = {
                     dependencies=["Other datamodels or functions"],
                     is_endpoint=False,
                     pypi_packages=[
-                        "fastapi",
-                        "mypy",
-                        "pydantic",
-                        "python-dotenv",
-                        "python-multipart",
-                        "uvicorn",
+                        "fastapi==0.115.6",
+                        "mypy==1.15.0",
+                        "pydantic==2.10.4",
+                        "python-dotenv==1.0.1",
+                        "uvicorn==0.34.0",
                     ],
                 )
             )
@@ -52,7 +52,8 @@ initial_config = {
                     namespace="External",
                     config={},
                 )
-            )
+            ),
+            update_status="up_to_date",
         ),
         ImplementedComponent(
             design=Component(
@@ -63,12 +64,11 @@ initial_config = {
                     "2) Yields a SessionLocal instance.",
                     dependencies=[],
                     is_endpoint=False,
-                    pypi_packages=["psycopg2-binary", "sqlalchemy"],
+                    pypi_packages=["psycopg2-binary==2.9.10", "sqlalchemy==2.0.36"],
                 ),
             )
         ),
     ],
-    "url": None,
 }
 
 

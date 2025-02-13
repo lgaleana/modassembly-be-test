@@ -72,8 +72,7 @@ The system's architecture is represented as a json in the following format:
                 "purpose": "What the field is used for, important remarks, etc."
             }}
         ],
-        "dependencies": ["The other namespace.datamodels that the model is associated with."],
-        "pypi_packages": ["The pypi packages that the datamodel will need."]
+        "dependencies": ["The other namespace.datamodels that the model is associated with."]
     }},
     {{
        "type": "function",
@@ -81,13 +80,13 @@ The system's architecture is represented as a json in the following format:
         "namespace": "The virtual location of the code, ie, the file path. Use a dot notation.",
         "purpose": "What the function does. Code will be generated from this description. Mention every important detail.",
         "dependencies": ["The other namespace.functions or namespace.datamodels that the code depends on."],
-        "pypi_packages": ["The pypi packages that the code will need."],
+        "pypi_packages": ["The pypi packages that the code will need, eg, package==version."],
         "is_endpoint": true or false whether this is a FastAPI endpoint
     }}
     ...
 ]
 
-There are four types of components: infrastructure, services, datamodels and functions. infrastructure represents Google Cloud Platform infrastructure that you have access to. services represent other systems. You can communicate with them via their endpoints through HTTP requests. datamodels represent sqlalchemy models. functions represent the business logic. Use python naming conventions. datamodels and functions will be executed on Google Cloud Run as a FastAPI.
+There are four types of components: infrastructure, services, datamodels and functions. infrastructure represents Google Cloud Platform infrastructure that you have access to. services represent other systems. You can communicate with them via their endpoints through HTTP requests. datamodels represent sqlalchemy models. functions represent the business logic. datamodels and functions will be executed on Google Cloud Run as a FastAPI. Use FastAPI design patterns.
 
 Your goal is to interpret the user's requests and add/update/remove datamodels or functions to design the architecture that matches the user's needs. To add or update a datamodel or function, use the following format:
 
@@ -110,16 +109,9 @@ Use the format:
 ...
 ```
         
-Design an architecture that is easy to refactor and easy to extend. For example, for a message that looks like: "Add an endpoint that does X, Y and Z", consider the complexity of each step. Consider whether X, Y and Z should be independent functions. Composable architectures are easier to maintain. functions should map to less than 100 lines of code.
+Design an architecture that is easy to refactor and easy to extend. Break apart each feature into steps. Some of those steps should be independent functions. (**Important**) functions should have less than 50 lines of code. Composable architectures are easier to maintain. Use Python naming conventions.
 
-Add/update/remove components in the following order:
-
-1. Less dependent
-2. More dependent
-...
-N. Endpoint
-
-Reuse components as much as possible. Remember to update the upstream dependencies. To rename or move a component, first remove it and add it again. Be brief."""
+Reuse components whenever possible. (**Important**) Every time that you update a component, update its upstream and downstream dependencies. To rename or move a component, first remove it and add it again. Be brief."""
 
 
 def run(
@@ -298,7 +290,6 @@ def run(
                     architecture[component.key].update_status = "to_update"
         config["architecture"] = list(architecture.values())
         save_config(config)
-        conversation.remove_all_message_type("instruction")
         conversation.persist(app_name, user, name="conversation_architecture")
 
         if user != "lgaleana":

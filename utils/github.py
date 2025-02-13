@@ -67,10 +67,10 @@ def repository_exists(repo: str) -> bool:
         return False
 
 
-def execute_git_commands(commands: List[List[str]], *, repo: str) -> None:
+def execute_git_commands(commands: List[List[str]], *, repo: str, check: bool = True) -> None:
     for command in commands:
         try:
-            subprocess.run(command, check=True, cwd=f"{REPOS}/{repo}")
+            subprocess.run(command, check=check, cwd=f"{REPOS}/{repo}")
         except subprocess.CalledProcessError as e:
             revert_changes(repo)
             raise e

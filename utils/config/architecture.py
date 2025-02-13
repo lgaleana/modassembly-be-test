@@ -11,7 +11,6 @@ class BaseComponent(BaseModel):
     name: str
     namespace: str
     dependencies: List[str]
-    pypi_packages: List[str]
 
     @property
     def key(self) -> str:
@@ -30,6 +29,7 @@ class DataModel(BaseComponent):
 class Function(BaseComponent):
     type: Literal["function"] = "function"
     purpose: str
+    pypi_packages: List[str]
     is_endpoint: bool
 
 
@@ -91,7 +91,6 @@ def load_config(app_name: str, user: str) -> Dict[str, Any]:
             ImplementedComponent.model_validate(a) for a in config["architecture"]
         ],
         "github": config["github"],
-        "url": config["url"],
     }
 
 
@@ -103,7 +102,6 @@ def save_config(config: Dict[str, Any]) -> None:
         "user": config["user"],
         "architecture": raw_architecture,
         "github": config["github"],
-        "url": config["url"],
     }
     with open(f"{REPOS}/{config['user']}_{config['name']}/config.json", "w") as f:
         json.dump(
