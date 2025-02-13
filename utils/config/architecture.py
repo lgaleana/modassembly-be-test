@@ -1,4 +1,5 @@
 import json
+import os
 from typing import Any, Dict, List, Optional, Union, Annotated, Literal
 
 from pydantic import BaseModel, Field, RootModel
@@ -52,7 +53,7 @@ class Infrastructure(BaseModel):
 
 
 class Service(BaseModel):
-    type: Literal["service"] = "service"
+    type: Literal["microservice"] = "microservice"
     name: str
     namespace: Literal["External"] = "External"
     endpoints: List[Function]
@@ -109,6 +110,14 @@ def save_config(config: Dict[str, Any]) -> None:
             f,
             indent=2,
         )
+
+
+def load_all_configs(user: str) -> List[Dict[str, Any]]:
+    configs = []
+    for file in os.listdir(REPOS):
+        if f"{user}_" in file:
+            configs.append(load_config("_".join(file.split("_")[1:]), user))
+    return configs
 
 
 def update_architecture_diff(

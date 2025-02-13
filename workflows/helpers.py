@@ -13,6 +13,7 @@ from utils.config.architecture import (
     DataModel,
     ImplementedComponent,
     Infrastructure,
+    Service,
 )
 from utils.config.initial import create_initial_config
 from utils.github import (
@@ -199,6 +200,7 @@ def update_architecture_dependencies(architecture: List[ImplementedComponent]) -
     for component in architecture:
         if (
             isinstance(component.design.root, Infrastructure)
+            or isinstance(component.design.root, Service)
             or component.design.key == "app.main"
         ):
             continue

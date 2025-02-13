@@ -47,11 +47,11 @@ def run(app_name: str, user: str) -> Dict[str, Any]:
 
     conversation = Conversation()
     conversation.add_user(
-        f"""Consider the following codebase:
+        f"""Consider the following codebase, that contains design specs and code:
 
 {json.dumps([c.model_dump() for c in architecture], indent=4)}
 
-We will update the components marked as `"to_update"`."""
+We will update the components marked as `"to_update"`. Communicate with the functions inside a "service" via HTTP requests."""
     )
 
     try:

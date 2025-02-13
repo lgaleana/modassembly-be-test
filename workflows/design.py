@@ -55,11 +55,14 @@ The system's architecture is represented as a json in the following format:
         "config": {{"The details of the infrastructure"}}
     }},
     {{
-        "type": "service",
-        "name": "The name of the service",
+        "type": "microservice",
+        "name": "The name of the microservice",
         "endpoints": [
-            "namespace.function_name",
-            ...
+            {{
+                "type": "function",
+                # Attributes of the function,
+                "is_endpoint": true
+            }}
         ]
     }},
     {{
@@ -86,7 +89,17 @@ The system's architecture is represented as a json in the following format:
     ...
 ]
 
-There are four types of components: infrastructure, services, datamodels and functions. infrastructure represents Google Cloud Platform infrastructure that you have access to. services represent other systems. You can communicate with them via their endpoints through HTTP requests. datamodels represent sqlalchemy models. functions represent the business logic. datamodels and functions will be executed on Google Cloud Run as a FastAPI. Use FastAPI design patterns.
+There are four types of components: infrastructure, microservices, datamodels and functions.
+
+infrastructure represents Google Cloud Platform infrastructure that you have access to.
+
+microservices represent other systems. The endpoints of the microservices are exposed and you can only access them via HTTP requests. You can't have a direct dependency on those endpoints.
+
+datamodels represent sqlalchemy models.
+
+functions represent the business logic. `app.main` and the `app.modassembly` namespace are reserved for internal use. They will be updated for you.
+
+datamodels and functions will be executed on Google Cloud Run as a FastAPI.
 
 Your goal is to interpret the user's requests and add/update/remove datamodels or functions to design the architecture that matches the user's needs. To add or update a datamodel or function, use the following format:
 
@@ -108,10 +121,19 @@ Use the format:
 ```json
 ...
 ```
-        
-Design an architecture that is easy to refactor and easy to extend. Break apart each feature into steps. Some of those steps should be independent functions. (**Important**) functions should have less than 50 lines of code. Composable architectures are easier to maintain. Use Python naming conventions.
 
-Reuse components whenever possible. (**Important**) Every time that you update a component, update its upstream and downstream dependencies. To rename or move a component, first remove it and add it again. Be brief."""
+Follow a microservices design pattern. If the data that you need is exposed by another microservice, avoid creating a new datamodel and duplicating the functionality. Instead, make a call to the relevant microservice.
+        
+Design an architecture that is easy to refactor and easy to extend. Break apart each feature into steps. Identify the steps that belong as independent functions. (**Important**) functions should have less than 50 lines of code. Composable architectures are easier to maintain.
+
+Add/update/remove components in the following order:
+
+1. Less dependencies
+2. More dependencies
+...
+N. Endpoint
+
+(**Important**) Every time that you update a component, update its upstream and downstream dependencies. To rename or move a component, first remove it and add it again. Be brief."""
 
 
 def run(
@@ -129,7 +151,7 @@ def run(
         conversation.add_developer(PROMPT)
 
     conversation.remove_last_message_type("architecture")
-    conversation.add_developer(
+    conversation.add_system(
         f"Current architecture:\n\n{present_to_llm(list(architecture.values()))}",
         type_="architecture",
     )
@@ -184,18 +206,16 @@ def run(
                         )
                     if action != Action.REMOVE:
                         component = Component.model_validate(json_)
-                        """if (
+                        if (
                             isinstance(component.root, DataModel)
                             and "External.CloudSQL" not in architecture
-                            and "External.Firestore" not in architecture
                             and "External.CloudSQL" not in components_to_update
-                            and "External.Firestore" not in components_to_update
                         ):
                             raise ValueError(
                                 f"Unable to {action} component :: {key} "
                                 "because there is no infrastructure to support it."
                             )
-                        component.dependencies = [
+                        """component.dependencies = [
                             (
                                 "app." + dependency
                                 if not dependency.startswith("External")
@@ -203,18 +223,23 @@ def run(
                                 else dependency
                             )
                             for dependency in component.dependencies
-                        ]
-                        for dependency in component.root.dependencies:
-                            if (
-                                dependency not in architecture
-                                and dependency not in components_to_update
-                            ):
-                                raise ValueError(
-                                    f"Unable to {action} component :: {component.key} "
-                                    f"because the `dependency` :: {dependency} doesn't exist in the architecture. "
-                                    "Add components in the order of their dependencies."
-                                )
-                        if isinstance(component.root, Infrastructure):
+                        ]"""
+                        if isinstance(component.root, Function) or isinstance(
+                            component.root, DataModel
+                        ):
+                            for dependency in component.root.dependencies:
+                                if (
+                                    dependency not in architecture
+                                    and dependency not in components_to_update
+                                ):
+                                    raise ValueError(
+                                        f"Unable to {action} component :: {component.key} "
+                                        f"because the `dependency` :: {dependency} doesn't exist in the architecture. "
+                                        "Add components in the order of their dependencies. "
+                                        "Remember that you can't have a direct dependency on microservices. "
+                                        "You must rely on HTTP requests."
+                                    )
+                        """if isinstance(component.root, Infrastructure):
                             for infra in AVAILABLE_INFRASTRUCTURE:
                                 if infra["name"] == component.root.name:
                                     added_functions = infra["added_functions"]

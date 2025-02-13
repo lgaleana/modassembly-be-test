@@ -216,6 +216,7 @@ Don't catch exceptions unless specified. Let errors raise."""
     elif isinstance(component.design.root, DataModel):
         instructions += (
             "Import Base from app.modassembly.database.sql.get_sql_session.\n"
+            "Use `ForeignKey` only if the referenced model exists in the architecture.\n"
         )
     instructions += "Use the format:\n\n```python\n...\n```"
     return write_component(repo_name, instructions, component, conversation)
