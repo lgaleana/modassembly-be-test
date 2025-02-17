@@ -60,19 +60,6 @@ def integrate_infrastructure(
                 ),
                 update_status="up_to_date",
             ),
-            ImplementedComponent(
-                design=Component(
-                    Function(
-                        name="get_sql_session",
-                        namespace="app.modassembly.database.sql",
-                        purpose="1) Initializes Base, engine and SessionLocal. Uses the DB_URL environment variable.\n"
-                        "2) Yields a SessionLocal instance.",
-                        dependencies=[],
-                        is_endpoint=False,
-                        pypi_packages=["psycopg2-binary==2.9.10", "sqlalchemy==2.0.36"],
-                    ),
-                )
-            ),
         ]
     )
     save_config(config)

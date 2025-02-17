@@ -25,6 +25,7 @@ from utils.github import (
 from utils.io import print_system
 from utils.state import Conversation
 from utils.static_analysis import (
+    RouterNotFoundError,
     extract_imports,
     extract_router_name,
     extract_sqlalchemy_models,
@@ -175,11 +176,14 @@ def update_main(
             isinstance(component.design.root, Function)
             and component.design.root.is_endpoint
         ):
-            assert component.file
-            import_ = component.file.path.replace(".py", "").replace("/", ".")
-            router_name = extract_router_name(component.file.content)
-            main_content += f"from {import_} import {router_name}\n"
-            main_content += f"app.include_router({router_name})\n"
+            for file in component.files:
+                import_ = file.path.replace(".py", "").replace("/", ".")
+                try:
+                    router_name = extract_router_name(file.content)
+                    main_content += f"from {import_} import {router_name}\n"
+                    main_content += f"app.include_router({router_name})\n"
+                except RouterNotFoundError:
+                    pass
 
     if len(models) > 0:
         main_content += "\n# Database\n\n"
@@ -190,8 +194,8 @@ def update_main(
 
     for component in architecture:
         if component.design.key == "app.main":
-            assert component.file
-            component.file.content = main_content
+            assert len(component.files) == 1
+            component.files[0].content = main_content
     with open(f"{REPOS}/{app_name}/app/main.py", "w") as f:
         f.write(main_content)
 
@@ -276,16 +280,8 @@ class MypyError(Exception):
     pass
 
 
-def run_mypy(app_name: str, file_path: str) -> None:
-    full_path = f"{REPOS}/{app_name}/{file_path}"
-    with open(full_path, "r") as f:
-        content = f.read()
-    imports = extract_imports(content)
-    files_to_check = [full_path]
-    for import_ in imports:
-        if import_.startswith("app."):
-            import_path = "/".join(import_.split(".")[:-1]) + ".py"
-            files_to_check.append(f"{REPOS}/{app_name}/{import_path}")
+def run_mypy(app_name: str) -> None:
+    full_path = f"{REPOS}/{app_name}"
 
     venv_python = os.path.join(REPOS, app_name, "venv", "bin", "python3")
     process = subprocess.run(
@@ -293,7 +289,7 @@ def run_mypy(app_name: str, file_path: str) -> None:
             venv_python,
             "-m",
             "mypy",
-            *files_to_check,  # Pass all files to check
+            full_path,
             "--no-incremental",
             "--cache-dir=/dev/null",
             "--sqlite-cache",

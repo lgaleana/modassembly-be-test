@@ -8,7 +8,7 @@ from utils.files import File, REPOS
 
 
 class BaseComponent(BaseModel):
-    type: Literal["datamodel", "function"]
+    type: Literal["datamodel", "function", "logic"]
     name: str
     namespace: str
     dependencies: List[str]
@@ -28,7 +28,7 @@ class DataModel(BaseComponent):
 
 
 class Function(BaseComponent):
-    type: Literal["function"] = "function"
+    type: Literal["function", "logic"] = "logic"
     purpose: str
     pypi_packages: List[str]
     is_endpoint: bool
@@ -75,7 +75,7 @@ class Component(RootModel):
 
 class ImplementedComponent(BaseModel):
     design: Component
-    file: Optional[File] = None
+    files: List[File] = []
     update_status: Literal["to_update", "to_remove", "up_to_date", "blocked"] = (
         "to_update"
     )

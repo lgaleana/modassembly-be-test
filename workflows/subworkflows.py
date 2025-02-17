@@ -40,7 +40,7 @@ def save_templates(
             conversation.add_user(f"I saved it in {file}.")
 
     updated_components = {}
-    for component in architecture:
+    """for component in architecture:
         if not component.design.key in MODASSEMBLY_COMPONENTS:
             continue
         file_path = MODASSEMBLY_COMPONENTS[component.design.key]
@@ -53,9 +53,9 @@ def save_templates(
             print_system(f"Saving :: {component.design.key}")
             conversation.add_user(f"I wrote the code for:\n\n```python\n{content}\n```")
             conversation.add_user(f"I saved the code in {file_path}.")
-            component.file = File(path=file_path, content=content)
+            component.files.append(File(path=file_path, content=content))
             component.update_status = "up_to_date"
-            updated_components[component.design.key] = component
+            updated_components[component.design.key] = component"""
     return updated_components
 
 

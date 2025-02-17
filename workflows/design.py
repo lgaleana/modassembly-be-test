@@ -59,8 +59,8 @@ The system's architecture is represented as a json in the following format:
         "name": "The name of the microservice",
         "endpoints": [
             {{
-                "type": "function",
-                # Attributes of the function,
+                "type": "logic",
+                # Attributes of the logic component,
                 "is_endpoint": true
             }}
         ]
@@ -78,43 +78,43 @@ The system's architecture is represented as a json in the following format:
         "dependencies": ["The other namespace.datamodels that the model is associated with."]
     }},
     {{
-       "type": "function",
-        "name": "The name of the function",
+       "type": "logic",
+        "name": "A name to identify the logic",
         "namespace": "The virtual location of the code, ie, the file path. Use a dot notation.",
-        "purpose": "What the function does. Code will be generated from this description. Mention every important detail.",
-        "dependencies": ["The other namespace.functions or namespace.datamodels that the code depends on."],
-        "pypi_packages": ["The pypi packages that the code will need, eg, package==version."],
+        "purpose": "A text description of the code. Code will be generated from this. Mention every important detail.",
+        "dependencies": ["The other namespace.logic or namespace.datamodels that the code will use."],
+        "pypi_packages": ["The pypi packages that the code will need, eg, package==version. Reuse existing versions."],
         "is_endpoint": true or false whether this is a FastAPI endpoint
     }}
     ...
 ]
 
-There are four types of components: infrastructure, microservices, datamodels and functions.
+There are four types of components: infrastructure, microservices, datamodels and logic.
 
 infrastructure represents Google Cloud Platform infrastructure that you have access to.
 
-microservices represent other systems. The endpoints of the microservices are exposed and you can only access them via HTTP requests. You can't have a direct dependency on those endpoints.
+microservices represent other systems. The endpoints of the microservices are exposed and you can only access them via HTTP requests. You can't have a direct dependency on the endpoints.
 
 datamodels represent sqlalchemy models.
 
-functions represent the business logic. `app.main` and the `app.modassembly` namespace are reserved for internal use. They will be updated for you.
+logic represent the business logic. `app.main` and the `app.modassembly` namespace are reserved for internal use. You can't update them.
 
-datamodels and functions will be executed on Google Cloud Run as a FastAPI.
+datamodels and logic will be executed on Google Cloud Run as a FastAPI.
 
-Your goal is to interpret the user's requests and add/update/remove datamodels or functions to design the architecture that matches the user's needs. To add or update a datamodel or function, use the following format:
+Your goal is to interpret the user's requests and add/update/remove datamodels or logic to design the architecture that matches the user's needs. To add or update a datamodel or logic, use the following format:
 
 {{
     "action":"update",
-    "type": "datamodel" or "function",
-    # Attributes of the datamodel or function
+    "type": "datamodel" or "logic",
+    # Attributes of the datamodel or logic
 }}
 
-To remove a datamodel or function, use the following format:
+To remove a datamodel or logic, use the following format:
 
 {{
     "action": "remove",
-    "name": "The name of the datamodel or function to remove",
-    "namespace": "The namespace of the datamodel or function"
+    "name": "The name of the datamodel or logic to remove",
+    "namespace": "The namespace of the datamodel or logic"
 }}
 
 Use the format:
@@ -124,7 +124,7 @@ Use the format:
 
 Follow a microservices design pattern. If the data that you need is exposed by another microservice, avoid creating a new datamodel and duplicating the functionality. Instead, make a call to the relevant microservice.
         
-Design an architecture that is easy to refactor and easy to extend. Break apart each feature into steps. Identify the steps that belong as independent functions. (**Important**) functions should have less than 50 lines of code. Composable architectures are easier to maintain.
+Design an architecture that is easy to refactor and easy to extend. Break apart each feature into steps. Identify the steps that belong as independent components. Composable architectures are easier to maintain.
 
 Add/update/remove components in the following order:
 
@@ -133,7 +133,7 @@ Add/update/remove components in the following order:
 ...
 N. Endpoint
 
-(**Important**) Every time that you update a component, update its upstream and downstream dependencies. To rename or move a component, first remove it and add it again. Be brief."""
+Keep the entire architecture up to date. Reuse as much logic as possible. To rename or move a component, first remove it and add it again. (**Important**) Every time that you update a component, update its upstream and downstream dependencies. Be brief."""
 
 
 def run(

@@ -1,7 +1,5 @@
 import argparse
 import json
-import os
-from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict
 
 from dotenv import load_dotenv
@@ -9,25 +7,30 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from ai import llm
-from app.logging.log_user_activity import log_user_activity
 from utils.config.architecture import (
     DataModel,
     Function,
-    Infrastructure,
     load_config,
     save_config,
 )
+from utils.files import File, create_folders_if_not_exist
 from utils.github import execute_git_commands, revert_changes
 from utils.io import print_system
 from utils.state import Conversation
 from workflows.helpers import (
+    MODASSEMBLY_COMPONENTS,
+    MypyError,
     REPOS,
-    extract_json,
+    extract_from_pattern,
     group_nodes_by_dependencies,
-    update_architecture_dependencies,
+    run_mypy,
     update_main,
 )
-from workflows.subworkflows import first_write, install_requirements, save_templates
+from workflows.subworkflows import install_requirements, save_templates
+
+
+class WrongFormatError(Exception):
+    pass
 
 
 def run(app_name: str, user: str) -> Dict[str, Any]:
@@ -47,103 +50,105 @@ def run(app_name: str, user: str) -> Dict[str, Any]:
 
     conversation = Conversation()
     conversation.add_user(
-        f"""Consider the following codebase, that contains design specs and code:
+        f"""Consider the following architecture, that contains design specs and code:
 
 {json.dumps([c.model_dump() for c in architecture], indent=4)}
 
-We will update the components marked as `"to_update"`. Communicate with the functions inside a "service" via HTTP requests."""
+We will update the components marked as `"to_update"`"""
     )
 
     try:
-        updated_templates = save_templates(repo_name, architecture, conversation)
+        save_templates(repo_name, architecture, conversation)
         install_requirements(repo_name, architecture, conversation)
 
-        components_to_remove = []
+        architecture_to_update = {}
         for component in architecture:
-            if isinstance(component.design.root, Infrastructure):
-                component.update_status = "up_to_date"
-            elif component.update_status == "to_remove":
-                components_to_remove.append(component)
-        for component in components_to_remove:
-            if component.file and os.path.exists(
-                f"{REPOS}/{repo_name}/{component.file.path}"
-            ):
-                os.remove(f"{REPOS}/{repo_name}/{component.file.path}")
-            architecture.remove(component)
-            conversation.add_user(f"I removed {component.design.key}.")
+            if component.update_status == "to_update":
+                architecture_to_update[component.design.key] = component
+        models_to_parallelize = group_nodes_by_dependencies(
+            [
+                m
+                for m in architecture_to_update.values()
+                if isinstance(m.design.root, DataModel)
+            ]
+        )
+        functions_to_parallelize = group_nodes_by_dependencies(
+            [
+                f
+                for f in architecture_to_update.values()
+                if isinstance(f.design.root, Function)
+            ]
+        )
 
-        updated_components = {}
-        while True:
-            architecture_to_update = {}
-            for component in architecture:
-                if not component.file or component.update_status == "to_update":
-                    architecture_to_update[component.design.key] = component
+        for level in models_to_parallelize + functions_to_parallelize:
+            for component_key in level:
+                component = architecture_to_update[component_key]
 
-            models_to_parallelize = group_nodes_by_dependencies(
-                [
-                    m
-                    for m in architecture_to_update.values()
-                    if isinstance(m.design.root, DataModel)
-                ]
-            )
-            functions_to_parallelize = group_nodes_by_dependencies(
-                [
-                    f
-                    for f in architecture_to_update.values()
-                    if isinstance(f.design.root, Function)
-                ]
-            )
+                conversation.add_user(
+                    f"""Write the code for {component.design}.
+                    
+This component can map to multiple files. It's up to you decide that.
+Use environment variables where appropriate.
+Don't catch exceptions unless specified. Let errors raise.
+Use typing in function signatures.
 
-            for level in models_to_parallelize + functions_to_parallelize:
-                print_system(f"Implementing ::\n" + "\n".join(level) + "\n")
-                with ThreadPoolExecutor(max_workers=10) as executor:
-                    outputs = list(
-                        executor.map(
-                            first_write,
-                            [repo_name] * len(level),
-                            [architecture_to_update[l] for l in level],
-                            [conversation.copy() for _ in level],
+Use the following format, so that I can extract the code:
+
+```python
+# File path: path/to/file.py
+...
+```"""
+                )
+
+                attempts = 0
+                while True:
+                    attempts += 1
+                    assistant_message = llm.stream_text(conversation)
+                    conversation.add_assistant(assistant_message)
+                    code_chunks = extract_from_pattern(
+                        assistant_message, pattern=r"```python\n(.*?)```"
+                    )
+
+                    try:
+                        run_mypy(repo_name)
+
+                        for code in code_chunks:
+                            lines = code.split("\n")
+                            first_line = lines[0]
+                            code = "\n".join(lines[1:])
+
+                            if not first_line.startswith("# File path: "):
+                                raise WrongFormatError(
+                                    f'Missing "# File path: " in {code}'
+                                )
+
+                            file_path = first_line.split("# File path: ")[1].strip()
+
+                            file = File(path=file_path, content=code)
+                            component.files.append(file)
+                        break
+                    except (MypyError, WrongFormatError) as e:
+                        print_system(f"!!! Error {type(e).__name__}({e})")
+                        if attempts == 3:
+                            if isinstance(e, MypyError):
+                                print_system(f"!!!!! WARNING: Letting mypy pass.")
+                                break
+                        conversation.add_user(
+                            f"Found the following errors ::\n\n"
+                            f"{type(e).__name__}({e})\n\nPlease fix the code."
                         )
-                    )
-                for output in outputs:
-                    assert output.component.file
-                    conversation.add_user(output.user_message)
-                    conversation.add_assistant(output.assistant_message)
-                    conversation.add_user(
-                        f"I saved the code in {output.component.file.path}."
-                    )
-                    architecture_to_update[output.component.design.key].file = (
-                        output.component.file
-                    )
-                    architecture_to_update[
-                        output.component.design.key
-                    ].update_status = "up_to_date"
-                    updated_components[output.component.design.key] = output.component
 
-            break
-            """conversation.add_user(
-                Consider the code that you just wrote and the other components' code that depends on it. Do we need to update any other components? Use the following format:
-
-```json
-[namespace.name, namespace.name, ...] or [] if nothing left to update
-```
-            )
-            response = llm.stream_text(conversation)
-            conversation.add_assistant(response)
-            more_updates = set(extract_json(response)[0])
-            more_updates -= set(updated_templates.keys())
-            if not more_updates:
-                break
-            for component in architecture:
-                if (
-                    component.design.key in more_updates
-                    and component.design.key not in updated_components
-                    and component.design.key not in updated_templates
-                ):
-                    component.update_status = "to_update" """
-
+        for component in architecture:
+            if component.update_status == "to_update":
+                for file in component.files:
+                    if component.design.key not in MODASSEMBLY_COMPONENTS:
+                        create_folders_if_not_exist(
+                            repo_name, component.design.root.namespace
+                        )
+                        with open(f"{REPOS}/{repo_name}/{file.path}", "w") as f:
+                            f.write(file.content)
+                component.update_status = "up_to_date"
         update_main(repo_name, architecture)
-        update_architecture_dependencies(architecture)
 
         arch_conversation = Conversation.load(
             app_name, user, name="conversation_architecture"
@@ -165,14 +170,6 @@ We will update the components marked as `"to_update"`. Communicate with the func
             ],
             repo=repo_name,
         )
-
-        if user != "lgaleana":
-            for component in updated_components.values():
-                log_user_activity(
-                    user,
-                    "implement",
-                    {"component": component.model_dump()},
-                )
 
         return config
     except Exception as e:

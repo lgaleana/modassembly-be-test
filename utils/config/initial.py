@@ -43,7 +43,8 @@ initial_config = {
                         "uvicorn==0.34.0",
                     ],
                 )
-            )
+            ),
+            update_status="up_to_date",
         ),
     ],
 }
@@ -140,7 +141,7 @@ def create_initial_config(
     github_url: str,
     user: str,
 ) -> Dict[str, Any]:
-    config = deepcopy(initial_config)
+    config: Dict[str, Any] = deepcopy(initial_config)
     config["name"] = app_name
     config["user"] = user
     config["github"] = github_url
