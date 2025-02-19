@@ -74,10 +74,11 @@ def create_app(
         raise ValueError(f"Repository {repo_name} already exists")
 
     os.mkdir(f"{REPOS}/{repo_name}")
-    with open(f"{REPOS}/fastapi-template/.gitignore", "r") as f1, open(
-        f"{REPOS}/{repo_name}/.gitignore", "w"
-    ) as f2:
-        f2.write(f1.read())
+    for file in [".gitignore", "README.md"]:
+        with open(f"{REPOS}/fastapi-template/{file}", "r") as f1, open(
+            f"{REPOS}/{repo_name}/{file}", "w"
+        ) as f2:
+            f2.write(f1.read())
 
     Conversation().persist(app_name, user, name="conversation_brainstorm")
     Conversation().persist(app_name, user, name="conversation_architecture")

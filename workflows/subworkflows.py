@@ -25,40 +25,6 @@ from utils.state import Conversation
 from utils.static_analysis import RouterNotFoundError, extract_router_name
 
 
-def save_templates(
-    app_name: str,
-    architecture: List[ImplementedComponent],
-    conversation: Conversation,
-) -> Dict[str, ImplementedComponent]:
-    for file in [".gitignore", "README.md"]:
-        with open(f"{REPOS}/fastapi-template/{file}", "r") as f1, open(
-            f"{REPOS}/{app_name}/{file}", "w"
-        ) as f2:
-            content = f1.read()
-            f2.write(content)
-            conversation.add_user(f"I wrote:\n\n{content}")
-            conversation.add_user(f"I saved it in {file}.")
-
-    updated_components = {}
-    """for component in architecture:
-        if not component.design.key in MODASSEMBLY_COMPONENTS:
-            continue
-        file_path = MODASSEMBLY_COMPONENTS[component.design.key]
-        create_folders_if_not_exist(app_name, component.design.root.namespace)
-        with open(f"{REPOS}/fastapi-template/{file_path}", "r") as f1, open(
-            f"{REPOS}/{app_name}/{file_path}", "w"
-        ) as f2:
-            content = f1.read()
-            f2.write(content)
-            print_system(f"Saving :: {component.design.key}")
-            conversation.add_user(f"I wrote the code for:\n\n```python\n{content}\n```")
-            conversation.add_user(f"I saved the code in {file_path}.")
-            component.files.append(File(path=file_path, content=content))
-            component.update_status = "up_to_date"
-            updated_components[component.design.key] = component"""
-    return updated_components
-
-
 class InstallRequirementsError(Exception):
     pass
 

@@ -29,7 +29,7 @@ def present_to_llm(architecture: List[ImplementedComponent]) -> str:
                 components.append(
                     "   " + ", ".join(f.name for f in component.design.root.fields)
                 )
-            components.append(" Uses: " + ", ".join(component.design.root.dependencies))
+            components.append(" Uses: " + ", ".join(component.design.root.uses))
     return "\n".join(components)
 
 

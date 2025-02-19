@@ -23,6 +23,20 @@ def get(app_name: str, user: User = Depends(authenticate)) -> Dict[str, Any]:
     return load_config(app_name, user.username)
 
 
+class SaveRequest(BaseModel):
+    config: Dict[str, Any]
+
+
+@router.post("", response_model=Dict[str, Any])
+def save(request: SaveRequest, user: User = Depends(authenticate)) -> Dict[str, Any]:
+    architecture = [
+        ImplementedComponent.model_validate(c) for c in request.config["architecture"]
+    ]
+    request.config["architecture"] = architecture
+    save_config(request.config)
+    return request.config
+
+
 @router.get("/all", response_model=List[str])
 def get_all(user: User = Depends(authenticate)) -> List[str]:
     return [c["name"] for c in load_all_configs(user.username)]

@@ -1,4 +1,4 @@
-from typing import Any, Dict, Iterator, List, Optional, Union, Tuple
+from typing import Any, Dict, Iterator, List, Literal, Optional, Union, Tuple
 
 import json
 from pydantic import BaseModel
@@ -31,6 +31,7 @@ def _generate(
     model: Optional[str] = None,
     temperature: Optional[float] = None,
     tools: List[ChatCompletionToolParam] = [],
+    reasoning_effort: Literal["low", "medium", "high"] = "low",
 ) -> Stream[ChatCompletionChunk]:
     if not model:
         model = MODEL
@@ -50,13 +51,13 @@ def _generate(
             stream=True,
             tools=tools,
             tool_choice="auto",
-            reasoning_effort="low",
+            reasoning_effort=reasoning_effort,
         )
     return client.chat.completions.create(
         model=model,
         messages=cleaned_messages,
         stream=True,
-        reasoning_effort="low",
+        reasoning_effort=reasoning_effort,
     )
 
 
@@ -87,6 +88,7 @@ def stream_text(
     messages,
     model: Optional[str] = None,
     temperature: Optional[float] = None,
+    reasoning_effort: Literal["low", "medium", "high"] = "low",
 ) -> str:
     response = _generate(messages, model, temperature, tools=[])
 

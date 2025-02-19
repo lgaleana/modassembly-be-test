@@ -7,7 +7,6 @@ from pydantic import BaseModel
 load_dotenv()
 
 from ai import llm
-from app.logging.log_user_activity import log_user_activity
 from utils.config.architecture import (
     Component,
     DataModel,
@@ -46,7 +45,9 @@ def present_to_llm(architecture: List[ImplementedComponent]) -> str:
 
 PROMPT = f"""You are helpful assistant that designs distributed systems.
 
-The system's architecture is represented as a json in the following format:
+Your goal is to write a technical design document that describes the system that the user wants to build. The format to use will be json, because it's easier to parse and it captures well the relationships between the components of the architecture. The json will be displayed to the user as a graph.
+
+Here is an explanation of the format:
 
 [
     {{
@@ -67,22 +68,22 @@ The system's architecture is represented as a json in the following format:
     }},
     {{
         "type": "datamodel",
-        "name": "The name of the datamodel",
-        "namespace": "The virtual location of the code, ie, the file path. Use a dot notation.",
+        "name": "The name of the datamodel. Use CamelCase.",
+        "namespace": "The file path. Use a dot notation. Put it inside app.",
         "fields": [
             {{
                 "name": "The name of the field",
                 "purpose": "What the field is used for, important remarks, etc."
             }}
         ],
-        "dependencies": ["The other namespace.datamodels that the model is associated with."]
+        "dependencies": ["The other namespace.name datamodels that the model is associated with."]
     }},
     {{
        "type": "logic",
-        "name": "A name to identify the logic",
-        "namespace": "The virtual location of the code, ie, the file path. Use a dot notation.",
-        "purpose": "A text description of the code. Code will be generated from this. Mention every important detail.",
-        "dependencies": ["The other namespace.logic or namespace.datamodels that the code will use."],
+        "name": "A name to identify the logic. Use snake_case.",
+        "namespace": "The file path. Use a dot notation. Put it inside app.",
+        "purpose": "A text description of what this piece of logic does. Code will be generated from this field. Mention every important detail.",
+        "dependencies": ["The other namespace.name of the datamodels or logic that the code calls internally."],
         "pypi_packages": ["The pypi packages that the code will need, eg, package==version. Reuse existing versions."],
         "is_endpoint": true or false whether this is a FastAPI endpoint
     }}
@@ -93,15 +94,13 @@ There are four types of components: infrastructure, microservices, datamodels an
 
 infrastructure represents Google Cloud Platform infrastructure that you have access to.
 
-microservices represent other systems. The endpoints of the microservices are exposed and you can only access them via HTTP requests. You can't have a direct dependency on the endpoints.
+microservices represent other systems. The endpoints of the microservices are exposed but you can only call them via HTTP requests. Other components can't have a direct dependency on this logic.
 
 datamodels represent sqlalchemy models.
 
-logic represent the business logic. `app.main` and the `app.modassembly` namespace are reserved for internal use. You can't update them.
+logic represents the business logic. datamodels and logic will be executed on Google Cloud Run as a Python FastAPI. Use FastAPI design patterns.
 
-datamodels and logic will be executed on Google Cloud Run as a FastAPI.
-
-Your goal is to interpret the user's requests and add/update/remove datamodels or logic to design the architecture that matches the user's needs. To add or update a datamodel or logic, use the following format:
+Your job is to interpret the user's requests and add/update/remove datamodels or logic to design the architecture that matches the user's needs. To add or update a datamodel or logic, use the following format:
 
 {{
     "action":"update",
@@ -122,18 +121,13 @@ Use the format:
 ...
 ```
 
-Follow a microservices design pattern. If the data that you need is exposed by another microservice, avoid creating a new datamodel and duplicating the functionality. Instead, make a call to the relevant microservice.
-        
-Design an architecture that is easy to refactor and easy to extend. Break apart each feature into steps. Identify the steps that belong as independent components. Composable architectures are easier to maintain.
+Design an architecture that is easy to refactor. Use a modular design pattern. Composable architectures are easier to maintain.
 
-Add/update/remove components in the following order:
+Add/update/remove components with less dependencies first.
 
-1. Less dependencies
-2. More dependencies
-...
-N. Endpoint
+Reuse as much logic as possible. To rename or move a component, first remove it and add it again.
 
-Keep the entire architecture up to date. Reuse as much logic as possible. To rename or move a component, first remove it and add it again. (**Important**) Every time that you update a component, update its upstream and downstream dependencies. Be brief."""
+(**Important**) Every time that you update a component, update its upstream and downstream dependencies. Be brief."""
 
 
 def run(
@@ -235,9 +229,7 @@ def run(
                                     raise ValueError(
                                         f"Unable to {action} component :: {component.key} "
                                         f"because the `dependency` :: {dependency} doesn't exist in the architecture. "
-                                        "Add components in the order of their dependencies. "
-                                        "Remember that you can't have a direct dependency on microservices. "
-                                        "You must rely on HTTP requests."
+                                        "Add components with less dependencies first."
                                     )
                         """if isinstance(component.root, Infrastructure):
                             for infra in AVAILABLE_INFRASTRUCTURE:
@@ -316,22 +308,5 @@ def run(
         config["architecture"] = list(architecture.values())
         save_config(config)
         conversation.persist(app_name, user, name="conversation_architecture")
-
-        if user != "lgaleana":
-            log_user_activity(
-                user,
-                "design",
-                {
-                    "config": {
-                        "name": config["name"],
-                        "user": config["user"],
-                        "architecture": [
-                            c.model_dump() for c in config["architecture"]
-                        ],
-                        "github": config["github"],
-                        "url": config["url"],
-                    },
-                },
-            )
 
         return config, conversation

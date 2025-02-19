@@ -25,6 +25,7 @@ class DataModel(BaseComponent):
 
     type: Literal["datamodel"] = "datamodel"
     fields: List[ModelField]
+    dependencies: List[str] = ["psycopg2-binary==2.9.10", "sqlalchemy==2.0.36"]
 
 
 class Function(BaseComponent):

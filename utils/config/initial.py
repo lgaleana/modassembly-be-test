@@ -22,30 +22,6 @@ initial_config = {
             ),
             update_status="up_to_date",
         ),
-        ImplementedComponent(
-            design=Component(
-                Function(
-                    name="main",
-                    namespace="app",
-                    purpose="1) Calls load_dotenv().\n"
-                    "2) Initializes the FastAPI app.\n"
-                    "3) Adds CORSMiddleware with *.\n"
-                    "4) Adds all the application routers.\n"
-                    "5) Adds all the application models.\n"
-                    "6) Calls Base.metadata.create_all(engine).",
-                    dependencies=["Other datamodels or functions"],
-                    is_endpoint=False,
-                    pypi_packages=[
-                        "fastapi==0.115.6",
-                        "mypy==1.15.0",
-                        "pydantic==2.10.4",
-                        "python-dotenv==1.0.1",
-                        "uvicorn==0.34.0",
-                    ],
-                )
-            ),
-            update_status="up_to_date",
-        ),
     ],
 }
 
