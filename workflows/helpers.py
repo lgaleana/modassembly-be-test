@@ -203,20 +203,29 @@ def update_main(
 
 def update_architecture_dependencies(architecture: List[ImplementedComponent]) -> None:
     for component in architecture:
-        if (
-            isinstance(component.design.root, Infrastructure)
-            or isinstance(component.design.root, Service)
-            or component.design.key == "app.main"
+        if isinstance(component.design.root, Infrastructure) or isinstance(
+            component.design.root, Service
         ):
             continue
-        assert component.file
-        imports = extract_imports(component.file.content)
         dependencies = set()
-        for import_ in imports:
-            if not import_.startswith("app."):
-                continue
-            key = ".".join(import_.split(".")[:-1])
-            dependencies.add(key)
+        for file in component.files:
+            imports = extract_imports(file.content)
+            for import_ in imports:
+                if not import_.startswith("app."):
+                    continue
+                file_parts = import_.split(".")
+                for file_path in ["/".join(file_parts[:-1]), "/".join(file_parts)]:
+                    file_path = f"{file_path}.py"
+                    for target_component in architecture:
+                        if (
+                            component.design.key != target_component.design.key
+                            and not isinstance(
+                                target_component.design.root, Infrastructure
+                            )
+                            and not isinstance(target_component.design.root, Service)
+                            and file_path in [f.path for f in target_component.files]
+                        ):
+                            dependencies.add(target_component.design.key)
         component.design.root.dependencies = list(dependencies)
 
 
@@ -281,8 +290,8 @@ class MypyError(Exception):
     pass
 
 
-def run_mypy(app_name: str) -> None:
-    full_path = f"{REPOS}/{app_name}"
+def run_mypy(app_name: str, file_paths: List[str]) -> None:
+    full_paths = [f"{REPOS}/{app_name}/{path}" for path in file_paths]
 
     venv_python = os.path.join(REPOS, app_name, "venv", "bin", "python3")
     process = subprocess.run(
@@ -290,14 +299,14 @@ def run_mypy(app_name: str) -> None:
             venv_python,
             "-m",
             "mypy",
-            full_path,
+            *full_paths,
             "--no-incremental",
             "--cache-dir=/dev/null",
             "--sqlite-cache",
             "--python-version=3.13",
             "--disable-error-code=call-overload",
             "--disable-error-code=import-untyped",
-            "--follow-imports=skip",  # Skip checking deeper imports
+            "--follow-imports=skip",
         ],
         capture_output=True,
         text=True,

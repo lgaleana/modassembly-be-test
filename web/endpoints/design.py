@@ -6,8 +6,6 @@ from pydantic import BaseModel
 import json
 
 from ai import llm
-from app.logging.get_user_activity_logs import get_user_activity_logs
-from app.models.User import User
 from utils.config.architecture import ImplementedComponent, load_config
 from utils.state import Conversation
 from web.modassembly_web.app.modassembly.authentication.authenticate import authenticate
@@ -30,14 +28,7 @@ class Request(BaseModel):
 
 
 @router.post("/chat")
-def chat(request: Request, user: User = Depends(authenticate)) -> StreamingResponse:
-    logs = get_user_activity_logs(user.username, "brainstorm")
-    if len(logs) > CHAT_LIMIT:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Usage limit exceeded.",
-        )
-
+def chat(request: Request, user = Depends(authenticate)) -> StreamingResponse:
     def generate():
         for chunk in brainstorm.run(
             request.app_name, request.user_message, str(user.username)
@@ -53,13 +44,7 @@ class MapResponse(BaseModel):
 
 
 @router.post("/map", response_model=MapResponse)
-def map(request: Request, user: User = Depends(authenticate)) -> MapResponse:
-    logs = get_user_activity_logs(user.username, "design")
-    if len(logs) > MAP_LIMIT:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Usage limit exceeded.",
-        )
+def map(request: Request, user = Depends(authenticate)) -> MapResponse:
     config, conversation = design.run(
         request.app_name,
         str(user.username),
@@ -94,14 +79,7 @@ def get_brainstorm_context(
 
 
 @router.post("/sync")
-def sync(request: Request, user: User = Depends(authenticate)) -> None:
-    logs = get_user_activity_logs(user.username, "brainstorm")
-    if len(logs) > MAP_LIMIT:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Usage limit exceeded.",
-        )
-
+def sync(request: Request, user = Depends(authenticate)) -> None:
     conversation = Conversation.load(
         app_name=request.app_name,
         user=str(user.username),

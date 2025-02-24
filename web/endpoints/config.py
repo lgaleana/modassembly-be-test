@@ -74,6 +74,20 @@ def integrate_infrastructure(
                 ),
                 update_status="up_to_date",
             ),
+            ImplementedComponent(
+                design=Component(
+                    Function(
+                        name="sql_adaptor",
+                        namespace="app.core.database",
+                        purpose="1) Initializes Base, engine and SessionLocal. Uses the DB_URL environment variable.\n"
+                        "2) Defines get_session to yield a session.",
+                        dependencies=[],
+                        is_endpoint=False,
+                        pypi_packages=["psycopg2-binary==2.9.10", "sqlalchemy==2.0.36"],
+                    )
+                ),
+                update_status="to_update",
+            ),
         ]
     )
     save_config(config)

@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 from typing import Any, Dict
 
 from dotenv import load_dotenv
@@ -18,13 +19,11 @@ from utils.github import execute_git_commands, revert_changes
 from utils.io import print_system
 from utils.state import Conversation
 from workflows.helpers import (
-    MODASSEMBLY_COMPONENTS,
     MypyError,
     REPOS,
     extract_from_pattern,
-    group_nodes_by_dependencies,
     run_mypy,
-    update_main,
+    update_architecture_dependencies,
 )
 from workflows.subworkflows import install_requirements
 
@@ -47,83 +46,144 @@ def run(app_name: str, user: str) -> Dict[str, Any]:
 
     config = load_config(app_name, user)
     architecture = config["architecture"]
+    file_path_to_file = {f.path: f for c in architecture for f in c.files}
 
-    conversation = Conversation()
-    conversation.add_user(
-        f"""Consider the following architecture, that contains design specs and code:
+    components_to_remove = [c for c in architecture if c.update_status == "to_remove"]
+    for component in components_to_remove:
+        for file in component.files:
+            file_path = f"{REPOS}/{repo_name}/{file.path}"
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        architecture.remove(component)
+        print_system(f"Removed component: {component.design.key}")
 
-{json.dumps([c.model_dump() for c in architecture], indent=4)}"""
+    datamodels = [
+        d
+        for d in architecture
+        if isinstance(d.design.root, DataModel) and d.update_status == "to_update"
+    ]
+    datamodels.sort(key=lambda x: len(x.design.root.dependencies))
+    logic = [
+        l
+        for l in architecture
+        if isinstance(l.design.root, Function)
+        and l.update_status == "to_update"
+        and l.design.key != "app.main"
+        and l.design.key != "app.core.database.sql_adaptor"
+    ]
+    logic.sort(key=lambda x: len(x.design.root.dependencies))
+    main = next(c for c in architecture if c.design.key == "app.main")
+    sql_adaptor = next(
+        (
+            c
+            for c in architecture
+            if c.design.key == "app.core.database.sql_adaptor"
+            and c.update_status == "to_update"
+        ),
+        None,
     )
+    components_to_update = datamodels + logic
+    if sql_adaptor:
+        components_to_update.insert(0, sql_adaptor)
+    if components_to_update or main.update_status == "to_update":
+        components_to_update.append(main)
 
     try:
-        install_requirements(repo_name, architecture, conversation)
+        install_requirements(repo_name, architecture)
 
-        conversation.add_user(
-            """Write the code for the components marked as "to_update". At the end write the code for app.main. Use FastAPI design patterns.
-            
-Each component can map to multiple files. It's up to you to decide that.
-Don't worry about __init__.py files. They will be created for you.
-Use environment variables where appropriate.
-Don't catch exceptions unless specified. Let errors raise.
-Use typing in function signatures.
+        for component in components_to_update:
+            print_system(f"Updating :: {component.design.key}")
+            instructions = f"""The following technical design document describes the functionality of an entire system. The json contains infrastructure, datamodel and logic modules. Each module has a technical specification and a set of files that represent its code.
+
+{json.dumps([c.model_dump() for c in architecture], indent=4)}
+
+The specification has changed for the module :: {component.design.key}. Write the code for ::
+        
+{component.design.model_dump()}.
+
+Use FastAPI design patterns.
+Avoid writing __init__.py files.\n"""
+            if isinstance(component.design.root, Function):
+                instructions += """The module can map to multiple files. It's up to you to decide that. Use the best practices.
+Skip `if __name__ == "__main__:"`.
+Use a modular design pattern. Use classes for data models. Prefer functions for everything else. Functions shouldn't have more than 50 lines of code.
+Use typing in function signatures. Use regular python code everywhere else.
+Avoid catching exceptions unless specified. Let errors raise.
+Use environment variables where appropriate.\n"""
+            elif isinstance(component.design.root, DataModel):
+                instructions += "If needed, update the `relationship` field.\n"
+            instructions += f"""Consider the entire architecture and how {component.design.key} interacts with the other modules.
+Leave no placeholders. The code must work. Write entire files.
 
 Use the following format, so that I can extract the code:
-
 ```python
 # File path: path/to/file.py
 ...
 ```"""
-        )
-        attempts = 0
-        while True:
-            attempts += 1
-            assistant_message = llm.stream_text(conversation)
-            conversation.add_assistant(assistant_message)
-            code_chunks = extract_from_pattern(
-                assistant_message, pattern=r"```python\n(.*?)```"
-            )
+            conversation = Conversation()
+            conversation.add_user(instructions)
 
-            try:
-                for code in code_chunks:
-                    lines = code.split("\n")
-                    first_line = lines[0]
-                    code = "\n".join(lines[1:])
-
-                    if not first_line.startswith("# File path: "):
-                        raise WrongFormatError(f'Missing "# File path: " in {code}')
-
-                    file_path = first_line.split("# File path: ")[1].strip()
-                    with open(f"{REPOS}/{repo_name}/{file_path}", "w") as f:
-                        f.write(code)
-
-                run_mypy(repo_name)
-                break
-            except (MypyError, WrongFormatError) as e:
-                print_system(f"!!! Error {type(e).__name__}({e})")
-                if attempts == 3:
-                    if isinstance(e, MypyError):
-                        print_system(f"!!!!! WARNING: Letting mypy pass.")
-                        break
-                conversation.add_user(
-                    f"Found the following errors ::\n\n"
-                    f"{type(e).__name__}({e})\n\nPlease fix the code."
+            attempts = 0
+            while True:
+                attempts += 1
+                assistant_message = llm.stream_text(conversation)
+                conversation.add_assistant(assistant_message)
+                code_chunks = extract_from_pattern(
+                    assistant_message, pattern=r"```python\n(.*?)```"
                 )
 
-        for component in architecture:
-            if component.update_status == "to_update":
-                component.update_status = "up_to_date"
+                try:
+                    for code in code_chunks:
+                        lines = code.split("\n")
+                        first_line = lines[0]
+                        code = "\n".join(lines[1:])
 
-        arch_conversation = Conversation.load(
-            app_name, user, name="conversation_architecture"
-        )
-        arch_conversation.add_system("Implementing architecture... Done.")
-        arch_conversation.persist(app_name, user, name="conversation_architecture")
-        save_config(config)
+                        if not first_line.startswith("# File path: "):
+                            raise WrongFormatError(f'Missing "# File path: " in {code}')
 
+                        file_path = first_line.split("# File path: ")[1].strip()
+                        folder_path = "/".join(file_path.split("/")[:-1])
+                        create_folders_if_not_exist(repo_name, folder_path)
+                        file_path = file_path.replace(f"{REPOS}/{repo_name}/", "")
+                        with open(f"{REPOS}/{repo_name}/{file_path}", "w") as f:
+                            f.write(code)
+                        if file_path in file_path_to_file:
+                            file_path_to_file[file_path].content = code
+                        else:
+                            file = File(path=file_path, content=code)
+                            component.files.append(file)
+                            file_path_to_file[file_path] = file
+
+                    run_mypy(repo_name, [f.path for f in component.files])
+                    break
+                except (MypyError, WrongFormatError) as e:
+                    print_system(f"!!! Error {type(e).__name__}({e})")
+                    if attempts == 3:
+                        raise e
+                    conversation.add_user(
+                        f"Found the following errors ::\n\n"
+                        f"{type(e).__name__}({e})\n\nPlease fix the code."
+                    )
+
+        conversation = Conversation()
         conversation.add_user(
-            "Give me a one line commit message for the changes. Go: ..."
+            f"""Consider all the modules marked as "to_update", in the following technical design document:
+
+{json.dumps([c.model_dump() for c in architecture], indent=4)}
+
+The following modules were updated :: {[c.design.key for c in components_to_update]}
+
+Give me a one line commit message for the changes. Go.
+
+..."""
         )
         commit_message = llm.stream_text(conversation)
+
+        for component in architecture:
+            component.update_status = "up_to_date"
+        update_architecture_dependencies(architecture)
+        save_config(config)
+
         print_system("Pushing changes to GitHub...")
         execute_git_commands(
             [
@@ -133,11 +193,11 @@ Use the following format, so that I can extract the code:
             ],
             repo=repo_name,
         )
-
-        return config
     except Exception as e:
         revert_changes(repo_name)
         raise e
+
+    return config
 
 
 if __name__ == "__main__":

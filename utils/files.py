@@ -10,8 +10,8 @@ class File(BaseModel):
     content: str
 
 
-def create_folders_if_not_exist(app_name: str, namespace: str) -> None:
-    packages = namespace.split(".")
+def create_folders_if_not_exist(app_name: str, path: str) -> None:
+    packages = path.split("/")
     current_path = f"{REPOS}/{app_name}"
     for package in packages:
         current_path = os.path.join(current_path, package)

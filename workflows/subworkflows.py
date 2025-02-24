@@ -32,18 +32,32 @@ class InstallRequirementsError(Exception):
 def install_requirements(
     app_name: str,
     architecture: List[ImplementedComponent],
-    conversation: Conversation,
 ) -> None:
-    pypi_packages = set()
+    pypi_packages = {
+        "fastapi==0.115.6",
+        "mypy==1.15.0",
+        "pydantic==2.10.4",
+        "python-dotenv==1.0.1",
+        "uvicorn==0.34.0",
+    }
     for component in architecture:
         if isinstance(component.design.root, Function):
-            pypi_packages.update(component.design.root.pypi_packages)
+            for package in component.design.root.pypi_packages:
+                if (
+                    "fastapi" not in package
+                    and "mypy" not in package
+                    and "pydantic" not in package
+                    and "python-dotenv" not in package
+                    and "uvicorn" not in package
+                ):
+                    pypi_packages.add(package)
+    packages_to_install = sorted(list(pypi_packages))
     requirements_path = f"{REPOS}/{app_name}/requirements.txt"
     with open(requirements_path, "w") as f:
-        content = "\n".join(pypi_packages)
+        content = "\n".join(packages_to_install)
         f.write(content)
-    conversation.add_user(f"I wrote:\n\n{content}")
-    conversation.add_user(f"I saved it in {requirements_path}.")
+    # conversation.add_user(f"I wrote:\n\n{content}")
+    # conversation.add_user(f"I saved it in {requirements_path}.")
 
     venv_path = f"{REPOS}/{app_name}/venv"
     os.makedirs(venv_path, exist_ok=True)
@@ -51,7 +65,15 @@ def install_requirements(
     venv_python = os.path.join(venv_path, "bin", "python3")
     print_system("Installing requirements...")
     output = subprocess.run(
-        [venv_python, "-m", "pip", "install", "-r", requirements_path],
+        [
+            venv_python,
+            "-m",
+            "pip",
+            "install",
+            "--only-binary=:all:",
+            "-r",
+            requirements_path,
+        ],
         check=False,
         capture_output=True,
         text=True,
