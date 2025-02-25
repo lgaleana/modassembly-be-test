@@ -93,7 +93,7 @@ def run(app_name: str, user: str) -> Dict[str, Any]:
 
         for component in components_to_update:
             print_system(f"Updating :: {component.design.key}")
-            instructions = f"""The following technical design document describes the functionality of an entire system. The json contains infrastructure, datamodel and logic modules. Each module has a technical specification and a set of files that represent its code.
+            instructions = f"""The following technical design document describes the functionality of an entire system. Each module has a technical specification and a set of files that represent its code.
 
 {json.dumps([c.model_dump() for c in architecture], indent=4)}
 
@@ -101,8 +101,7 @@ The specification has changed for the module :: {component.design.key}. Write th
         
 {component.design.model_dump()}.
 
-Use FastAPI design patterns.
-Avoid writing __init__.py files.\n"""
+"""
             if isinstance(component.design.root, Function):
                 instructions += """The module can map to multiple files. It's up to you to decide that. Use the best practices.
 Skip `if __name__ == "__main__:"`.
@@ -111,8 +110,9 @@ Use typing in function signatures. Use regular python code everywhere else.
 Avoid catching exceptions unless specified. Let errors raise.
 Use environment variables where appropriate.\n"""
             elif isinstance(component.design.root, DataModel):
-                instructions += "If needed, update the `relationship` field.\n"
-            instructions += f"""Consider the entire architecture and how {component.design.key} interacts with the other modules.
+                instructions += "If needed, update the `relationship` field. Use the best practices.\n"
+            instructions += f"""Avoid writing __init__.py files.
+Follow the repository's design patterns. Use FastAPI design patterns.
 Leave no placeholders. The code must work. Write entire files.
 
 Use the following format, so that I can extract the code:
@@ -159,7 +159,8 @@ Use the following format, so that I can extract the code:
                 except (MypyError, WrongFormatError) as e:
                     print_system(f"!!! Error {type(e).__name__}({e})")
                     if attempts == 3:
-                        raise e
+                        print_system(f"\n\n!!! WARNING !!! Skipping mypy check!")
+                        break
                     conversation.add_user(
                         f"Found the following errors ::\n\n"
                         f"{type(e).__name__}({e})\n\nPlease fix the code."

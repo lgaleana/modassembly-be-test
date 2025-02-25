@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from ai import llm
-from app.logging.log_user_activity import log_user_activity
 from utils.config.architecture import (
     DataModel,
     Function,
@@ -29,38 +28,22 @@ def present_to_llm(architecture: List[ImplementedComponent]) -> str:
                 components.append(
                     "   " + ", ".join(f.name for f in component.design.root.fields)
                 )
-            components.append(" Uses: " + ", ".join(component.design.root.uses))
+            components.append(
+                " Calls: " + ", ".join(component.design.root.dependencies)
+            )
     return "\n".join(components)
 
+PROMPT = f"""You are helpful AI assistant that designs distributed systems.
 
-INFRASTRUCTURE = "\n".join(
-    [
-        i["name"] + ": " + i["description"]
-        for i in AVAILABLE_INFRASTRUCTURE
-        if i["name"] != "Firestore"
-    ]
-)
+You will be working with a technical design document that contains infrastructure, datamodel and logic modules.
 
-PROMPT = f"""You are helpful AI assistant that designs distributed backend systems.
+infrastructure represents Google Cloud Platform infrastructure that the system has access to. You can propose anything within GCP.
 
-You are bound by the following limitations:
+datamodels represent sqlalchemy models.
 
-1. The system that you design will be hosted on Google Cloud Platform. You can spin up GCP infrastructure but you are constrained to the following ones:
+logic represents the business logic. datamodels and logic will be executed on Google Cloud Run as a Python FastAPI.
 
-{INFRASTRUCTURE}
-
-Deploying infrastructure is expensive. Select the minimum necessary.
-
-2. The main logic will be executed on Google Cloud Run as a FastAPI. Cloud Run is a servelerss container desgined for web applications. Keep the business logic within the limitations of a web service. Other than APIs, it's impossible to support anything not supported by the above GCP infrastructure.
-
-3. You can only design a backend system (no frontend).
-
-Let the user know if they ask to cross any of the above limitations.
-
-
-Work with the user to design the system. Avoid showing code. Be opinionated and specific.
-
-It's very useful to focus on the E2E user flows. Start small."""
+Your goal is to help the user amend the system architecture by adding, updating or removing modules."""
 
 
 def run(
@@ -73,7 +56,7 @@ def run(
 
     if len(conversation) == 0:
         conversation = Conversation()
-        conversation.add_system(PROMPT)
+        conversation.add_developer(PROMPT)
 
     conversation.remove_last_message_type("architecture")
     conversation.add_system(
@@ -87,10 +70,3 @@ def run(
         yield chunk
     conversation.add_assistant(response)
     conversation.persist(app_name, user, name="conversation_brainstorm")
-
-    if user != "lgaleana":
-        log_user_activity(
-            user,
-            "brainstorm",
-            {"conversation": conversation},
-        )

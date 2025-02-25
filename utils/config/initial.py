@@ -27,12 +27,12 @@ initial_config = {
                 Function(
                     name="main",
                     namespace="app",
-                    purpose="1) Calls load_dotenv() before any other import.\n"
+                    purpose="1) **Important:** Calls load_dotenv() before any other import.\n"
                     "2) Initializes the FastAPI app.\n"
                     "3) Adds CORSMiddleware with *.\n"
                     "4) Adds all the application routers.\n"
                     "5) Calls Base.metadata.create_all(engine).",
-                    dependencies=["Models and endpoints"],
+                    dependencies=["Imports every endpoint"],
                     is_endpoint=False,
                     pypi_packages=[
                         "fastapi==0.115.6",
